@@ -166,6 +166,42 @@ Mecanismos para proteger os dados contra perdas e restaurá-los quando necessár
 
 Bancos de dados desempenham um papel fundamental na computação moderna, fornecendo a espinha dorsal para armazenamento e gerenciamento de dados em uma ampla variedade de aplicações, desde websites simples a sistemas empresariais complexos. A escolha do tipo de banco de dados e sua implementação deve ser cuidadosamente considerada com base nos requisitos específicos do sistema, como desempenho, escalabilidade, confiabilidade e consistência.
 
+## Cache
+
+O cache é uma técnica de armazenamento temporário de dados frequentemente acessados para fornecer acesso mais rápido no futuro. Essa abordagem é usada em várias áreas da computação para melhorar o desempenho e a eficiência.
+
+### Por que Usar Cache?
+
+O acesso a dados armazenados em memória é significativamente mais rápido do que o acesso a dados armazenados em dispositivos de armazenamento mais lentos, como discos rígidos. O cache aproveita essa diferença de velocidade, armazenando temporariamente dados que são frequentemente acessados ou que foram recentemente acessados em uma memória mais rápida.
+
+### Tipos de Cache
+
+- **Cache de CPU**: Inclui vários níveis (L1, L2, L3) de cache que são mais rápidos que a RAM principal, mas menores em tamanho. Usado para armazenar instruções e dados frequentemente acessados pela CPU.
+
+- **Cache de Disco**: Armazena dados recentemente lidos do disco, para que leituras subsequentes desses mesmos dados sejam mais rápidas.
+
+- **Cache de Navegador**: Armazena arquivos como HTML, imagens e JavaScript para acelerar o carregamento de páginas da web em visitas subsequentes ao mesmo site.
+
+- **Cache de Aplicação**: Usado em aplicações para armazenar resultados de operações caras, como consultas de banco de dados. Exemplos incluem Redis e Memcached.
+
+- **Content Delivery Network (CDN)**: Distribui o cache de recursos da web em servidores ao redor do mundo, permitindo acesso mais rápido a partir de locais geográficos próximos.
+
+### Políticas de Cache
+
+Gerenciar o que é armazenado no cache e por quanto tempo envolve o uso de políticas, tais como:
+
+- **Least Recently Used (LRU)**: Remove os itens menos recentemente usados quando o cache está cheio.
+- **First In, First Out (FIFO)**: Remove os itens na ordem em que foram adicionados.
+- **Time to Live (TTL)**: Define um tempo após o qual um item é automaticamente removido do cache.
+
+### Considerações e Desafios
+
+- **Coerência**: Manter a coerência entre os dados em cache e os dados reais pode ser desafiador, especialmente em sistemas distribuídos.
+- **Tamanho do Cache**: Determinar o tamanho ideal do cache para equilibrar o desempenho e o uso eficiente dos recursos.
+- **Invalidação de Cache**: Decidir quando e como os dados em cache devem ser invalidados ou atualizados.
+
+O cache é uma técnica poderosa que melhora significativamente o desempenho e a experiência do usuário em muitos sistemas computacionais. Desde acelerar a execução do código em uma CPU até diminuir o tempo de carregamento de um site, o cache desempenha um papel crucial na otimização da eficiência. No entanto, o gerenciamento eficaz do cache requer um entendimento profundo das necessidades do sistema, bem como uma consideração cuidadosa dos trade-offs envolvidos.
+
 ## Estruturas de Dados e Algoritmos
 
 Estruturas de dados e algoritmos são conceitos fundamentais em ciência da computação e engenharia de software. Ambos desempenham um papel crítico no desenvolvimento de sistemas eficientes e eficazes.
