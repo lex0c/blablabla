@@ -202,6 +202,40 @@ Gerenciar o que é armazenado no cache e por quanto tempo envolve o uso de polí
 
 O cache é uma técnica poderosa que melhora significativamente o desempenho e a experiência do usuário em muitos sistemas computacionais. Desde acelerar a execução do código em uma CPU até diminuir o tempo de carregamento de um site, o cache desempenha um papel crucial na otimização da eficiência. No entanto, o gerenciamento eficaz do cache requer um entendimento profundo das necessidades do sistema, bem como uma consideração cuidadosa dos trade-offs envolvidos.
 
+## Web Servers
+
+Um servidor web é um software que usa o protocolo HTTP (Hypertext Transfer Protocol) ou HTTPS (HTTP Secure) para servir os arquivos que formam páginas da web para os usuários, em resposta a seus pedidos, que são encaminhados por seus navegadores.
+
+### Funções Principais
+
+- **Manipulação de Requisições**: O servidor web aceita pedidos do cliente, processa-os e, em seguida, responde com os recursos solicitados, como arquivos HTML, CSS, JavaScript ou imagens.
+
+- **Gerenciamento de Conexões**: Lida com várias conexões simultâneas e gerencia a fila de pedidos para garantir que os recursos sejam entregues de forma eficiente.
+
+- **Integração com Outras Aplicações**: Muitas vezes, trabalha em conjunto com um servidor de aplicação para processar scripts, interagir com bancos de dados e fornecer conteúdo dinâmico.
+
+- **Segurança**: Implementa recursos de segurança, como autenticação, autorização e criptografia por meio de HTTPS.
+
+### Tipos Comuns de Servidores Web
+
+- **Apache HTTP Server**: Um dos servidores web mais usados, é conhecido por sua flexibilidade e poder.
+- **Nginx**: Conhecido por sua alta performance e baixo uso de recursos, muitas vezes usado como balanceador de carga ou servidor proxy reverso.
+- **Microsoft Internet Information Services (IIS)**: Servidor web da Microsoft, integrado ao Windows.
+- **LiteSpeed**: Conhecido por sua velocidade e compatibilidade com Apache.
+
+### Arquiteturas Comuns
+
+- **Modelo Baseado em Threads**: Cada conexão é tratada por uma thread separada. Exemplo: Apache em modo prefork.
+- **Modelo Baseado em Eventos**: Usa eventos e callbacks para manipular várias conexões dentro de uma única thread ou processo. Exemplo: Nginx.
+
+### Considerações e Desafios
+
+- **Desempenho**: Otimizar para lidar com grandes volumes de tráfego.
+- **Segurança**: Proteção contra ameaças comuns como ataques de negação de serviço (DDoS) e injeção de código.
+- **Escalabilidade**: A capacidade de crescer e lidar com o aumento da carga, seja horizontalmente (adicionando mais servidores) ou verticalmente (adicionando mais recursos a um servidor).
+
+Os servidores web são uma parte essencial da arquitetura da web, atuando como intermediários entre os navegadores dos usuários e os recursos necessários para renderizar páginas da web. Eles precisam ser configurados e mantidos com cuidado para garantir que sejam seguros, confiáveis e capazes de lidar com o volume de tráfego esperado.
+
 ## Estruturas de Dados e Algoritmos
 
 Estruturas de dados e algoritmos são conceitos fundamentais em ciência da computação e engenharia de software. Ambos desempenham um papel crítico no desenvolvimento de sistemas eficientes e eficazes.
