@@ -476,6 +476,36 @@ Progressive Web Apps (PWAs) são uma abordagem moderna para o desenvolvimento we
 
 PWAs representam uma evolução significativa no desenvolvimento web, combinando o melhor dos sites tradicionais com as vantagens dos aplicativos nativos. Eles oferecem uma via para fornecer uma experiência rica e envolvente para os usuários, independentemente do dispositivo ou navegador que estão usando, e estão se tornando uma escolha popular para muitas organizações que buscam alcançar uma audiência mais ampla de forma eficiente e eficaz.
 
+## WebGL
+
+WebGL (Web Graphics Library) é uma especificação padrão de JavaScript que fornece uma API para renderização de gráficos 3D e 2D dentro de qualquer navegador compatível, sem a necessidade de plugins. É baseada em OpenGL ES 2.0 e permite que os desenvolvedores aproveitem o poder das GPUs (unidades de processamento gráfico) em dispositivos móveis e desktops para criar experiências gráficas ricas e interativas na web.
+
+### Características Principais
+
+- **Gráficos 3D e 2D**: Com WebGL, você pode renderizar formas complexas, texturas, sombras, efeitos de luz e outros elementos gráficos 3D e 2D diretamente no navegador.
+
+- **Acesso à GPU**: Utilizando a GPU, o WebGL permite processamento paralelo e renderização eficiente, tornando possível a criação de jogos, simulações e visualizações complexas na web.
+
+- **Independente de Plataforma**: Como é baseado em padrões web, o WebGL pode ser executado em diversos navegadores e sistemas operacionais, desde que haja suporte ao padrão.
+
+- **Integração com outras Tecnologias Web**: Pode ser usado em conjunto com HTML, CSS e JavaScript, permitindo a criação de aplicações web interativas e visualmente atraentes.
+
+- **Shaders**: WebGL utiliza shaders escritos em GLSL (OpenGL Shading Language) para controlar como os gráficos são renderizados, oferecendo controle fino sobre a aparência e comportamento visual.
+
+### Usos Comuns
+
+- **Jogos**: Com a capacidade de renderizar gráficos 3D em tempo real, WebGL é uma escolha popular para desenvolvimento de jogos na web.
+- **Visualização de Dados**: Utilizado para criar visualizações de dados complexas e interativas, como gráficos 3D, mapas geográficos e simulações científicas.
+- **Realidade Virtual e Aumentada**: Com o suporte para renderização 3D, WebGL é usado em aplicações de realidade virtual (VR) e realidade aumentada (AR) na web.
+- **Educação e Treinamento**: Simulações educacionais, modelos 3D e ambientes interativos para aprendizado e treinamento.
+
+### Desafios e Considerações
+
+- **Compatibilidade**: Nem todos os navegadores ou dispositivos podem suportar WebGL, ou podem ter suporte limitado.
+- **Complexidade**: A programação direta em WebGL pode ser complexa, exigindo conhecimento em gráficos 3D e shading.
+
+WebGL tem revolucionado a forma como gráficos 3D e 2D são apresentados na web, permitindo a criação de experiências imersivas e interativas. É uma tecnologia poderosa com uma variedade de aplicações, desde jogos e entretenimento até visualização de dados e educação. Seu uso em combinação com outras tecnologias web e bibliotecas de alto nível facilita o desenvolvimento de conteúdo gráfico avançado diretamente dentro do navegador.
+
 ## Monitoramento de Aplicações
 
 O monitoramento de aplicações é um processo crítico na gestão de sistemas e infraestruturas de TI. Envolve a coleta, análise e visualização de métricas de desempenho, logs e outros dados relevantes de uma aplicação para garantir seu funcionamento eficiente, identificar problemas e otimizar a experiência do usuário.
@@ -579,4 +609,46 @@ A escolha entre linguagens compiladas e interpretadas dependerá das necessidade
 Em alguns casos, essas categorias podem se sobrepor. Por exemplo, Java usa uma combinação de compilação e interpretação, onde o código é compilado para bytecode e depois interpretado ou compilado em tempo de execução pela JVM. Essa abordagem busca combinar os benefícios de ambas as categorias.
 
 É importante notar que a eficiência do código também dependerá do design do programa, da habilidade do programador e de outros fatores, e não apenas da natureza compilada ou interpretada da linguagem.
+
+## Arquitetura Monolítica vs. Arquitetura Distribuída
+
+A arquitetura de software desempenha um papel crucial na definição de como um sistema será estruturado e como seus componentes irão interagir. Duas abordagens comuns na arquitetura de sistemas são a arquitetura monolítica e a arquitetura distribuída. Ambas têm suas características, vantagens e desvantagens.
+
+### Arquitetura Monolítica
+
+**Definição**: Na arquitetura monolítica, todas as funcionalidades do software são gerenciadas e servidas em uma única base de código. Tudo é compilado e executado como uma única unidade, geralmente em um único servidor.
+
+**Vantagens**:
+
+- **Simplicidade**: Mais fácil de desenvolver, testar e depurar, especialmente em estágios iniciais.
+- **Desempenho**: A comunicação interna entre os componentes é geralmente mais rápida, já que tudo está no mesmo processo.
+- **Consistência**: Sem a necessidade de gerenciar múltiplos serviços, a consistência e a integridade dos dados são mais fáceis de manter.
+
+**Desvantagens**:
+
+- **Escalabilidade**: Pode ser difícil escalar horizontalmente, especialmente à medida que o sistema cresce.
+- **Manutenção**: Alterações, mesmo pequenas, podem exigir a recompilação e o redeploy de todo o aplicativo.
+- **Acoplamento**: Componentes estão fortemente ligados, o que pode levar a uma falta de flexibilidade.
+
+### Arquitetura Distribuída
+
+**Definição**: Na arquitetura distribuída, o sistema é dividido em vários serviços ou componentes independentes que são executados em diferentes máquinas ou processos. Esses serviços comunicam-se através de redes, usando protocolos como HTTP, gRPC, etc.
+
+**Vantagens**:
+
+- **Escalabilidade**: Permite escalar diferentes partes do sistema de forma independente, facilitando a adaptação às necessidades variáveis.
+- **Flexibilidade**: Permite que diferentes serviços sejam escritos em diferentes linguagens ou tecnologias, de acordo com as necessidades.
+- **Resiliência**: A falha de um serviço não precisa levar à falha de todo o sistema.
+
+**Desvantagens**:
+
+- **Complexidade**: Mais difícil de desenvolver, testar e depurar. Requer coordenação entre diferentes serviços.
+- **Latência**: A comunicação entre os serviços através da rede pode introduzir latência adicional.
+- **Consistência**: Manter a consistência de dados entre serviços independentes pode ser desafiador.
+
+A escolha entre arquitetura monolítica e distribuída depende das necessidades e dos requisitos específicos do projeto. Para projetos menores ou em fase inicial, uma arquitetura monolítica pode ser apropriada devido à sua simplicidade e eficiência. À medida que o projeto cresce, migrar para uma arquitetura distribuída pode oferecer mais flexibilidade e escalabilidade.
+
+É também possível começar com uma abordagem monolítica e gradualmente refatorar para uma arquitetura distribuída à medida que as necessidades mudam. Essa abordagem híbrida pode oferecer um equilíbrio entre a simplicidade inicial e a escalabilidade futura.
+
+Ambas as arquiteturas requerem considerações cuidadosas sobre design, escalabilidade, manutenção, segurança e outras preocupações para serem implementadas com sucesso.
 
