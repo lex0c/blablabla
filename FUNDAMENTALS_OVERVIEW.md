@@ -2,7 +2,7 @@
 
 ...
 
-## Sistemas Operationais
+## Sistemas Operacionais
 
 Sistemas operacionais (SOs) são uma parte essencial dos sistemas computacionais. Eles servem como uma interface entre o hardware do computador e os programas que executam no sistema. Os SOs gerenciam e coordenam o uso do hardware entre os diferentes tipos de software que estão sendo executados.
 
