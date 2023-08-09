@@ -74,7 +74,7 @@ Redes de computadores são conjuntos interconectados de dispositivos que permite
 
 As redes de computadores são vitais para a infraestrutura de tecnologia moderna, permitindo a comunicação global e o acesso a recursos compartilhados. Os protocolos desempenham um papel fundamental nisso, estabelecendo as regras e convenções que os dispositivos devem seguir para se comunicarem de maneira eficaz e segura.
 
-## Server e Container
+## Servers e Containers
 
 Um servidor é um sistema de computação que fornece recursos e serviços para outros computadores, conhecidos como clientes. Eles desempenham um papel crucial em muitas áreas, incluindo hospedagem de websites, processamento de dados, e armazenamento de arquivos. Vamos explorar como um servidor funciona e, em seguida, mergulhar no conceito de containers.
 
@@ -164,7 +164,7 @@ A cibersegurança na web é um campo essencial que se concentra na proteção de
 
 A cibersegurança na web é um campo em constante evolução que requer uma abordagem multifacetada. Isso inclui o uso de tecnologias sofisticadas, a implementação de práticas sólidas, a conformidade com regulamentações legais e o investimento em educação e treinamento. A natureza interconectada da web significa que uma abordagem abrangente e proativa é necessária para proteger informações e sistemas contra as constantes e cada vez mais sofisticadas ameaças cibernéticas.
 
-## Browser
+## Browsers
 
 O navegador, ou browser, é uma aplicação que permite aos usuários acessar e interagir com conteúdo da web, como páginas HTML, imagens, vídeos e outros recursos multimídia. Ele desempenha um papel crucial na experiência de navegação na internet, e entender como ele funciona e carrega o frontend é fascinante.
 
@@ -209,7 +209,7 @@ O usuário agora pode interagir com a página. Qualquer interação adicional, c
 
 O navegador é uma peça complexa e sofisticada de software que atua como uma janela para a web. Ele cuida de inúmeras tarefas, desde a resolução de nomes de domínio e comunicação com servidores até a renderização de páginas e execução de scripts.
 
-## Render
+## Renderização Web
 
 A renderização é uma parte crítica do processo de exibição de uma página web e refere-se à forma como o navegador converte o código HTML, CSS, e possivelmente JavaScript em uma representação visual na tela do usuário. É um processo complexo e multifacetado que envolve várias etapas e componentes.
 
@@ -244,6 +244,7 @@ A renderização é um processo altamente complexo que exige uma grande quantida
 O Virtual DOM (V-DOM) é um conceito que ganhou popularidade em frameworks modernos de desenvolvimento web, como React. Ele serve como uma camada intermediária entre o estado da aplicação e o DOM real (Document Object Model) no navegador.
 
 ### O Que é o Virtual DOM?
+
 O Virtual DOM é uma representação em memória do DOM real. É uma árvore leve de objetos JavaScript que descreve como a interface do usuário deve aparecer. Comparado ao DOM real, que interage com a API do navegador e pode ser lento para manipular, o Virtual DOM é muito mais rápido e ágil.
 
 ### Como Funciona?
@@ -256,4 +257,41 @@ Aqui está o fluxo típico de como o Virtual DOM funciona:
    - **Atualização do DOM Real**: Apenas as diferenças identificadas são então aplicadas ao DOM real. Isso é feito de maneira otimizada e evita manipulações desnecessárias do DOM, que podem ser caras em termos de desempenho.
 
 O Virtual DOM é uma abstração poderosa que permite atualizações de interface do usuário mais eficientes e rápidas. Ele age como um buffer entre mudanças de estado na aplicação e manipulações caras do DOM real.
+
+## Aplicativos Nativos vs. Híbridos
+
+Aplicativos nativos e híbridos são duas abordagens populares para o desenvolvimento de aplicativos móveis, cada uma com seus próprios méritos e desvantagens.
+
+### Aplicativos Nativos
+
+**Definição**: Aplicativos nativos são desenvolvidos especificamente para uma plataforma móvel particular (como iOS, Android, Windows Phone) usando as linguagens e ferramentas fornecidas pelo fabricante da plataforma.
+
+#### Vantagens:
+
+   - **Desempenho**: Geralmente oferecem o melhor desempenho e responsividade, pois são otimizados para o hardware e o sistema operacional específicos.
+   - **Funcionalidades de Plataforma**: Acesso completo a todas as APIs e funcionalidades da plataforma, como câmera, GPS, acelerômetro, etc.
+   - **Experiência do Usuário**: Interface de usuário consistente com as diretrizes da plataforma, oferecendo uma experiência mais integrada e natural.
+
+#### Desvantagens:
+
+   - **Custo de Desenvolvimento**: Desenvolver aplicativos nativos para várias plataformas significa manter diferentes bases de código, o que pode ser caro e demorado.
+   - **Atualizações**: As atualizações devem ser feitas separadamente para cada plataforma e, em seguida, enviadas para as respectivas lojas de aplicativos.
+
+### Aplicativos Híbridos
+
+**Definição**: Aplicativos híbridos são desenvolvidos usando tecnologias web padrão (como HTML, CSS e JavaScript) e depois encapsulados em um contêiner nativo. Eles podem ser executados em várias plataformas com o mesmo código base.
+
+#### Vantagens:
+
+   - **Desenvolvimento Mais Rápido**: A reutilização de código entre diferentes plataformas pode economizar tempo e recursos.
+   - **Manutenção Mais Fácil**: Uma única base de código significa que correções e atualizações são mais simples de implementar.
+   - **Custo-efetividade**: Geralmente mais barato para desenvolver e manter, especialmente para aplicativos que precisam estar em várias plataformas.
+
+#### Desvantagens:
+
+   - **Desempenho Inferior**: Pode ser mais lento e menos responsivo em comparação com aplicativos nativos, especialmente para tarefas intensivas.
+   - **Limitações de Acesso**: Pode haver restrições ao acessar algumas funcionalidades nativas, ou pode exigir plug-ins adicionais.
+   - **Experiência de Usuário Inconsistente**: A tentativa de imitar a aparência nativa em diferentes plataformas pode levar a inconsistências na experiência do usuário.
+
+A escolha entre o desenvolvimento nativo e híbrido dependerá de vários fatores, como o orçamento, o prazo, a necessidade de acesso a funcionalidades específicas, a importância da experiência do usuário, etc. 
 
