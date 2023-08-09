@@ -355,6 +355,8 @@ Após carregar e processar todos os recursos, o navegador exibe a página render
 
 O usuário agora pode interagir com a página. Qualquer interação adicional, como preencher formulários ou clicar em links, pode resultar em mais requisições e respostas entre o navegador e o servidor.
 
+### Conclusão
+
 O navegador é uma peça complexa e sofisticada de software que atua como uma janela para a web. Ele cuida de inúmeras tarefas, desde a resolução de nomes de domínio e comunicação com servidores até a renderização de páginas e execução de scripts.
 
 ## Renderização Web
@@ -878,31 +880,31 @@ A escolha entre comunicação síncrona e assíncrona depende dos requisitos de 
 
 Uma fila de mensagens é uma forma de comunicação entre aplicações que permite que elas se comuniquem e troquem informações, mesmo que estejam rodando em diferentes servidores, dispositivos ou sistemas operacionais. É uma estrutura de dados baseada na abordagem de fila (FIFO - First In, First Out) e é usada principalmente em sistemas distribuídos para fornecer comunicação assíncrona e desacoplamento.
 
-### 1. Funcionamento Básico
+### Funcionamento Básico
 
 A fila de mensagens funciona através do envio e recebimento de mensagens. Um produtor envia uma mensagem à fila, e um ou mais consumidores podem retirar essa mensagem da fila e processá-la.
 
-### 2. Comunicação Assíncrona
+### Comunicação Assíncrona
 
 A fila de mensagens permite a comunicação assíncrona entre diferentes partes de um sistema. O produtor e o consumidor não precisam estar ativos ou disponíveis ao mesmo tempo. O produtor pode continuar enviando mensagens para a fila, mesmo que o consumidor não esteja pronto para processá-las.
 
-### 3. Desacoplamento
+### Desacoplamento
 
 O uso de filas de mensagens promove um desacoplamento entre os componentes de um sistema. Os produtores e consumidores só precisam saber a estrutura da mensagem e a localização da fila; eles não precisam saber nada um sobre o outro.
 
-### 4. Escalabilidade
+### Escalabilidade
 
 As filas de mensagens podem facilitar a escalabilidade, permitindo que várias instâncias de consumidores processem mensagens simultaneamente. Isso permite que o sistema lide com volumes maiores de mensagens e ofereça uma maneira eficiente de distribuir a carga de trabalho.
 
-### 5. Persistência e Durabilidade
+### Persistência e Durabilidade
 
 Algumas filas de mensagens oferecem persistência, o que significa que as mensagens são armazenadas em um meio durável (como um disco). Isso garante que as mensagens não sejam perdidas, mesmo que o sistema falhe.
 
-### 6. Ordenação e Prioridade
+### Ordenação e Prioridade
 
 As mensagens em uma fila geralmente são processadas na ordem em que foram recebidas, mas algumas filas permitem a definição de prioridades, fazendo com que mensagens de alta prioridade sejam processadas primeiro.
 
-### 7. Exemplos de Tecnologias
+### Exemplos de Tecnologias
 
 Algumas das tecnologias populares usadas para filas de mensagens incluem RabbitMQ, Apache Kafka, AWS SQS, e Microsoft Message Queue.
 
