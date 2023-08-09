@@ -106,6 +106,66 @@ Containers são uma tecnologia que permite empacotar uma aplicação e todas as 
 
 Servidores são vitais para a infraestrutura de TI, fornecendo serviços e recursos para clientes. A inovação em torno da tecnologia de containers está mudando a forma como os servidores são utilizados, trazendo maior eficiência, portabilidade e consistência. Essa combinação de servidores robustos com a flexibilidade dos containers está na vanguarda do desenvolvimento moderno de software e da operação de infraestrutura, permitindo práticas ágeis e resilientes.
 
+## Banco de Dados
+
+Banco de dados é uma coleção organizada de informações ou dados. É um componente crucial para muitos sistemas, permitindo que organizações, negócios e indivíduos armazenem, gerenciem, e recuperem dados de forma eficiente.
+
+### Tipos de Bancos de Dados
+
+#### Bancos de Dados Relacionais (RDBMS)
+
+   - **Estrutura**: Usam tabelas para armazenar dados e baseiam-se no modelo relacional.
+   - **Exemplos**: MySQL, PostgreSQL, SQL Server, Oracle.
+   - **Linguagem**: SQL (Structured Query Language) é comumente usada para interagir com RDBMS.
+
+#### Bancos de Dados Não Relacionais (NoSQL)
+
+   - **Estrutura**: Flexível e não exigem um esquema fixo. Pode ser orientado a documentos, chave-valor, coluna-larga, grafo, etc.
+   - **Exemplos**: MongoDB, Redis, Apache Cassandra, Neo4j.
+   - **Uso**: Muitas vezes usados em Big Data e aplicações em tempo real.
+
+### Conceitos-chave
+
+#### Esquema
+
+A estrutura que define a organização dos dados, incluindo tabelas, campos, relações, restrições, etc.
+
+#### Transação
+
+Uma série de operações executadas como uma única unidade de trabalho, seguindo as propriedades ACID (Atomicidade, Consistência, Isolamento, Durabilidade).
+
+#### Índice
+
+Estrutura de dados que melhora a velocidade das operações de recuperação em um banco de dados.
+
+#### Normalização
+
+Processo de organização de dados para reduzir a redundância e melhorar a integridade.
+
+#### Backup e Recuperação
+
+Mecanismos para proteger os dados contra perdas e restaurá-los quando necessário.
+
+### Tecnologias e Tendências Modernas
+
+#### Bancos de Dados na Nuvem
+
+   - Oferecem escalabilidade e flexibilidade, hospedados em provedores de nuvem como AWS, Azure, Google Cloud.
+
+#### Bancos de Dados In-Memory
+
+   - Armazenam dados na memória RAM, oferecendo acesso extremamente rápido, como Redis.
+
+#### Bancos de Dados Orientados a Grafos
+
+   - Utilizados para representar relações complexas entre dados, como Neo4j.
+
+#### Bancos de Dados Temporais
+
+   - Armazenam informações sobre o estado dos dados em diferentes pontos no tempo.
+
+Bancos de dados desempenham um papel fundamental na computação moderna, fornecendo a espinha dorsal para armazenamento e gerenciamento de dados em uma ampla variedade de aplicações, desde websites simples a sistemas empresariais complexos. A escolha do tipo de banco de dados e sua implementação deve ser cuidadosamente considerada com base nos requisitos específicos do sistema, como desempenho, escalabilidade, confiabilidade e consistência.
+
 ## Estruturas de Dados e Algoritmos
 
 Estruturas de dados e algoritmos são conceitos fundamentais em ciência da computação e engenharia de software. Ambos desempenham um papel crítico no desenvolvimento de sistemas eficientes e eficazes.
