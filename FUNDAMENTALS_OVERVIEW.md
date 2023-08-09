@@ -74,7 +74,7 @@ Redes de computadores são conjuntos interconectados de dispositivos que permite
 
 As redes de computadores são vitais para a infraestrutura de tecnologia moderna, permitindo a comunicação global e o acesso a recursos compartilhados. Os protocolos desempenham um papel fundamental nisso, estabelecendo as regras e convenções que os dispositivos devem seguir para se comunicarem de maneira eficaz e segura.
 
-## Servidor
+## Server e Container
 
 Um servidor é um sistema de computação que fornece recursos e serviços para outros computadores, conhecidos como clientes. Eles desempenham um papel crucial em muitas áreas, incluindo hospedagem de websites, processamento de dados, e armazenamento de arquivos. Vamos explorar como um servidor funciona e, em seguida, mergulhar no conceito de containers.
 
@@ -89,8 +89,6 @@ Um servidor é um sistema de computação que fornece recursos e serviços para 
 - **Gerenciamento de Redes**: O servidor se comunica com clientes através da rede, seja uma LAN, WAN, ou a Internet. Ele escuta as solicitações dos clientes, processa-as e responde de acordo.
 
 - **Segurança**: A segurança é vital em servidores, envolvendo firewalls, atualizações regulares, monitoramento e outras medidas para proteger contra acessos não autorizados e ataques.
-
-### Containers
 
 Containers são uma tecnologia que permite empacotar uma aplicação e todas as suas dependências em uma unidade padronizada para desenvolvimento de software. Isso traz várias vantagens:
 
@@ -107,53 +105,6 @@ Containers são uma tecnologia que permite empacotar uma aplicação e todas as 
 - **Exemplos**: Docker é uma das tecnologias de containerização mais populares.
 
 Servidores são vitais para a infraestrutura de TI, fornecendo serviços e recursos para clientes. A inovação em torno da tecnologia de containers está mudando a forma como os servidores são utilizados, trazendo maior eficiência, portabilidade e consistência. Essa combinação de servidores robustos com a flexibilidade dos containers está na vanguarda do desenvolvimento moderno de software e da operação de infraestrutura, permitindo práticas ágeis e resilientes.
-
-## Cybersecurity
-
-A cibersegurança na web é um campo essencial que se concentra na proteção de sistemas, redes e dados em ambientes online. Com a crescente dependência de serviços online e a quantidade de informações confidenciais transmitidas através da web, a cibersegurança tornou-se uma preocupação crítica para empresas, governos e indivíduos.
-
-### 1. **Ameaças Comuns**
-   - **Ataques de Phishing**: Tentativas de enganar usuários para revelar informações pessoais, geralmente por meio de e-mails ou sites falsos.
-   - **Injeção de SQL**: Inserção de código SQL malicioso em uma consulta, permitindo o acesso ou manipulação não autorizada de dados.
-   - **Cross-Site Scripting (XSS)**: Injeção de scripts maliciosos em sites, afetando os usuários que os visitam.
-   - **Ataque de Força Bruta**: Tentativas repetidas de adivinhar senhas ou chaves de criptografia.
-   - **Ransomware**: Software malicioso que criptografa dados e exige pagamento para desbloqueá-los.
-
-### 2. **Práticas de Segurança**
-   - **Autenticação e Autorização**: Usar métodos robustos para verificar a identidade dos usuários e garantir que eles tenham os direitos apropriados.
-   - **Criptografia**: Proteger dados em trânsito e em repouso usando algoritmos de criptografia fortes.
-   - **Gestão de Senhas**: Incentivar senhas fortes e armazená-las de forma segura, muitas vezes usando hash e sal.
-   - **Atualizações e Patches**: Manter o software atualizado para proteger contra vulnerabilidades conhecidas.
-
-### 3. **Tecnologias e Ferramentas**
-   - **Firewalls**: Filtrar tráfego indesejado e malicioso.
-   - **Sistemas de Detecção e Prevenção de Intrusões (IDS/IPS)**: Monitorar e bloquear atividades suspeitas.
-   - **Antivírus e Antimalware**: Detectar e remover software malicioso.
-
-### 4. **Compliance e Regulamentos**
-   - **Leis de Privacidade**: Cumprir regulamentos como GDPR, CCPA, que impõem regras rígidas sobre como os dados pessoais devem ser tratados.
-   - **Padrões de Indústria**: Seguir padrões como PCI DSS para proteger informações de pagamento.
-
-### 5. **Consciência e Educação**
-   - **Treinamento de Funcionários**: Ensinar os funcionários a reconhecer e evitar ameaças.
-   - **Políticas de Segurança**: Criar e seguir políticas claras de segurança.
-
-### 6. **Testes e Avaliação**
-   - **Testes de Penetração**: Avaliar a segurança simulando ataques.
-   - **Avaliações de Segurança**: Revisões regulares das políticas, procedimentos e tecnologias de segurança.
-
-A cibersegurança na web é um campo em constante evolução que requer uma abordagem multifacetada. Isso inclui o uso de tecnologias sofisticadas, a implementação de práticas sólidas, a conformidade com regulamentações legais e o investimento em educação e treinamento. A natureza interconectada da web significa que uma abordagem abrangente e proativa é necessária para proteger informações e sistemas contra as constantes e cada vez mais sofisticadas ameaças cibernéticas.
-
-
-
-
-
-
-
-
-
-
-
 
 ## Estruturas de Dados e Algoritmos
 
@@ -176,4 +127,40 @@ Um algoritmo é um conjunto finito e bem definido de instruções destinadas a e
 - **Algoritmos de Aprendizado de Máquina**: Usados para criar modelos a partir de dados para fazer previsões ou decisões.
 
 Estruturas de dados e algoritmos são elementos-chave no desenvolvimento de soluções de software sólidas e eficientes. Sua escolha e implementação apropriadas podem ser a diferença entre um sistema que funciona de maneira ágil e eficiente e um que é lento e oneroso.
+
+## Cybersecurity
+
+A cibersegurança na web é um campo essencial que se concentra na proteção de sistemas, redes e dados em ambientes online. Com a crescente dependência de serviços online e a quantidade de informações confidenciais transmitidas através da web, a cibersegurança tornou-se uma preocupação crítica para empresas, governos e indivíduos.
+
+### Ameaças Comuns
+   - **Ataques de Phishing**: Tentativas de enganar usuários para revelar informações pessoais, geralmente por meio de e-mails ou sites falsos.
+   - **Injeção de SQL**: Inserção de código SQL malicioso em uma consulta, permitindo o acesso ou manipulação não autorizada de dados.
+   - **Cross-Site Scripting (XSS)**: Injeção de scripts maliciosos em sites, afetando os usuários que os visitam.
+   - **Ataque de Força Bruta**: Tentativas repetidas de adivinhar senhas ou chaves de criptografia.
+   - **Ransomware**: Software malicioso que criptografa dados e exige pagamento para desbloqueá-los.
+
+### Práticas de Segurança
+   - **Autenticação e Autorização**: Usar métodos robustos para verificar a identidade dos usuários e garantir que eles tenham os direitos apropriados.
+   - **Criptografia**: Proteger dados em trânsito e em repouso usando algoritmos de criptografia fortes.
+   - **Gestão de Senhas**: Incentivar senhas fortes e armazená-las de forma segura, muitas vezes usando hash e sal.
+   - **Atualizações e Patches**: Manter o software atualizado para proteger contra vulnerabilidades conhecidas.
+
+### Tecnologias e Ferramentas
+   - **Firewalls**: Filtrar tráfego indesejado e malicioso.
+   - **Sistemas de Detecção e Prevenção de Intrusões (IDS/IPS)**: Monitorar e bloquear atividades suspeitas.
+   - **Antivírus e Antimalware**: Detectar e remover software malicioso.
+
+### Compliance e Regulamentos
+   - **Leis de Privacidade**: Cumprir regulamentos como GDPR, CCPA, que impõem regras rígidas sobre como os dados pessoais devem ser tratados.
+   - **Padrões de Indústria**: Seguir padrões como PCI DSS para proteger informações de pagamento.
+
+### Consciência e Educação
+   - **Treinamento de Funcionários**: Ensinar os funcionários a reconhecer e evitar ameaças.
+   - **Políticas de Segurança**: Criar e seguir políticas claras de segurança.
+
+### Testes e Avaliação
+   - **Testes de Penetração**: Avaliar a segurança simulando ataques.
+   - **Avaliações de Segurança**: Revisões regulares das políticas, procedimentos e tecnologias de segurança.
+
+A cibersegurança na web é um campo em constante evolução que requer uma abordagem multifacetada. Isso inclui o uso de tecnologias sofisticadas, a implementação de práticas sólidas, a conformidade com regulamentações legais e o investimento em educação e treinamento. A natureza interconectada da web significa que uma abordagem abrangente e proativa é necessária para proteger informações e sistemas contra as constantes e cada vez mais sofisticadas ameaças cibernéticas.
 
