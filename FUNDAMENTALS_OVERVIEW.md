@@ -387,6 +387,50 @@ A renderização é uma parte crítica do processo de exibição de uma página 
 
 A renderização é um processo altamente complexo que exige uma grande quantidade de coordenação e cálculo pelo navegador. Os desenvolvedores da web devem entender esse processo para criar páginas que sejam carregadas e renderizadas eficientemente. Algumas práticas, como evitar reflows desnecessários, otimizar imagens e minimizar o uso de estilos CSS complexos, podem contribuir para uma renderização mais rápida e uma experiência de usuário mais suave.
 
+## Interação entre Javascript e a Página Web
+
+A interação entre JavaScript (JS) e a página web acontece através de um processo que permite ao JavaScript acessar e manipular o Document Object Model (DOM) da página.
+
+### 1. Carregamento da Página e Execução do JavaScript
+
+Quando uma página web é carregada, o navegador lê o HTML e o CSS e começa a construir o DOM, uma representação em árvore da estrutura da página. Se houver scripts JavaScript vinculados à página (internamente ou através de arquivos externos), eles são carregados e executados.
+
+### 2. Acesso ao DOM
+
+O JavaScript pode acessar o DOM através de várias APIs e métodos fornecidos pelos navegadores. Isso permite que os scripts identifiquem e interajam com elementos específicos da página, como parágrafos, imagens, formulários e outros.
+
+Exemplos de métodos para acessar o DOM:
+
+- `getElementById`: Seleciona um elemento pelo seu atributo `id`.
+- `querySelector`: Seleciona um elemento usando um seletor CSS.
+- `getElementsByClassName`: Seleciona elementos pela sua classe.
+
+### 3. Manipulação do DOM
+
+Uma vez que os elementos são selecionados, o JavaScript pode manipulá-los. Isso inclui alterar o conteúdo de texto, adicionar ou remover classes CSS, alterar atributos, e até criar ou remover elementos DOM.
+
+Exemplos de manipulação:
+
+- `innerHTML`: Altera o conteúdo HTML de um elemento.
+- `classList.add`: Adiciona uma classe CSS a um elemento.
+- `appendChild`: Adiciona um novo elemento filho ao elemento selecionado.
+
+### 4. Eventos
+
+O JavaScript pode responder a eventos que ocorrem na página, como cliques, movimentos do mouse, pressionamentos de tecla, etc. Isso é feito através do registro de manipuladores de eventos que são executados quando um evento específico acontece.
+
+### 5. Assincronia e AJAX
+
+O JavaScript pode realizar solicitações assíncronas a um servidor (conhecidas como AJAX) para carregar ou enviar dados sem a necessidade de recarregar toda a página. Isso permite uma experiência de usuário mais dinâmica e interativa.
+
+### 6. Integração com Outras Tecnologias
+
+O JavaScript pode ser usado em conjunto com outras tecnologias como WebSockets para comunicação em tempo real, ou WebGL para gráficos 3D, expandindo ainda mais as possibilidades de interação com a página.
+
+### Conclusão
+
+A interação entre JavaScript e a página web é um aspecto central do desenvolvimento web moderno. Através da manipulação do DOM, resposta a eventos, e solicitações assíncronas, o JavaScript permite criar páginas web dinâmicas e interativas que enriquecem a experiência do usuário.
+
 ## Virtual DOM (V-DOM)
 
 O Virtual DOM (V-DOM) é um conceito que ganhou popularidade em frameworks modernos de desenvolvimento web, como React. Ele serve como uma camada intermediária entre o estado da aplicação e o DOM real (Document Object Model) no navegador.
@@ -829,6 +873,42 @@ Na comunicação assíncrona, as partes envolvidas não precisam estar sincroniz
 - Desafios na coordenação e ordem das mensagens.
 
 A escolha entre comunicação síncrona e assíncrona depende dos requisitos de desempenho, complexidade e natureza da aplicação. A comunicação síncrona é mais direta e ordenada, mas pode ser ineficiente. A comunicação assíncrona oferece maior eficiência e flexibilidade, mas com complexidade adicional. Ao projetar sistemas, é importante considerar essas diferenças para escolher a abordagem mais adequada.
+
+## Queue
+
+Uma fila de mensagens é uma forma de comunicação entre aplicações que permite que elas se comuniquem e troquem informações, mesmo que estejam rodando em diferentes servidores, dispositivos ou sistemas operacionais. É uma estrutura de dados baseada na abordagem de fila (FIFO - First In, First Out) e é usada principalmente em sistemas distribuídos para fornecer comunicação assíncrona e desacoplamento.
+
+### 1. Funcionamento Básico
+
+A fila de mensagens funciona através do envio e recebimento de mensagens. Um produtor envia uma mensagem à fila, e um ou mais consumidores podem retirar essa mensagem da fila e processá-la.
+
+### 2. Comunicação Assíncrona
+
+A fila de mensagens permite a comunicação assíncrona entre diferentes partes de um sistema. O produtor e o consumidor não precisam estar ativos ou disponíveis ao mesmo tempo. O produtor pode continuar enviando mensagens para a fila, mesmo que o consumidor não esteja pronto para processá-las.
+
+### 3. Desacoplamento
+
+O uso de filas de mensagens promove um desacoplamento entre os componentes de um sistema. Os produtores e consumidores só precisam saber a estrutura da mensagem e a localização da fila; eles não precisam saber nada um sobre o outro.
+
+### 4. Escalabilidade
+
+As filas de mensagens podem facilitar a escalabilidade, permitindo que várias instâncias de consumidores processem mensagens simultaneamente. Isso permite que o sistema lide com volumes maiores de mensagens e ofereça uma maneira eficiente de distribuir a carga de trabalho.
+
+### 5. Persistência e Durabilidade
+
+Algumas filas de mensagens oferecem persistência, o que significa que as mensagens são armazenadas em um meio durável (como um disco). Isso garante que as mensagens não sejam perdidas, mesmo que o sistema falhe.
+
+### 6. Ordenação e Prioridade
+
+As mensagens em uma fila geralmente são processadas na ordem em que foram recebidas, mas algumas filas permitem a definição de prioridades, fazendo com que mensagens de alta prioridade sejam processadas primeiro.
+
+### 7. Exemplos de Tecnologias
+
+Algumas das tecnologias populares usadas para filas de mensagens incluem RabbitMQ, Apache Kafka, AWS SQS, e Microsoft Message Queue.
+
+### Conclusão
+
+As filas de mensagens são uma ferramenta valiosa na arquitetura de sistemas modernos, oferecendo uma maneira flexível e robusta de integrar diferentes componentes de forma assíncrona. Através do desacoplamento, escalabilidade, e persistência, elas permitem a construção de sistemas mais resilientes e capazes de lidar com cargas de trabalho variáveis e falhas inesperadas.
 
 ## DevOps
 
