@@ -459,3 +459,42 @@ Aplicativos nativos e híbridos são duas abordagens populares para o desenvolvi
 
 A escolha entre o desenvolvimento nativo e híbrido dependerá de vários fatores, como o orçamento, o prazo, a necessidade de acesso a funcionalidades específicas, a importância da experiência do usuário, etc.
 
+## PWA
+
+Progressive Web Apps (PWAs) são uma abordagem moderna para o desenvolvimento web que visa melhorar a experiência do usuário em dispositivos móveis e desktop. Utilizando as mais recentes tecnologias web, as PWAs oferecem uma experiência semelhante a de um aplicativo nativo, mas dentro de um navegador.
+
+### Características Principais
+
+- **Responsivas**: PWAs são projetadas para funcionar em qualquer dispositivo, ajustando-se automaticamente ao tamanho da tela.
+
+- **Progressivas**: Funcionam para todos os usuários, independentemente do navegador escolhido, graças aos princípios de design progressivo.
+
+- **Offline ou em Conexões de Baixa Qualidade**: Usam service workers para cache de conteúdo e fornecem funcionalidade mesmo quando offline.
+
+- **Atualização Automática**: Como são carregadas a partir da web, as PWAs são atualizadas automaticamente com novos conteúdos ou correções.
+
+- **Seguras**: Servidas através de HTTPS, garantindo que o conteúdo não seja adulterado durante a transferência.
+
+- **Instaláveis**: Podem ser adicionadas à tela inicial de um dispositivo, oferecendo uma experiência semelhante a de um aplicativo nativo.
+
+- **Linkáveis**: São acessíveis através de URLs, facilitando o compartilhamento de conteúdo.
+
+### Benefícios
+
+- **Engajamento do Usuário**: A experiência similar à dos aplicativos nativos tende a aumentar o engajamento do usuário.
+- **Acessibilidade**: Funciona em diferentes dispositivos e navegadores, tornando o conteúdo mais acessível.
+- **Custo-Efetivo**: Desenvolver uma PWA pode ser mais econômico do que criar aplicativos nativos separados para diferentes plataformas.
+- **Rápido**: Utiliza técnicas de cache e otimização para carregar rapidamente, mesmo em conexões lentas.
+
+### Desafios
+
+- **Compatibilidade**: Enquanto os navegadores modernos suportam as tecnologias necessárias para PWAs, alguns navegadores mais antigos podem não ser compatíveis.
+- **Funcionalidades Avançadas**: Algumas funcionalidades presentes em aplicativos nativos ainda podem ser difíceis ou impossíveis de replicar em uma PWA.
+
+### Tecnologias Envolvidas
+
+- **Service Workers**: Scripts que o navegador executa em segundo plano, permitindo o cache e a intercepção de requisições.
+- **Manifesto Web App**: Um arquivo JSON que define como o aplicativo deve aparecer para o usuário e como ele deve ser lançado.
+
+PWAs representam uma evolução significativa no desenvolvimento web, combinando o melhor dos sites tradicionais com as vantagens dos aplicativos nativos. Eles oferecem uma via para fornecer uma experiência rica e envolvente para os usuários, independentemente do dispositivo ou navegador que estão usando, e estão se tornando uma escolha popular para muitas organizações que buscam alcançar uma audiência mais ampla de forma eficiente e eficaz.
+
