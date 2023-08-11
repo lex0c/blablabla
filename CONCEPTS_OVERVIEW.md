@@ -1399,3 +1399,70 @@ Autenticação e autorização são conceitos críticos em sistemas de seguranç
 
 Autenticação e autorização são fundamentais para a segurança de qualquer sistema. A autenticação garante que os usuários são quem afirmam ser, enquanto a autorização controla o acesso aos recursos. Juntos, eles formam a base para controlar quem pode acessar um sistema e o que podem fazer uma vez autenticados. Implementar esses processos de maneira eficaz é crucial para proteger a confidencialidade, integridade e disponibilidade dos dados e recursos de um sistema.
 
+## SQL
+
+SQL, ou Linguagem de Consulta Estruturada, é uma linguagem de programação usada para gerenciar e manipular bancos de dados relacionais. Ela permite que os desenvolvedores criem, leiam, atualizem e excluam dados, além de gerenciar a estrutura e as permissões do banco de dados. Aqui estão alguns dos principais aspectos do SQL:
+
+### 1. **Consultas de Seleção (Queries)**
+As consultas são o núcleo do SQL, permitindo buscar e filtrar dados. A cláusula `SELECT` é usada para especificar os dados que você deseja recuperar, e pode ser combinada com várias outras cláusulas, como `WHERE` (para filtrar), `ORDER BY` (para ordenar), e `JOIN` (para combinar tabelas).
+
+### 2. **Manipulação de Dados**
+O SQL permite inserir, atualizar e excluir registros através das instruções `INSERT`, `UPDATE`, e `DELETE`.
+
+### 3. **Criação e Gerenciamento de Esquema**
+Você pode criar e modificar tabelas, índices, e outros objetos de banco de dados usando comandos como `CREATE TABLE`, `ALTER TABLE`, e `DROP TABLE`.
+
+### 4. **Chaves Primárias e Estrangeiras**
+As chaves primárias e estrangeiras são fundamentais para manter a integridade dos dados em um banco de dados relacional. Elas garantem que os dados em diferentes tabelas estão corretamente relacionados.
+
+### 5. **Funções e Procedimentos Armazenados**
+Os bancos de dados SQL muitas vezes suportam a criação de funções e procedimentos armazenados, que são blocos de código SQL que podem ser reutilizados.
+
+### 6. **Transações**
+O suporte a transações permite executar várias operações como uma única unidade de trabalho, garantindo que todas sejam completadas com sucesso ou que todas sejam revertidas em caso de erro.
+
+### 7. **Controle de Acesso**
+O SQL inclui comandos para gerenciar as permissões de usuários e grupos, permitindo que os administradores controlem quem pode ver ou modificar diferentes partes do banco de dados.
+
+### 8. **Padrões e Variações**
+Embora haja um padrão SQL, diferentes sistemas de gerenciamento de banco de dados (como MySQL, PostgreSQL, SQL Server, etc.) têm suas próprias extensões e variações da linguagem.
+
+### 9. **Otimização de Consultas**
+Entender como o SQL é executado pode ajudar a escrever consultas mais eficientes. Os bancos de dados modernos têm ferramentas para ajudar a analisar e otimizar suas consultas.
+
+### Conclusão
+O SQL é uma ferramenta essencial para qualquer pessoa que trabalhe com dados. Ela fornece uma interface poderosa e flexível para interagir com bancos de dados relacionais. Aprender SQL abre as portas para uma ampla gama de carreiras e aplicações, desde análise de dados até desenvolvimento de back-end e administração de bancos de dados.
+
+## CSS
+
+O CSS, ou Cascading Style Sheets (Folhas de Estilo em Cascata), é uma linguagem de folhas de estilo usada para descrever a apresentação de um documento escrito em HTML ou XML. É um dos pilares do desenvolvimento web moderno e é usado para controlar a aparência e o layout de um site ou aplicação web.
+
+Aqui estão alguns conceitos fundamentais e características do CSS:
+
+### 1. **Seletores e Propriedades**:
+O CSS utiliza seletores para direcionar elementos HTML específicos e aplicar estilos a eles. Uma vez selecionados, você pode definir várias propriedades como cores, fontes, espaçamentos, e mais.
+
+### 2. **Cascata**:
+A "cascata" no CSS significa que os estilos são aplicados em uma ordem específica e podem ser sobrepostos por estilos subsequentes. Isso permite que os estilos sejam herdados e substituídos de maneira controlada.
+
+### 3. **Responsividade**:
+O CSS pode ser usado para criar designs responsivos, adaptando-se a diferentes tamanhos de tela e dispositivos. Isso é feito através de recursos como media queries, que permitem aplicar estilos específicos com base nas características do dispositivo.
+
+### 4. **Animações e Transições**:
+O CSS moderno inclui capacidades para animações e transições, permitindo movimento e mudanças suaves nos estilos ao longo do tempo sem a necessidade de JavaScript.
+
+### 5. **Flexbox e Grid Layout**:
+Estas são técnicas de layout poderosas no CSS que tornam mais fácil criar layouts complexos e responsivos. Flexbox é ótimo para layouts unidimensionais, enquanto o Grid é destinado a layouts bidimensionais.
+
+### 6. **Preprocessadores**:
+Sass, Less e Stylus são exemplos de preprocessadores CSS que adicionam recursos extras como variáveis, aninhamento, e funções. Eles são compilados em CSS puro para que os navegadores possam interpretá-los.
+
+### 7. **Frameworks CSS**:
+Existem vários frameworks CSS populares, como Bootstrap e Foundation, que fornecem uma coleção de classes e componentes pré-estilizados. Eles ajudam a acelerar o desenvolvimento e a manter a consistência no design.
+
+### 8. **Isolamento e Escopo**:
+Técnicas como metodologias BEM ou o uso de CSS Modules podem ajudar a isolar estilos e evitar colisões de nomes, facilitando a manutenção do código.
+
+### Conclusão:
+O CSS é uma ferramenta indispensável para qualquer desenvolvedor front-end, permitindo criar experiências visuais ricas e interativas. Com uma curva de aprendizado amigável para iniciantes, e uma profundidade considerável para profissionais experientes, o CSS continua a evoluir, com novos recursos sendo adicionados regularmente para atender às demandas modernas de design e desenvolvimento web.
+
