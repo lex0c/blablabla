@@ -1364,3 +1364,38 @@ CI/CD refere-se a uma combinação de práticas em desenvolvimento de software c
 ### Conclusão
 
 CI/CD é uma prática crítica na engenharia de software moderna que facilita o desenvolvimento e a entrega rápidos e confiáveis. Ao promover a automação em todas as etapas do ciclo de vida do desenvolvimento, as equipes podem reduzir erros, economizar tempo e entregar produtos de alta qualidade aos seus usuários de maneira eficiente.
+
+## Autenticação e Autorização
+
+Autenticação e autorização são conceitos críticos em sistemas de segurança, especialmente no contexto de aplicações web e móveis. Eles são usados para controlar o acesso aos recursos e garantir que os usuários sejam quem afirmam ser.
+
+### Autenticação
+
+**O que é:** A autenticação é o processo de verificação da identidade de um usuário. Em outras palavras, é a maneira de garantir que o usuário seja realmente quem ele diz ser.
+
+**Como funciona:** A autenticação geralmente envolve a solicitação de um nome de usuário e senha, mas pode incluir outros métodos, como autenticação de dois fatores, biometria, ou tokens de autenticação.
+
+**Métodos comuns:**
+- **Senha:** O método mais comum, utilizando uma combinação de nome de usuário e senha.
+- **Autenticação de Dois Fatores (2FA):** Utiliza dois métodos diferentes de autenticação, como senha e um código enviado por SMS.
+- **Biometria:** Utiliza características físicas, como impressão digital ou reconhecimento facial.
+
+**Importância:** Sem autenticação adequada, qualquer pessoa poderia se passar por outro usuário e ganhar acesso indevido aos recursos do sistema.
+
+### Autorização
+
+**O que é:** A autorização é o processo que vem após a autenticação e determina o que o usuário autenticado pode fazer. Ela define as permissões do usuário e determina quais ações ele pode realizar ou quais recursos pode acessar.
+
+**Como funciona:** A autorização é geralmente gerenciada através de uma lista de controle de acesso (ACL) ou por meio de políticas baseadas em funções (RBAC).
+
+**Métodos comuns:**
+- **Controle de Acesso Baseado em Funções (RBAC):** Os usuários recebem funções, e cada função tem certas permissões associadas.
+- **Controle de Acesso Baseado em Atributos (ABAC):** Utiliza uma variedade de atributos, incluindo informações do usuário, ação, recurso, e ambiente para decidir as permissões.
+- **Lista de Controle de Acesso (ACL):** Um conjunto de regras que definem as permissões de acesso a um objeto particular.
+
+**Importância:** A autorização garante que os usuários só tenham acesso aos recursos que são necessários para realizar suas tarefas, protegendo informações sensíveis e recursos críticos.
+
+### Conclusão
+
+Autenticação e autorização são fundamentais para a segurança de qualquer sistema. A autenticação garante que os usuários são quem afirmam ser, enquanto a autorização controla o acesso aos recursos. Juntos, eles formam a base para controlar quem pode acessar um sistema e o que podem fazer uma vez autenticados. Implementar esses processos de maneira eficaz é crucial para proteger a confidencialidade, integridade e disponibilidade dos dados e recursos de um sistema.
+
