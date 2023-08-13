@@ -8,7 +8,7 @@ O pensamento de grupo é um padrão de pensamento em que os membros de um grupo 
 
 ## Por que Isso é Problemático?
 
-O viés do pensamento de grupo pode levar a decisões ruins, já que a análise cuidadosa e o debate saudável são ignorados. Exemplos famosos incluem a tragédia do ônibus espacial Challenger e a invasão mal-sucedida da Baía dos Porcos. Em ambos os casos, as preocupações foram suprimidas em favor de uma ilusória unanimidade.
+O [viés](https://en.wikipedia.org/wiki/Bias) do pensamento de grupo pode levar a decisões ruins, já que a análise cuidadosa e o debate saudável são ignorados. Exemplos famosos incluem a tragédia do ônibus espacial Challenger e a invasão mal-sucedida da Baía dos Porcos. Em ambos os casos, as preocupações foram suprimidas em favor de uma ilusória unanimidade.
 
 ## Como Reconhecer o Pensamento de Grupo?
 
