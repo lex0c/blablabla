@@ -1,4 +1,4 @@
-# Criatividade
+# Criatividade e Caos
 
 A criatividade, frequentemente reverenciada como uma das habilidades mais valiosas dos seres humanos, é um processo complexo e misterioso. É a centelha que acende inovações, gera obras de arte e nos permite transcender desafios cotidianos. Paradoxalmente, o caos com sua aparente desordem e imprevisibilidade pode ser um dos maiores catalisadores para essa criatividade.
 
