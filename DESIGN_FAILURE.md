@@ -14,7 +14,7 @@ Sempre tenha um plano B. Se um servidor falhar, outro deve estar pronto para ass
 
 ### Replicação
 
-Para bancos de dados e outros sistemas de armazenamento, a replicação mantém cópias dos dados em locais diferentes. Se um servidor falhar, a aplicação ainda poderá acessar uma cópia dos dados.
+Para bancos de dados e outros sistemas de armazenamento, a replicação mantém cópias dos dados em locais diferentes. Se um servidor falhar, a aplicação ainda poderá acessar uma [cópia dos dados](https://en.wikipedia.org/wiki/Backup).
 
 ### [Failover](https://en.wikipedia.org/wiki/Failover) Automático
 
@@ -24,11 +24,11 @@ O failover automático garante que, em caso de falha de um componente, outro ass
 
 Essa técnica é como um disjuntor que "desliga" um serviço ao detectar condições que provavelmente levariam a falhas, evitando sobrecarga e permitindo a recuperação.
 
-### Retries com [Backoff Exponencial](https://en.wikipedia.org/wiki/Exponential_backoff)
+### [Retries com Backoff Exponencial](https://en.wikipedia.org/wiki/Exponential_backoff)
 
 Quando uma operação falha, é tentada novamente após um pequeno intervalo. Se continuar falhando, o tempo entre as tentativas aumenta exponencialmente. Isso dá ao sistema uma chance de se recuperar.
 
-### Balanceamento de Carga
+### [Balanceamento de Carga](https://en.wikipedia.org/wiki/Load_balancing_(computing))
 
 Distribuir o tráfego de forma eficaz pode evitar pontos únicos de falha e maximizar a utilização dos recursos.
 
@@ -44,4 +44,4 @@ Esta abordagem envolve injetar falhas intencionais no sistema para testar sua re
 
 Design para falhas não é apenas uma técnica; é uma mudança de mentalidade. Em vez de gastar recursos tentando evitar todas as falhas – um objetivo inatingível –, focamos em como podemos nos recuperar delas. Dessa forma, criamos sistemas mais resilientes, robustos e, em última análise, mais confiáveis.
 
-Portanto, da próxima vez que você estiver projetando um sistema, não pergunte apenas como evitar falhas; pergunte também como você vai lidar com elas quando ocorrerem. Afinal, um sistema verdadeiramente resiliente não é aquele que nunca falha, mas aquele que sabe como se levantar depois de cair.
+Portanto, da próxima vez que você estiver projetando um sistema, não pergunte apenas como evitar falhas; pergunte também como você vai lidar com elas quando ocorrerem. Afinal, um sistema verdadeiramente resiliente não é aquele que nunca falha, mas aquele que sabe como se recuperar depois de falhar.
