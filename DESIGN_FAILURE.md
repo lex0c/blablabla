@@ -65,3 +65,28 @@ A idempotência é crucial para garantir a consistência e a confiabilidade, esp
 Design para falhas não é apenas uma técnica; é uma mudança de mentalidade. Em vez de gastar recursos tentando evitar todas as falhas – um objetivo inatingível –, focamos em como podemos nos recuperar delas. Dessa forma, criamos sistemas mais resilientes, robustos e, em última análise, mais confiáveis.
 
 Portanto, da próxima vez que você estiver projetando um sistema, não pergunte apenas como evitar falhas; pergunte também como você vai lidar com elas quando ocorrerem. Afinal, um sistema verdadeiramente resiliente não é aquele que nunca falha, mas aquele que sabe como se recuperar depois de falhar.
+
+
+## Graceful Degradation
+
+[Graceful Degradation](https://en.wikipedia.org/wiki/Elegant_degradation) é um princípio de design que prioriza a continuidade da operação principal de um sistema, mesmo quando algumas partes ou recursos secundários falham ou não estão disponíveis. Em outras palavras, se um componente ou recurso específico de um sistema falha, o sistema como um todo continua funcionando, embora com funcionalidade reduzida.
+
+Este conceito é muitas vezes discutido no contexto de web design e desenvolvimento de software, especialmente em sistemas que devem ser robustos e resilientes. Aqui estão algumas áreas chave onde a degradação graciosa é aplicada e considerações relacionadas:
+
+- **Web Design**: Em web design, a degradação graciosa refere-se à prática de construir um site para que ele ofereça a melhor experiência possível para os usuários mais avançados, enquanto ainda oferece uma experiência funcional e acessível para aqueles com navegadores mais antigos ou limitações tecnológicas. Por exemplo, se um site usa uma tecnologia de animação avançada que só é suportada por navegadores modernos, a versão para navegadores mais antigos pode não incluir a animação, mas ainda apresentará o conteúdo principal de forma legível e utilizável.
+
+- **Software**: Se um recurso específico de um aplicativo não estiver funcionando (por exemplo, devido a um erro de API ou falta de conectividade), o aplicativo ainda pode permitir ao usuário acessar outras partes ou recursos. Um bom exemplo é um aplicativo de música que permite ouvir músicas offline quando a conectividade à internet é interrompida.
+
+### Diferença entre Graceful Degradation e [Progressive Enhancement](https://en.wikipedia.org/wiki/Progressive_enhancement)
+
+Estes dois conceitos são muitas vezes discutidos juntos, mas representam abordagens ligeiramente diferentes:
+
+- **Graceful Degradation** começa com um produto completo e sofisticado e garante que ele ainda funcione em situações menos ideais.
+  
+- **Progressive Enhancement** começa com o básico e depois adiciona melhorias e funcionalidades mais sofisticadas para ambientes que as suportam.
+
+Ambos os conceitos têm o objetivo de oferecer a melhor experiência possível ao usuário, independentemente de suas circunstâncias tecnológicas.
+
+### Conclusão
+
+A degradação graciosa é crucial porque os sistemas muitas vezes operam em ambientes imprevisíveis, onde falhas ou indisponibilidades são inevitáveis. Ao planejar com antecedência essas situações e garantir que os sistemas degradem graciosamente, os desenvolvedores e designers podem oferecer uma experiência de usuário mais consistente e evitar frustrações significativas para os usuários. Em última análise, a degradação graciosa contribui para sistemas mais robustos, resilientes e centrados no usuário.
