@@ -1,6 +1,6 @@
 # Engenharia Social
 
-No mundo digital em que vivemos, muitos de nós acreditamos que o maior risco para a nossa segurança online vem de hackers habilidosos que quebram códigos e invadem sistemas através de sofisticadas técnicas de computação. No entanto, muitas vezes, a maior vulnerabilidade não está em nossos computadores, mas em nós mesmos. É aqui que entra a engenharia social.
+No mundo digital em que vivemos, muitos de nós acreditamos que o maior risco para a nossa segurança online vem de hackers habilidosos que quebram códigos e invadem sistemas através de sofisticadas técnicas de computação. No entanto, muitas vezes, a maior vulnerabilidade não está em nossos computadores, mas em nós mesmos.
 
 ## O que é Engenharia Social?
 
