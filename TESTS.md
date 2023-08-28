@@ -105,12 +105,12 @@ Para equipes que praticam integração contínua (CI) e entrega contínua (CD), 
 ### 6. Reduz o custo total de propriedade
 Embora escrever e manter testes exija um investimento inicial, a longo prazo, essa prática pode reduzir os custos associados à manutenção, suporte e correção de bugs no software.
 
-### 7. **Melhora a moral da equipe
+### 7. Melhora a moral da equipe
 Quando os problemas são identificados e corrigidos precocemente, a equipe não precisa passar por ciclos estressantes de correções de última hora. Isso pode melhorar a satisfação e a produtividade da equipe.
 
 ## Qualidade dos Testes
 
-Quando falamos em testes de software, simplesmente alcançar uma alta percentagem de cobertura de testes não é suficiente. Os testes em si devem ser de alta qualidade e relevantes para as funcionalidades e cenários que estão testando.
+Quando falamos em [testes de software](https://en.wikipedia.org/wiki/Software_testing), simplesmente alcançar uma alta percentagem de cobertura de testes não é suficiente. Os testes em si devem ser de alta qualidade e relevantes para as funcionalidades e cenários que estão testando.
 
 ### Qualidade dos Testes
 
