@@ -94,4 +94,4 @@ Revisar commits é uma prática essencial em muitas equipes de desenvolvimento d
 
 ## Conslusão
 
-...
+Fazer bons commits não é apenas uma boa prática de codificação, mas também uma parte essencial da colaboração eficaz em equipe e da gestão de projetos de software.
