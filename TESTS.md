@@ -1,6 +1,6 @@
 # Testes de Software
 
-No mundo em constante evolução da tecnologia, garantir a qualidade do software é mais crucial do que nunca. Uma das principais estratégias que as organizações empregam para assegurar a robustez do software é o teste.
+No mundo em constante evolução da tecnologia, garantir a [qualidade do software](https://en.wikipedia.org/wiki/Software_quality) é mais crucial do que nunca. Uma das principais estratégias que as organizações empregam para assegurar a robustez do software é o teste.
 
 ## Testes Manuais
 
