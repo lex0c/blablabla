@@ -39,4 +39,4 @@ Quando esses três elementos estão alinhados, você não apenas consegue fazer 
 
 ## Conclusão
 
-Produtividade não é uma ilha; ela é interconectada com vários outros aspectos como motivação, conhecimento teórico/prático e capacidade de resolução de problemas. Ao entender como esses elementos se complementam, você estará mais bem preparado para maximizar sua eficácia em qualquer empreendimento. A produtividade, portanto, torna-se uma jornada de autoconhecimento, crescimento e habilidades práticas, em vez de ser apenas uma métrica de desempenho.
+Produtividade não é uma ilha; ela é interconectada com vários outros aspectos como motivação, conhecimento teórico/prático e capacidade de resolução de problemas. Ao entender como esses elementos se complementam, você estará mais bem preparado para maximizar sua eficácia em qualquer empreendimento. A produtividade, portanto, torna-se uma jornada de [autoconhecimento](https://en.wikipedia.org/wiki/Self-knowledge_(psychology)), crescimento e habilidades práticas, em vez de ser apenas uma métrica de desempenho.
