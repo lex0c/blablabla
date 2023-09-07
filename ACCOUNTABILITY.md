@@ -24,13 +24,17 @@ Feedback não é apenas algo a ser recebido, mas também algo a ser buscado ativ
 
 Cada linha de código é uma pequena peça de um projeto muito maior. Um desenvolvedor accountable entende onde seu trabalho se encaixa no contexto maior e como ele impacta os objetivos gerais do projeto e da empresa.
 
-## A Importância da Accountability no Desenvolvimento de Software
+## A Importância da Accountability
 
-1. **Integridade do Projeto**: Ter uma equipe de desenvolvedores accountable assegura que o projeto seja conduzido com os mais altos padrões de qualidade e ética.
+1. **Responsabilidade perante erros**: Quando você assume responsabilidade pelos seus erros e trabalha proativamente para corrigi-los, mostra que tem integridade e não busca culpar as circunstâncias. Isso constrói respeito, pois mostra maturidade e honestidade.
 
-2. **Confiança**: Demonstrando accountability, você ganha a confiança de seus colegas de equipe e superiores, o que pode levar a mais oportunidades de carreira.
+2. **Confiabilidade**: Ao ser consistentemente responsável, você se torna uma pessoa confiável. As pessoas sabem que podem contar com você para cumprir suas obrigações, entregar no prazo e manter suas promessas. Esta confiança é a base da sua [reputação](https://en.wikipedia.org/wiki/Reputation) profissional.
 
-3. **Desempenho de Equipe**: A accountability individual contribui para um ambiente de equipe mais coeso e produtivo.
+3. **Abertura à Feedback**: Mostrar que você está aberto a feedbacks e disposto a fazer ajustes com base nesses feedbacks, indica humildade e o desejo de melhorar. Isso constrói respeito entre colegas e superiores, pois mostra que você valoriza as opiniões deles.
+
+4. **Compreensão do quadro geral**: Quando você demonstra que entende como seu trabalho individual se encaixa no contexto maior e que está disposto a fazer o que for necessário para o bem do projeto ou da empresa, isso constrói confiança. Mostra que você não está apenas preocupado consigo mesmo, mas com o sucesso coletivo.
+
+5. **Comunicação clara e transparente**: Ao comunicar de forma clara e transparente, especialmente quando surgem problemas ou desafios, você mostra que não tem nada a esconder e está comprometido em resolver quaisquer problemas que surjam.
 
 ## Por que Accountability é Crucial?
 
@@ -42,6 +46,4 @@ Ser um desenvolvedor accountable é sobre ser um profissional completo: [respons
 
 Enquanto habilidades técnicas são essenciais para qualquer desenvolvedor, a accountability é o que realmente define um grande profissional. É o compromisso de garantir que cada tarefa seja realizada da melhor maneira possível, reconhecendo e aprendendo com os erros e, acima de tudo, garantindo que o código produzido seja do mais alto padrão. 
 
-
 Adotar uma cultura de accountability não é apenas benéfico para você como profissional, mas também é vital para o sucesso dos projetos e da organização como um todo.
-
