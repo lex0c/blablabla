@@ -12,19 +12,19 @@ A computação é uma área vasta e em constante evolução. Para aqueles que de
 
 - **Estudo Misturado:** Em vez de se concentrar em um único tópico por muito tempo, alterne entre diferentes tópicos. Isso pode ajudar a melhorar a aprendizagem e a retenção.
 
-6. **Teste-se:** Testar a si mesmo regularmente sobre o que você aprendeu pode reforçar sua memória e ajudar na retenção a longo prazo.
+- **Teste-se:** Testar a si mesmo regularmente sobre o que você aprendeu pode reforçar sua memória e ajudar na retenção a longo prazo.
 
-7. **Associação:** Relacione novas informações a algo que você já sabe. Criar conexões mentais pode ajudar na retenção de informações.
+- **Associação:** Relacione novas informações a algo que você já sabe. Criar conexões mentais pode ajudar na retenção de informações.
 
-8. **Visualização:** Crie imagens mentais ou utilize diagramas e infográficos para ajudar a entender e lembrar de informações.
+- **Visualização:** Crie imagens mentais ou utilize diagramas e infográficos para ajudar a entender e lembrar de informações.
 
-9. **Faça Pausas:** Descansar é essencial para a retenção. Durante o descanso, o cérebro consolida o que aprendeu.
+- **Faça Pausas:** Descansar é essencial para a retenção. Durante o descanso, o cérebro consolida o que aprendeu.
 
-10. **Evite Multitarefas:** Concentre-se em uma tarefa de cada vez. A multitarefa pode diminuir a eficácia da aprendizagem.
+- **Evite Multitarefas:** Concentre-se em uma tarefa de cada vez. A multitarefa pode diminuir a eficácia da aprendizagem.
 
-11. **Varie os Formatos de Estudo:** Use livros, vídeos, podcasts, exercícios práticos e outras formas de material de estudo.
+- **Varie os Formatos de Estudo:** Use livros, vídeos, podcasts, exercícios práticos e outras formas de material de estudo.
 
-12. **Faça Anotações:** Estudos mostraram que fazer anotações pode ajudar na retenção de informações.
+- **Faça Anotações:** Estudos mostraram que fazer anotações pode ajudar na retenção de informações.
 
 ## Criar Conexões Mentais
 
@@ -109,7 +109,7 @@ A técnica é composta por quatro etapas principais:
 3. Identificar lacunas no conhecimento e voltar ao estudo.
 4. Revisar e simplificar ainda mais a explicação.
 
-## Como aplicar essa técnica na Computação?
+### Como aplicar essa técnica na Computação?
 
 **1. Escolha um Conceito de Computação**
 
