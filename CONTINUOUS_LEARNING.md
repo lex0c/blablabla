@@ -8,7 +8,7 @@ A computação é uma área vasta e em constante evolução. Para aqueles que de
 
 - **Ensinar outros:** Ao [ensinar](https://en.wikipedia.org/wiki/Learning_by_teaching) alguém, você reforça sua própria compreensão e identifica lacunas no seu conhecimento.
 
-- **Técnica de [Pomodoro](https://en.wikipedia.org/wiki/Pomodoro_Technique):** Trabalhe intensamente por 25 minutos e depois faça uma pausa de 5 minutos. Repita. Isso pode ajudar a manter o foco e evitar a fadiga.
+- **[Técnica de Pomodoro](https://en.wikipedia.org/wiki/Pomodoro_Technique):** Trabalhe intensamente por 25 minutos e depois faça uma pausa de 5 minutos. Repita. Isso pode ajudar a manter o foco e evitar a fadiga.
 
 - **Estudo interleaved (ou misturado):** Em vez de se concentrar em um único tópico por muito tempo, alterne entre diferentes tópicos. Isso pode ajudar a melhorar a aprendizagem e a retenção.
 
@@ -133,6 +133,6 @@ Depois de preencher as lacunas, ensine o conceito novamente, desta vez de forma 
 
 ## Conclusão
 
-Cada pessoa é única, então o que funciona melhor para um pode não funcionar tão bem para outro. É importante experimentar diferentes técnicas e descobrir o que é mais eficaz para você.
-
 Enquanto todos nós temos a capacidade inata de aprender, a eficiência e eficácia com que adquirimos e retemos informações podem variar com base em nossas estratégias, práticas e mentalidades. Assim como qualquer habilidade, aprender pode ser aprimorado. 
+
+Cada pessoa é única, então o que funciona melhor para um pode não funcionar tão bem para outro. É importante experimentar diferentes técnicas e descobrir o que é mais eficaz para você.
