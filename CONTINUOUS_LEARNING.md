@@ -133,6 +133,6 @@ Depois de preencher as lacunas, ensine o conceito novamente, desta vez de forma 
 
 ## Conclusão
 
-Enquanto todos nós temos a capacidade inata de aprender, a eficiência e eficácia com que adquirimos e retemos informações podem variar com base em nossas estratégias, práticas e mentalidades. Assim como qualquer habilidade, aprender pode ser aprimorado. 
+Enquanto todos nós temos a capacidade [inata](https://en.wikipedia.org/wiki/Innatism) de aprender, a eficiência e eficácia com que adquirimos e retemos informações podem variar com base em nossas estratégias, práticas e mentalidades. Assim como qualquer habilidade, aprender pode ser aprimorado. 
 
 Cada pessoa é única, então o que funciona melhor para um pode não funcionar tão bem para outro. É importante experimentar diferentes técnicas e descobrir o que é mais eficaz para você.
