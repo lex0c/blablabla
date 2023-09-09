@@ -26,7 +26,7 @@ A computação é uma área vasta e em constante evolução. Para aqueles que de
 
 - **Faça anotações:** Estudos mostraram que fazer anotações pode ajudar na retenção de informações.
 
-## Criar Conexões Mentais
+## Conexões Mentais
 
 Criar conexões mentais pode ajudar significativamente na retenção de informações. Esse processo de relacionar novas informações com o que já sabemos é muitas vezes referido como "ancoragem" no campo da psicologia cognitiva. Aqui estão algumas razões pelas quais as conexões mentais são benéficas para a aprendizagem:
 
@@ -44,7 +44,7 @@ Criar conexões mentais pode ajudar significativamente na retenção de informa�
 
 Portanto, cultivar o hábito de fazer conexões mentais e relacionar novas informações com o que já se sabe pode ser uma ferramenta valiosa para melhorar a retenção e compreensão de informações.
 
-## Fazer Anotações
+## Anotações
 
 Vários estudos mostraram que [fazer anotações](https://en.wikipedia.org/wiki/Note-taking) pode ajudar na retenção de informações. As anotações são uma forma ativa de processamento de informações, o que pode aumentar a compreensão e a memória. Aqui estão algumas razões e descobertas associadas ao benefício de fazer anotações:
 
@@ -100,7 +100,9 @@ O desenvolvimento de habilidades metacognitivas permite que os indivíduos:
 
 Desenvolver habilidades metacognitivas pode melhorar significativamente a capacidade de um estudante de aprender de forma eficaz e autônoma. Essas habilidades são transferíveis e benéficas não apenas no contexto educacional, mas em muitos aspectos da vida diária, ajudando as pessoas a abordar problemas e tarefas de maneira mais informada e estratégica.
 
-## Aprendendo Ensinando
+## Aprender Ensinando
+
+"Aprender ensinando" é o princípio de que ensinar um tópico a outros pode ajudar a solidificar e melhorar a compreensão do [mentor](https://en.wikipedia.org/wiki/Mentorship) sobre esse tópico. A ideia é que o processo de ensino obriga o mentor a organizar e processar a informação de uma maneira que favoreça a aprendizagem.
 
 A técnica é composta por quatro etapas principais:
 
