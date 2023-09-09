@@ -1,6 +1,6 @@
 # Aprendizado Contínuo
 
-A computação é uma área vasta e em constante evolução. Para aqueles que desejam não apenas acompanhar, mas também dominar conceitos em constante mudança, é fundamental adotar técnicas de aprendizado eficazes. A aprendizagem envolve uma combinação de técnicas, estratégias e hábitos que, quando aplicados de forma consistente, podem melhorar significativamente a capacidade de reter e aplicar informações. Aqui estão algumas técnicas de aprendizado eficazes:
+A computação é uma área vasta e em constante evolução. Para aqueles que desejam não apenas acompanhar, mas também dominar conceitos em constante mudança, é fundamental adotar [técnicas de aprendizado](https://en.wikipedia.org/wiki/Study_skills) eficazes. A aprendizagem envolve uma combinação de técnicas, estratégias e hábitos que, quando aplicados de forma consistente, podem melhorar significativamente a capacidade de reter e aplicar informações. Aqui estão algumas técnicas de aprendizado eficazes:
 
 - **Técnica de Estudo Espaçado ([Spacing Effect](https://en.wikipedia.org/wiki/Spacing_effect)):** Estudar um pouco a cada dia, em vez de fazer uma longa sessão de estudos. Isso ajuda a reter informações a longo prazo.
 
@@ -46,7 +46,7 @@ Portanto, cultivar o hábito de fazer conexões mentais e relacionar novas infor
 
 ## Fazer Anotações
 
-Vários estudos mostraram que fazer anotações pode ajudar na retenção de informações. As anotações são uma forma ativa de processamento de informações, o que pode aumentar a compreensão e a memória. Aqui estão algumas razões e descobertas associadas ao benefício de fazer anotações:
+Vários estudos mostraram que [fazer anotações](https://en.wikipedia.org/wiki/Note-taking) pode ajudar na retenção de informações. As anotações são uma forma ativa de processamento de informações, o que pode aumentar a compreensão e a memória. Aqui estão algumas razões e descobertas associadas ao benefício de fazer anotações:
 
 1. **Processamento Profundo:** Quando você faz anotações, geralmente precisa processar a informação e reformulá-la em suas próprias palavras. Esse ato de reformulação envolve um nível mais profundo de processamento, o que, de acordo com a teoria do nível de processamento, pode levar a uma melhor retenção.
 
@@ -56,7 +56,7 @@ Vários estudos mostraram que fazer anotações pode ajudar na retenção de inf
 
 4. **Maior Engajamento:** Fazer anotações pode levar a um engajamento mais ativo com o material, promovendo a reflexão e a interação com o conteúdo.
 
-5. **Anotações à Mão vs. Digitais:** Um estudo publicado por Pam Mueller e Daniel Oppenheimer em 2014 descobriu que estudantes que faziam anotações à mão tendiam a ter um desempenho melhor em medidas de retenção e compreensão do que aqueles que digitavam suas anotações. Uma possível explicação é que fazer anotações à mão pode ser mais lento, o que força os estudantes a serem mais seletivos e a condensar as informações, levando a um processamento mais profundo.
+5. **Anotações à Mão vs. Digitais:** Um [estudo publicado por Pam Mueller e Daniel Oppenheimer em 2014](https://journals.sagepub.com/doi/abs/10.1177/0956797614524581) descobriu que estudantes que faziam anotações à mão tendiam a ter um desempenho melhor em medidas de retenção e compreensão do que aqueles que digitavam suas anotações. Uma possível explicação é que fazer anotações à mão pode ser mais lento, o que força os estudantes a serem mais seletivos e a condensar as informações, levando a um processamento mais profundo.
 
 6. **Organização e Estruturação:** Fazer anotações permite que os estudantes organizem as informações de uma maneira que faça sentido para eles. Isso pode ajudar na compreensão e na identificação das principais ideias e detalhes.
 
