@@ -1,6 +1,8 @@
 # Aprendizado Contínuo
 
-A computação é uma área vasta e em constante evolução. Para aqueles que desejam não apenas acompanhar, mas também dominar conceitos em constante mudança, é fundamental adotar [técnicas de aprendizado](https://en.wikipedia.org/wiki/Study_skills) eficazes. A aprendizagem envolve uma combinação de técnicas, estratégias e hábitos que, quando aplicados de forma consistente, podem melhorar significativamente a capacidade de reter e aplicar informações. Aqui estão algumas técnicas de aprendizado eficazes:
+O aprendizado contínuo refere-se ao processo de adquirir novos conhecimentos ou habilidades ao longo da vida, independentemente de formação formal ou ambientes educacionais. Esse tipo de aprendizado é muitas vezes autodirigido e motivado pela curiosidade pessoal, necessidade profissional, ou o desejo de se adaptar a mudanças na sociedade ou no ambiente de trabalho.
+
+A aprendizagem envolve uma combinação de [técnicas](https://en.wikipedia.org/wiki/Study_skills), estratégias e hábitos que, quando aplicados de forma consistente, podem melhorar significativamente a capacidade de reter e aplicar informações. Aqui estão algumas técnicas de aprendizado eficazes:
 
 - **Estudo espaçado ([Spacing Effect](https://en.wikipedia.org/wiki/Spacing_effect)):** Estudar um pouco a cada dia, em vez de fazer uma longa sessão de estudos. Isso ajuda a reter informações a longo prazo.
 
