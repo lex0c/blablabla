@@ -84,6 +84,22 @@ A prática de recuperação é uma técnica poderosa para reforçar a memória p
 
 Dado o poder da prática de recuperação, muitos educadores incentivam os estudantes a incorporar a autoavaliação regular em seus hábitos de estudo, usando flashcards, fazendo testes práticos, ou simplesmente fechando o livro e tentando resumir o que aprenderam sem olhar.
 
+## Metacognição
+
+A [metacognição](https://en.wikipedia.org/wiki/Metacognition) refere-se ao "pensamento sobre o pensamento" ou à consciência e compreensão de nossos próprios processos cognitivos. Em outras palavras, é a capacidade de refletir sobre como você aprende, entende, e se lembra das informações. As habilidades metacognitivas são cruciais para a aprendizagem eficaz e envolvem a regulação e o monitoramento ativo da cognição.
+
+O desenvolvimento de habilidades metacognitivas permite que os indivíduos:
+
+1. **Autoavaliem:** Reconhecer quais técnicas e abordagens de estudo funcionam melhor para eles e quais não funcionam.
+  
+2. **Planejem:** Decidir qual abordagem usar ao abordar uma tarefa específica.
+
+3. **Monitorem:** Acompanhar o progresso em relação ao objetivo enquanto estão trabalhando em uma tarefa.
+
+4. **Ajustem:** Fazer alterações nas estratégias conforme necessário.
+
+Desenvolver habilidades metacognitivas pode melhorar significativamente a capacidade de um estudante de aprender de forma eficaz e autônoma. Essas habilidades são transferíveis e benéficas não apenas no contexto educacional, mas em muitos aspectos da vida diária, ajudando as pessoas a abordar problemas e tarefas de maneira mais informada e estratégica.
+
 ## Aprendendo Ensinando
 
 A técnica é composta por quatro etapas principais:
@@ -114,10 +130,6 @@ Ao ensinar e ao praticar, você perceberá pontos que não entende completamente
 **5. Revisar e Simplificar**
 
 Depois de preencher as lacunas, ensine o conceito novamente, desta vez de forma ainda mais simplificada. E, no caso de codificação, tente otimizar ou limpar seu código.
-
-### Benefícios na Comunidade de Desenvolvedores
-
-A técnica não beneficia apenas o aprendizado individual. Ao compartilhar seu conhecimento simplificado, seja em blogs, vídeos ou conferências, você está contribuindo para a educação da comunidade. Ensinar é uma excelente maneira de consolidar conhecimento.
 
 ## Conclusão
 
