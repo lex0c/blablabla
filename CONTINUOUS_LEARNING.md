@@ -124,6 +124,24 @@ Aqui estão alguns aspectos chave deste conceito:
 
 Para educadores e treinadores, o desafio é criar ambientes de aprendizado que se situem nesta "borda do caos". Isso pode significar fornecer suficiente estrutura e apoio para que os aprendizes não se sintam perdidos, mas também permitindo suficiente liberdade e desafio para que eles possam explorar, experimentar e crescer.
 
+## Sei que nada sei
+
+A citação "[Sei que nada sei](https://en.wikipedia.org/wiki/I_know_that_I_know_nothing)" é uma maneira de expressar a ideia de que a verdadeira compreensão ou conhecimento de um assunto é muitas vezes acompanhada por uma consciência de sua própria ignorância. Em outras palavras, quanto mais aprendemos sobre um tópico, mais percebemos o quanto ainda não sabemos.
+
+Essa ideia pode ser relacionada a várias observações e conceitos:
+
+1. **[Efeito Dunning-Kruger](https://en.wikipedia.org/wiki/Dunning%E2%80%93Kruger_effect):** Este é um fenômeno psicológico onde pessoas que possuem pouco conhecimento ou habilidade em uma área superestimam suas capacidades, enquanto aquelas que são mais competentes muitas vezes subestimam sua habilidade. À medida que alguém adquire mais conhecimento em uma área, frequentemente torna-se mais ciente de suas próprias limitações e da vastidão do que não sabe.
+
+2. **Humildade intelectual:** Reconhecer que não se sabe tudo é um passo fundamental para manter a mente aberta e estar disposto a aprender mais.
+
+3. **Complexidade dos assuntos:** Muitos assuntos, especialmente em campos como computação, física, filosofia, e biologia, são incrivelmente complexos. Assim que alguém começa a aprofundar-se, percebe que há camadas e camadas de complexidade que não eram inicialmente aparentes.
+
+4. **Socrático "Sei que nada sei":** Esta citação é reminiscente da famosa observação atribuída a Sócrates: "Tudo que eu sei é que não sei nada". Isso reflete a ideia de que reconhecer a própria ignorância é um sinal de sabedoria.
+
+5. **Profundidade vs. largura:** Às vezes, quando as pessoas têm uma compreensão superficial de um tópico (largura), podem sentir que o entendem completamente. No entanto, ao mergulhar mais profundamente (profundidade), começam a perceber as nuances e complexidades que anteriormente não estavam aparentes.
+
+Em essência, a citação destaca a importância da [autoconsciência](https://en.wikipedia.org/wiki/Self-awareness) e da humildade no processo de aprendizado e no reconhecimento das profundezas do conhecimento.
+
 ## Aprender Ensinando
 
 "Aprender ensinando" é o princípio de que ensinar um tópico a outros pode ajudar a solidificar e melhorar a compreensão do [mentor](https://en.wikipedia.org/wiki/Mentorship) sobre esse tópico. A ideia é que o processo de ensino obriga o mentor a organizar e processar a informação de uma maneira que favoreça a aprendizagem.
