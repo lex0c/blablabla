@@ -63,10 +63,11 @@ A evolução da IA tem implicações significativas em quase todos os setores, d
 1. **Definição**: É um subconjunto do Machine Learning que usa redes neurais com muitas camadas (por isso "profundo") para analisar vários fatores de dados. É especialmente útil para grandes conjuntos de dados e tarefas complexas como reconhecimento de imagem e tradução de linguagem.
 2. **Redes neurais**: Inspiradas na estrutura do cérebro humano, são compostas por neurônios artificiais organizados em camadas. As camadas entre a entrada e a saída são chamadas de camadas ocultas.
 3. **Tipos de redes neurais**:
+   - **Redes neurais densamente conectadas (Feedforward)**: São as redes neurais tradicionais onde os neurônios entre duas camadas consecutivas estão totalmente conectados, mas não há conexões dentro de uma camada ou para trás.
    - **Redes neurais convolucionais (CNNs)**: Especialmente boas para tarefas de visão computacional.
    - **Redes neurais recorrentes (RNNs)**: Adequadas para sequências de dados, como séries temporais ou texto.
    - **Redes generativas adversariais (GANs)**: Usadas para gerar novos dados que se assemelham a um conjunto de dados de entrada.
-4. **Vantagem**: A capacidade de processar e aprender a partir de grandes volumes de dados, identificando [padrões complexos](https://en.wikipedia.org/wiki/Complex_system).
+5. **Vantagem**: A capacidade de processar e aprender a partir de grandes volumes de dados, identificando [padrões complexos](https://en.wikipedia.org/wiki/Complex_system).
 
 #### Quando usar Deep Learning (DL)
 
@@ -103,10 +104,26 @@ Ambos os campos continuam a evoluir, e a linha entre eles às vezes pode ser tê
 
 O Deep Learning, em particular, mostrou-se eficaz na detecção e modelagem de padrões complexos, especialmente em áreas como visão computacional e processamento de linguagem natural, devido à sua capacidade de criar representações hierárquicas e abstrações dos dados. No entanto, a identificação de padrões complexos muitas vezes requer uma combinação de técnicas, domínio do conhecimento e engenharia de recursos.
 
+## Neurônio
 
+Os [neurônios artificiais](https://en.wikipedia.org/wiki/Artificial_neuron) são unidades básicas de computação em redes neurais artificiais. Eles são uma abstração matemática e funcional inspirada nos [neurônios biológicos](https://en.wikipedia.org/wiki/Neuron), mas não replicam a complexidade destes em detalhes. A ideia é que, assim como um neurônio biológico recebe sinais de outros neurônios e, dependendo da soma desses sinais, transmite um sinal para neurônios subsequentes, um neurônio artificial faz algo similar com dados numéricos.
 
+A estrutura e o funcionamento de um neurônio artificial podem ser descritos da seguinte forma:
 
+1. **Entradas:** O neurônio artificial recebe um conjunto de valores numéricos, que são análogos aos sinais elétricos que um neurônio biológico recebe em seus dendritos. Cada entrada tem um peso associado que determina sua importância relativa.
 
+2. **Combinação linear:** As entradas e seus pesos associados são multiplicados e somados juntamente com um termo de viés (bias).
+
+3. **Função de ativação:** A combinação linear é então passada por uma função de ativação que determina a saída do neurônio. Essa função pode assumir diferentes formas, sendo algumas comuns:
+   - **[Sigmoid](https://en.wikipedia.org/wiki/Sigmoid_function):** Transforma a soma em um valor entre 0 e 1.
+   - **[Tanh (tangente hiperbólica)](https://en.wikipedia.org/wiki/Hyperbolic_functions):** Transforma a soma em um valor entre -1 e 1.
+   - **[ReLU (Rectified Linear Unit)](https://en.wikipedia.org/wiki/Rectifier_(neural_networks)):** Se a soma for negativa, a saída é 0; caso contrário, a saída é a própria soma.
+
+4. **Saída:** O valor resultante da função de ativação é a saída do neurônio artificial e pode ser transmitido para neurônios subsequentes em uma rede neural.
+
+5. **Aprendizado:** Através do treinamento, os pesos e o viés do neurônio são ajustados para minimizar o erro na saída da rede em relação a um conjunto de dados de treinamento. Isso é geralmente feito usando um algoritmo de otimização, como a retropropagação ([backpropagation](https://en.wikipedia.org/wiki/Backpropagation)), junto com métodos como o [gradiente descendente](https://en.wikipedia.org/wiki/Gradient_descent).
+
+Os neurônios artificiais são a base das redes neurais artificiais. Ao conectar vários destes neurônios em camadas e redes, é possível construir modelos que podem aprender e fazer previsões a partir de dados.
 
 
 
