@@ -63,7 +63,7 @@ A evolução da IA tem implicações significativas em quase todos os setores, d
 1. **Definição**: É um subconjunto do Machine Learning que usa redes neurais com muitas camadas (por isso "profundo") para analisar vários fatores de dados. É especialmente útil para grandes conjuntos de dados e tarefas complexas como reconhecimento de imagem e tradução de linguagem.
 2. **Redes neurais**: Inspiradas na estrutura do cérebro humano, são compostas por neurônios artificiais organizados em camadas. As camadas entre a entrada e a saída são chamadas de camadas ocultas.
 3. **Tipos de redes neurais**:
-   - **Redes neurais densamente conectadas (Feedforward)**: São as redes neurais tradicionais onde os neurônios entre duas camadas consecutivas estão totalmente conectados, mas não há conexões dentro de uma camada ou para trás.
+   - **Redes neurais densamente conectadas ([Feedforward](https://en.wikipedia.org/wiki/Feedforward_neural_network))**: São as redes neurais tradicionais onde os neurônios entre duas camadas consecutivas estão totalmente conectados, mas não há conexões dentro de uma camada ou para trás.
    - **Redes neurais convolucionais (CNNs)**: Especialmente boas para tarefas de visão computacional.
    - **Redes neurais recorrentes (RNNs)**: Adequadas para sequências de dados, como séries temporais ou texto.
    - **Redes generativas adversariais (GANs)**: Usadas para gerar novos dados que se assemelham a um conjunto de dados de entrada.
@@ -124,6 +124,68 @@ A estrutura e o funcionamento de um neurônio artificial podem ser descritos da 
 5. **Aprendizado:** Através do treinamento, os pesos e o viés do neurônio são ajustados para minimizar o erro na saída da rede em relação a um conjunto de dados de treinamento. Isso é geralmente feito usando um algoritmo de otimização, como a retropropagação ([backpropagation](https://en.wikipedia.org/wiki/Backpropagation)), junto com métodos como o [gradiente descendente](https://en.wikipedia.org/wiki/Gradient_descent).
 
 Os neurônios artificiais são a base das redes neurais artificiais. Ao conectar vários destes neurônios em camadas e redes, é possível construir modelos que podem aprender e fazer previsões a partir de dados.
+
+As funções de ativação não-lineares, permitem que a rede neural capture padrões complexos e aprenda com eles. A [não-linearidade](https://en.wikipedia.org/wiki/Nonlinearity_(disambiguation)) torna possível que a rede neural resolva problemas que não são linearmente separáveis, como reconhecimento de padrões em imagens e processamento de linguagem natural.
+
+### Pesos (Weights) e Vieses (Bias) 
+
+Em redes neurais, os pesos (weights) e os vieses (bias) são parâmetros fundamentais que a rede ajusta durante o treinamento para aprender e fazer previsões precisas. Vamos detalhar cada um:
+
+1. **Pesos (Weights)**:
+   - **Função**: Os pesos determinam a importância relativa ou o impacto de uma entrada específica para o neurônio.
+   - **Inicialização**: Geralmente, os pesos são inicializados com pequenos valores aleatórios. Isso é feito para quebrar a simetria e permitir que diferentes neurônios aprendam diferentes características.
+   - **Ajuste**: Durante o treinamento, os pesos são ajustados usando algoritmos como o backpropagation em conjunto com otimizadores, como o Gradient Descent. O objetivo é minimizar o erro entre as previsões da rede e os verdadeiros valores alvo.
+   
+2. **Vieses (Bias)**:
+   - **Função**: O viés permite ajustar a saída do neurônio junto com a combinação linear de entradas e pesos. Matematicamente, ele serve como um termo constante que não depende das entradas. O viés ajuda a rede a ser mais flexível, permitindo que a saída seja deslocada para a esquerda ou para a direita.
+   - **Inicialização**: Assim como os pesos, os vieses podem ser inicializados com pequenos valores, mas às vezes também são inicializados com zeros.
+   - **Ajuste**: Durante o treinamento, os vieses são ajustados juntamente com os pesos para minimizar o erro.
+
+### Como os valores são ajustados durante o treinamento?
+
+O ajuste dos pesos e vieses durante o treinamento é um processo iterativo que visa minimizar o erro entre as previsões do modelo e os verdadeiros valores alvo. O processo geralmente envolve os seguintes passos:
+
+1. **Forward Propagation (Propagação para Frente)**:
+   - A entrada é passada pela rede para produzir uma previsão.
+   - O erro (ou perda) entre a previsão e o valor real é calculado usando uma função de perda, como [erro quadrático médio](https://en.wikipedia.org/wiki/Mean_squared_error) para regressão ou [entropia cruzada](https://en.wikipedia.org/wiki/Cross-entropy) para classificação.
+
+2. **Backward Propagation (Retropropagação)**:
+   - O erro é propagado de volta pela rede, de trás para frente. O objetivo é calcular o gradiente da função de perda em relação a cada peso e viés.
+   - O gradiente indica a direção e a magnitude do ajuste necessário para cada peso e viés para minimizar o erro.
+
+3. **Atualização dos pesos e vieses**:
+   - Os pesos e vieses são ajustados na direção oposta ao gradiente para minimizar o erro. A magnitude da atualização é determinada por uma taxa de aprendizado, que é um hiperparâmetro crucial no treinamento de redes neurais.
+   - Existem diferentes otimizadores, como Gradient Descent, Stochastic Gradient Descent (SGD), Adam, RMSprop, entre outros, que determinam como os pesos e vieses são atualizados. Esses otimizadores podem incluir aspectos como [momentum](https://en.wikipedia.org/wiki/Momentum) ou ajuste adaptativo da taxa de aprendizado para acelerar o treinamento e melhorar a convergência.
+
+4. **Iteração**:
+   - Estes passos são repetidos para múltiplos lotes (batches) de dados, muitas vezes, até que o modelo convirja, ou seja, até que o erro nos dados de treinamento não diminua significativamente ou comece a aumentar nos dados de validação (indicando possível overfitting).
+
+Ao longo do treinamento, os pesos e vieses da rede neural são ajustados de forma iterativa para modelar as relações nos dados e fazer previsões precisas.
+
+## Epoch
+
+"Epoch" é um termo frequentemente usado no contexto do treinamento de modelos de machine learning, especialmente redes neurais. Uma epoch representa uma passagem completa pelo conjunto de treinamento. Aqui está uma explicação mais detalhada:
+
+1. **Epoch**:
+   - Em uma única epoch, o modelo processa cada exemplo do conjunto de dados de treinamento uma vez.
+   - A ordem em que os exemplos são apresentados ao modelo pode variar entre epochs.
+   - No final de cada epoch, os erros são tipicamente agregados para produzir uma média de erro para o conjunto de treinamento inteiro.
+   - A precisão do modelo em um conjunto de validação também pode ser avaliada após cada epoch para monitorar o desempenho do modelo em dados não vistos e detectar sinais de overfitting.
+
+2. **Por que usar múltiplas epochs?**:
+   - Treinar um modelo por várias epochs permite que o modelo refine seus pesos e vieses através de repetidas passagens pelo conjunto de treinamento. 
+   - Isso geralmente resulta em uma redução do erro de treinamento e uma melhoria na capacidade do modelo de generalizar para novos dados.
+   - No entanto, treinar por muitas epochs pode levar ao overfitting, onde o modelo se ajusta demais ao conjunto de treinamento e perde a capacidade de generalizar bem para novos dados. É por isso que é importante monitorar a performance do modelo em um conjunto de validação separado.
+
+3. **Batch, Mini-batch, e Stochastic Gradient Descent**:
+   - Durante cada epoch, o modelo não precisa processar todo o conjunto de treinamento de uma vez. Pode-se dividir o conjunto de treinamento em "batches" ou "mini-batches".
+   - Em Stochastic Gradient Descent (SGD), cada "batch" contém apenas um exemplo. Em Batch Gradient Descent, cada "batch" contém todo o conjunto de treinamento. Mini-batch Gradient Descent é um meio termo, onde cada "batch" contém mais de um exemplo, mas não todo o conjunto.
+   - O uso de mini-batches é comum em treinamento de redes neurais, pois pode aproveitar eficientemente o hardware de computação, como GPUs, e também introduzir uma certa quantidade de ruído que pode ajudar a prevenir o overfitting.
+
+Em resumo, uma epoch é uma passagem completa pelo conjunto de treinamento e decidir o número de epochs é uma parte importante do processo de treinamento de um modelo.
+
+
+
 
 
 
