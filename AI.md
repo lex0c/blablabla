@@ -487,6 +487,28 @@ Aqui está uma quebra rápida dos tipos comuns de n-gramas:
 
 Embora os n-gramas sejam poderosos, eles também têm desvantagens. Por exemplo, à medida que \( n \) aumenta, o número de possíveis n-gramas cresce exponencialmente, o que pode levar a uma explosão dimensional e exigir mais dados para treinar modelos com eficácia. Além disso, eles não capturam semânticas mais profundas ou relações de longo alcance entre palavras no texto. Por essas razões, outras técnicas, como word embeddings e modelos baseados em atenção (como Transformers), foram desenvolvidas para complementar ou substituir abordagens baseadas em n-gramas em algumas aplicações de NLP.
 
+## Top-p / Top-k
+
+"Top-p" e "Top-k" são estratégias utilizadas principalmente para amostragem de saídas em modelos de linguagem, como os modelos baseados na arquitetura Transformer. Elas ajudam a gerar sequências mais diversificadas e coerentes ao restringir as possíveis próximas palavras selecionadas durante a geração de texto. Vamos detalhar cada uma:
+
+### Top-k Sampling
+
+Na amostragem "Top-k", o modelo considera apenas as \(k\) palavras/token mais prováveis como candidatas para a próxima palavra na sequência. Por exemplo, se \(k = 10\), o modelo selecionará a próxima palavra apenas entre as 10 palavras mais prováveis de acordo com sua distribuição de probabilidade.
+
+### Top-p Sampling
+
+Na amostragem "Top-p", em vez de considerar um número fixo de palavras, o modelo considera o menor grupo de palavras cujas probabilidades acumuladas são pelo menos \(p\). Por exemplo, se \(p = 0,95\), o modelo continuará adicionando as palavras mais prováveis à lista de candidatas até que a soma de suas probabilidades alcance ou ultrapasse 0,95.
+
+Ambas as estratégias têm seus méritos:
+
+- **Top-k** oferece um controle mais direto sobre a diversidade. Um \(k\) pequeno tende a restringir muito as saídas, enquanto um \(k\) grande torna a geração mais diversificada, mas potencialmente mais errática.
+  
+- **Top-p** tende a adaptar-se melhor ao contexto, uma vez que permite que o modelo considere mais palavras em contextos incertos e menos palavras em contextos claros.
+
+Ambas as técnicas, Top-k e Top-p, são usadas para melhorar a qualidade e a diversidade da geração de texto em relação à abordagem padrão, que envolve simplesmente escolher a próxima palavra mais provável ou amostrar de toda a distribuição de vocabulário.
+
+No mundo real, muitas vezes essas técnicas são combinadas ou ajustadas com base na aplicação específica para otimizar a qualidade da geração de texto.
+
 
 
 ...
