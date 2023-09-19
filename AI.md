@@ -509,6 +509,48 @@ Ambas as técnicas, Top-k e Top-p, são usadas para melhorar a qualidade e a div
 
 No mundo real, muitas vezes essas técnicas são combinadas ou ajustadas com base na aplicação específica para otimizar a qualidade da geração de texto.
 
+## Hiperparâmetros
+
+[Hiperparâmetros](https://en.wikipedia.org/wiki/Hyperparameter_(machine_learning)) são parâmetros de um modelo de aprendizado de máquina que não são aprendidos a partir dos dados durante o treinamento, mas são definidos previamente. Eles são configurados antes do início do treinamento e influenciam o comportamento e a performance do modelo. Ajustar hiperparâmetros é uma parte essencial do processo de construção de um modelo de aprendizado de máquina, uma vez que escolhas inadequadas podem resultar em treinamento lento ou em modelos que não performam bem.
+
+Aqui estão alguns dos hiperparâmetros mais comuns em diferentes tipos de modelos e técnicas de aprendizado de máquina:
+
+### Redes Neurais
+
+1. **Taxa de aprendizado (Learning Rate):** Determina o tamanho dos passos durante a otimização. Se for muito alta, o treinamento pode não convergir; se for muito baixa, o treinamento pode ser muito lento.
+  
+2. **Batch size:** Número de exemplos de treinamento usados em cada atualização dos pesos.
+  
+3. **Número de epochs:** Número de vezes que o modelo é treinado no conjunto de dados completo.
+  
+4. **Arquitetura da rede:** Como o número de camadas e o número de neurônios em cada camada.
+  
+5. **Função de ativação:** Tipo de função de ativação utilizada, como ReLU, tanh, sigmoid, etc.
+  
+6. **Dropout:** Fração de neurônios que são "desligados" em cada etapa do treinamento para prevenir o sobreajuste.
+
+### Máquinas de Vetores de Suporte (SVMs)
+
+1. **C:** Parâmetro de regularização. Um C pequeno fará com que a margem de decisão seja mais ampla, mas poderá classificar incorretamente mais pontos. Um C alto buscará classificar todos os exemplos corretamente, possivelmente à custa de criar uma margem mais estreita.
+
+2. **Kernel:** Tipo de função do kernel (linear, polinomial, RBF, etc.).
+
+### Algoritmos de Árvore
+
+1. **Profundidade máxima:** Profundidade máxima da árvore.
+  
+2. **Número mínimo de folhas:** Número mínimo de pontos de dados permitidos em uma folha da árvore.
+
+3. **Número mínimo para split:** Número mínimo de pontos de dados necessários para criar um novo ramo na árvore.
+
+### Algoritmos de Ensemble
+
+1. **Número de estimadores:** Número de árvores em métodos como [Random Forest](https://en.wikipedia.org/wiki/Random_forest) ou [Gradient Boosting](https://en.wikipedia.org/wiki/Gradient_boosting).
+
+2. **Taxa de aprendizado:** Em algoritmos de boosting, determina o peso de cada árvore na decisão final.
+
+A escolha dos hiperparâmetros corretos é frequentemente realizada por meio de experimentação, usando técnicas como busca em grade (grid search) ou busca aleatória (random search), e validação cruzada para avaliar a performance. Atualmente, também existem abordagens mais avançadas, como [otimização bayesiana](https://en.wikipedia.org/wiki/Bayesian_optimization), para selecionar hiperparâmetros de forma mais eficiente.
+
 
 
 ...
