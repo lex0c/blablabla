@@ -391,6 +391,102 @@ Em resumo, enquanto a não-linearidade é crucial para a capacidade da rede de c
 
 Em muitas bibliotecas de aprendizado de máquina, como TensorFlow e Keras, há ferramentas e callbacks integrados para implementar facilmente o "early stopping".
 
+## Propriedades dos Dados
+
+"Propriedades dos dados" refere-se às características inerentes e padrões observados em um conjunto de dados. Estas propriedades podem influenciar a escolha da técnica de pré-processamento, a seleção do modelo e até a interpretação dos resultados. Algumas propriedades comuns a serem consideradas incluem:
+
+1. **Distribuição**: Refere-se à forma como os valores estão distribuídos. Pode ser normal (ou gaussiana), uniforme, binomial, exponencial, entre outras. A compreensão da distribuição pode influenciar a escolha das técnicas de transformação e normalização.
+
+2. **Escala**: Algumas variáveis podem ter valores na faixa de milhares ou milhões, enquanto outras podem variar entre 0 e 1. A diferença na escala pode afetar certos algoritmos, especialmente aqueles que dependem da distância ou do gradiente, como as redes neurais ou o k-means.
+
+3. **Outliers**: Valores que se desviam significativamente da tendência geral dos dados. A presença de outliers pode afetar a precisão e o desempenho de muitos modelos e, por vezes, requer técnicas de detecção e tratamento especializado.
+
+4. **Valores faltantes**: Em muitos conjuntos de dados do mundo real, nem todos os campos terão valores para cada registro. Como você lida com esses valores faltantes (imputação, exclusão, etc.) pode ter um grande impacto na qualidade do modelo.
+
+5. **Correlação**: Mede a relação linear entre duas variáveis. Se duas variáveis estão altamente correlacionadas, pode-se considerar remover uma delas para reduzir a multicolinearidade, especialmente em modelos lineares.
+
+6. **Estacionalidade e tendência**: Em séries temporais, pode haver padrões repetidos ao longo do tempo (estacionalidade) ou uma direção geral clara na qual os dados estão se movendo (tendência).
+
+7. **Granularidade**: Refere-se ao nível de detalhe ou resolução dos dados. Por exemplo, os dados podem ser diários, mensais ou anuais. A granularidade pode influenciar a escolha do modelo e a forma como os dados são pré-processados.
+
+8. **Esparsidade**: Em algumas situações, a maioria dos valores em um conjunto de dados pode ser zero ou faltante, levando a uma matriz esparsa. Isso pode influenciar tanto o armazenamento quanto o algoritmo de aprendizado.
+
+9. **Categoricidade**: Algumas variáveis podem ser categóricas (por exemplo, "masculino" ou "feminino"). Estas podem precisar ser transformadas em variáveis numéricas (como através de codificação one-hot) para serem usadas em muitos algoritmos.
+
+10. **Desbalanceamento de classes**: Em tarefas de classificação, às vezes uma classe pode ter muitos mais exemplos do que outra. Isso pode levar a modelos que têm um desempenho pobre para a classe minoritária.
+
+Entender essas e outras propriedades dos dados ajuda os cientistas de dados a tomar decisões informadas durante o processo de modelagem, desde a limpeza dos dados até a seleção e avaliação do modelo.
+
+## Transformers
+
+Os "Transformers" são uma arquitetura de rede neural revolucionária que foi introduzida em 2017 no artigo "[Attention Is All You Need](https://arxiv.org/abs/1706.03762)" pelos pesquisadores da Google. A arquitetura Transformer se destaca por seu uso eficiente da atenção auto-regressiva, permitindo que o modelo considere outros tokens (ou palavras) em uma sequência de entrada quando codifica um token particular.
+
+Vamos descrever a arquitetura dos Transformers:
+
+### 1. Mecanismo de Atenção
+
+A característica mais distintiva dos Transformers é o mecanismo de atenção, especificamente a "atenção de múltiplas cabeças". Isso permite que o modelo pondere a importância relativa de diferentes palavras em uma sequência quando considera uma palavra em particular.
+
+### 2. Atenção de Múltiplas Cabeças
+
+Em vez de ter uma única série de pesos de atenção, os Transformers usam múltiplas séries paralelas de pesos (ou "cabeças"). Isso permite que eles captem diferentes tipos de relacionamentos entre palavras.
+
+### 3. Codificador e Decodificador
+
+A arquitetura original do Transformer consiste em uma série de codificadores seguidos por uma série de decodificadores. Em tarefas como a tradução automática, a entrada (por exemplo, uma sentença em inglês) é codificada e depois decodificada na saída (por exemplo, a tradução para o francês).
+
+### 4. Feedforward Neural Networks
+
+Além do mecanismo de atenção, cada etapa do codificador e do decodificador também contém uma rede neural feedforward, que é aplicada independentemente a cada posição.
+
+### 5. Normalização de Camada
+
+A normalização de camada é usada extensivamente ao longo dos Transformers para ajudar a estabilizar as ativações.
+
+### 6. Conexões Residuais
+
+Conexões diretas (ou "residuais") são feitas a partir da entrada de cada sub-camada (como o mecanismo de atenção ou a rede feedforward) para a saída.
+
+### Aplicações
+
+Os Transformers provaram ser muito eficazes em uma ampla gama de tarefas de processamento de linguagem natural (NLP), de tradução automática a classificação de texto e geração de linguagem. Modelos como BERT, GPT, T5 e muitos outros são baseados na arquitetura Transformer e têm estabelecido novos padrões de desempenho em várias benchmarks de NLP.
+
+### Considerações
+
+A arquitetura Transformer, apesar de seu desempenho impressionante, é computacionalmente intensiva. Requer muita memória e poder computacional, especialmente para grandes quantidades de dados ou modelos muito grandes. No entanto, graças à sua paralelização eficaz, é particularmente adequada para aceleração em hardware, como GPUs.
+
+Em resumo, os Transformers revolucionaram o campo da NLP, permitindo avanços significativos em tarefas complexas e estabelecendo novos padrões de desempenho.
+
+## N-gramas
+
+[N-gramas](https://en.wikipedia.org/wiki/N-gram) são uma ferramenta fundamental no processamento de linguagem natural (NLP) e na análise de texto. Um n-grama é uma sequência contígua de \( n \) itens de um dado texto ou fala. Os itens podem ser fonemas, sílabas, letras, palavras ou símbolos base, dependendo da aplicação.
+
+Aqui está uma quebra rápida dos tipos comuns de n-gramas:
+
+1. **Unigrama (1-grama)**: Uma única palavra ou item. Por exemplo, o texto "Eu amo gatos" contém os unigramas: "Eu", "amo", "gatos".
+
+2. **Bigrama (2-grama)**: Uma sequência de 2 palavras. Usando o mesmo texto, os bigramas são: "Eu amo" e "amo gatos".
+
+3. **Trigrama (3-grama)**: Uma sequência de 3 palavras. No exemplo: "Eu amo gatos" é um trigrama.
+
+4. E assim por diante para 4-gramas, 5-gramas, etc.
+
+### Aplicações de n-gramas:
+
+1. **Modelagem de linguagem**: Os n-gramas são usados para prever a próxima palavra em uma sequência, sendo uma abordagem clássica na modelagem de linguagem.
+
+2. **Correção ortográfica**: Ao verificar a probabilidade de uma determinada sequência de palavras, os n-gramas podem ajudar a identificar e corrigir erros de digitação ou gramática.
+
+3. **Classificação de texto**: Os n-gramas podem ser usados como características em modelos de classificação para categorizar textos em diferentes tópicos ou sentimentos.
+
+4. **Detecção de plágio**: Ao comparar n-gramas de diferentes documentos, pode-se detectar possíveis casos de plágio.
+
+5. **Busca e recuperação de informações**: Melhorar a precisão e relevância dos sistemas de busca ao considerar sequências de palavras em vez de palavras individuais.
+
+### Considerações
+
+Embora os n-gramas sejam poderosos, eles também têm desvantagens. Por exemplo, à medida que \( n \) aumenta, o número de possíveis n-gramas cresce exponencialmente, o que pode levar a uma explosão dimensional e exigir mais dados para treinar modelos com eficácia. Além disso, eles não capturam semânticas mais profundas ou relações de longo alcance entre palavras no texto. Por essas razões, outras técnicas, como word embeddings e modelos baseados em atenção (como Transformers), foram desenvolvidas para complementar ou substituir abordagens baseadas em n-gramas em algumas aplicações de NLP.
+
 
 
 ...
