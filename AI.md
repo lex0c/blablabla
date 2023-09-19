@@ -757,6 +757,42 @@ Os dados estruturados ou tabulares são os tipos mais comuns de dados encontrado
   - Redução de dimensionalidade (como PCA ou t-SNE).
   - Seleção de características.
 
+## Monitoramento
 
+Ao treinar e avaliar modelos de aprendizado de máquina, é fundamental usar métricas adequadas para quantificar o desempenho do modelo. A escolha da métrica dependerá do tipo de problema (por exemplo, classificação, regressão, agrupamento) e dos objetivos específicos do projeto. 
+
+### Métricas para problemas de classificação
+
+1. **Acurácia**: Proporção de previsões corretas em relação ao total de previsões.
+2. **Precisão**: Dos itens classificados como positivos, quantos são realmente positivos.
+3. **Recall (Sensibilidade)**: Dos itens que são realmente positivos, quantos foram classificados como positivos.
+4. **F1-Score**: Média harmônica entre precisão e recall, útil quando as classes estão desbalanceadas.
+5. **AUC-ROC (Área Sob a Curva - Receiver Operating Characteristic)**: Avalia a capacidade do modelo de distinguir entre as classes. Valor de 1 indica um modelo perfeito, enquanto um valor de 0,5 não é melhor do que uma previsão aleatória.
+6. **AUC-PR (Área Sob a Curva - Precision-Recall)**: Semelhante ao AUC-ROC, mas foca na relação entre precisão e recall, especialmente útil para conjuntos de dados desbalanceados.
+7. **Matriz de Confusão**: Uma tabela que mostra as previsões do modelo versus os valores verdadeiros, fornecendo detalhes sobre verdadeiros positivos, falsos positivos, verdadeiros negativos e falsos negativos.
+
+### Métricas para problemas de regressão
+
+1. **Erro Quadrático Médio (MSE - Mean Squared Error)**: Média das diferenças quadradas entre previsões e valores verdadeiros.
+2. **Raiz do Erro Quadrático Médio (RMSE)**: Raiz quadrada do MSE, tem a mesma unidade que a variável alvo.
+3. **Erro Absoluto Médio (MAE - Mean Absolute Error)**: Média dos valores absolutos das diferenças entre previsões e valores verdadeiros.
+4. **R² (R-squared)**: Coeficiente de determinação, indica a proporção da variação na variável dependente que é previsível a partir das variáveis independentes.
+
+### Métricas para problemas de agrupamento
+
+1. **Silhueta**: Mede a semelhança de um objeto ao seu próprio grupo em comparação com outros grupos.
+2. **Índice Davies-Bouldin**: Mede a média da "similaridade" entre cada grupo com o grupo mais similar.
+3. **Índice de Rand Ajustado**: Mede a similaridade entre os agrupamentos verdadeiros e previstos.
+
+### Monitoramento
+
+Além das métricas de avaliação, ao colocar um modelo em produção é vital monitorar seu desempenho ao longo do tempo. Algumas considerações incluem:
+
+1. **Decaimento do Modelo**: À medida que os dados mudam ao longo do tempo, o desempenho do modelo pode degradar. Monitorar métricas-chave pode ajudar a identificar quando o modelo precisa ser reajustado ou re-treinado.
+2. **Log de Previsões**: Armazenar previsões e resultados reais para análises retrospectivas.
+3. **Alertas**: Estabelecer limites para as métricas de desempenho e criar alertas se eles forem ultrapassados.
+4. **Análise de Erros**: Periodicamente revisar e analisar os casos em que o modelo errou para entender padrões e potencialmente melhorar o modelo.
+
+O monitoramento contínuo garante que os modelos mantenham sua eficácia e precisão à medida que as condições mudam e os dados evoluem.
 
 ...
