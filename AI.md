@@ -58,7 +58,7 @@ A evolução da IA tem implicações significativas em quase todos os setores, d
 3. **Problemas simples ou tabulares**: Para dados estruturados ou tarefas mais simples, modelos ML podem ser suficientemente precisos e mais eficientes.
 4. **Recursos computacionais limitados**: Modelos ML geralmente exigem menos poder computacional para treinamento e inferência em comparação com modelos DL.
 
-### Deep Learning (Aprendizado Profundo)**
+### Deep Learning (Aprendizado Profundo)
 
 1. **Definição**: É um subconjunto do Machine Learning que usa redes neurais com muitas camadas (por isso "profundo") para analisar vários fatores de dados. É especialmente útil para grandes conjuntos de dados e tarefas complexas como reconhecimento de imagem e tradução de linguagem.
 2. **Redes neurais**: Inspiradas na estrutura do cérebro humano, são compostas por neurônios artificiais organizados em camadas. As camadas entre a entrada e a saída são chamadas de camadas ocultas.
