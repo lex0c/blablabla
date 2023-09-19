@@ -184,9 +184,33 @@ Ao longo do treinamento, os pesos e vieses da rede neural são ajustados de form
 
 Em resumo, uma epoch é uma passagem completa pelo conjunto de treinamento e decidir o número de epochs é uma parte importante do processo de treinamento de um modelo.
 
+## Comunicação
 
+A comunicação entre neurônios em diferentes camadas de uma rede neural ocorre por meio das conexões ponderadas (pesos) e dos sinais transmitidos entre eles. Vamos explorar esse processo passo a passo:
 
+1. **Entrada**: A camada de entrada recebe os dados de entrada (como um vetor) e passa esses valores diretamente para os neurônios na primeira camada oculta.
 
+2. **Ponderação e agregação**: 
+   - Cada conexão entre dois neurônios tem um peso associado.
+   - Um neurônio na camada oculta recebe sinais de todos os neurônios da camada anterior.
+   - O sinal recebido por um neurônio da camada oculta é a soma ponderada das saídas dos neurônios da camada anterior. Matematicamente, isto é expresso como o produto escalar do vetor de entrada e o vetor de peso, acrescido de um viés.
+
+3. **Ativação**: Após a agregação, o neurônio processa a soma ponderada através de uma função de ativação. Essa função introduz não-linearidade, permitindo que a rede neural modele relações complexas. O resultado dessa função de ativação é a saída desse neurônio específico.
+
+4. **Transmissão para a próxima camada**: A saída do neurônio (após a função de ativação) é então transmitida para todos os neurônios na próxima camada, multiplicando-a pelos pesos correspondentes.
+
+5. **Repetição**: Este processo se repete para cada camada subsequente na rede até que a camada de saída seja alcançada.
+
+6. **Camada de saída**: A última camada, ou camada de saída, produz a previsão final ou classificação da rede. Dependendo da tarefa (regressão, classificação binária, classificação multiclasse), a função de ativação da camada de saída pode variar (por exemplo, linear, sigmoid, softmax).
+
+Para ilustrar com um exemplo simples:
+
+- Suponha que temos uma rede neural com 3 neurônios na camada de entrada, 4 na camada oculta e 1 na camada de saída.
+- Cada neurônio na camada de entrada envia seu valor para todos os 4 neurônios na camada oculta.
+- Cada um dos 4 neurônios na camada oculta tem 3 entradas (uma de cada neurônio na camada de entrada). Eles multiplicam essas entradas pelos pesos correspondentes, somam o resultado, adicionam o viés e, em seguida, passam esse valor através de uma função de ativação.
+- Os neurônios na camada oculta então enviam seus valores para o neurônio na camada de saída, que também multiplica os valores recebidos pelos pesos, soma, adiciona o viés e passa o resultado através de sua função de ativação para produzir a saída final.
+
+Este fluxo de informação da camada de entrada para a camada de saída é chamado de "propagação direta" (ou "feedforward"). Durante o treinamento, também ocorre uma "retropropagação" onde os erros são passados de volta através da rede para ajustar os pesos e otimizar a performance da rede.
 
 
 
