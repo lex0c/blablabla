@@ -212,6 +212,50 @@ Para ilustrar com um exemplo simples:
 
 Este fluxo de informação da camada de entrada para a camada de saída é chamado de "propagação direta" (ou "feedforward"). Durante o treinamento, também ocorre uma "retropropagação" onde os erros são passados de volta através da rede para ajustar os pesos e otimizar a performance da rede.
 
+## Problemas de Classificação Multiclasse
+
+Em problemas de classificação multiclasse, o objetivo é atribuir uma entrada a uma dentre várias classes possíveis. Por exemplo, uma tarefa de classificação de imagens de animais pode envolver categorias como "gato", "cão", "pássaro" e "peixe". Nesse caso, há quatro classes possíveis.
+
+A camada de saída da rede neural para um problema de classificação multiclasse é geralmente configurada da seguinte maneira:
+
+1. **Neurônios na camada de saída:** O número de neurônios na camada de saída é igual ao número de classes. Assim, se tivermos \(N\) classes, haverá \(N\) neurônios na camada de saída. Cada neurônio produz uma "pontuação" ou "logit" para sua respectiva classe.
+
+2. **Função de ativação:** A função de ativação Softmax é comumente usada na camada de saída de problemas de classificação multiclasse. Ela converte as pontuações ou logits de cada neurônio em probabilidades, garantindo que todas as probabilidades estejam no intervalo [0,1] e que a soma total de todas as probabilidades seja 1.
+
+3. **Rótulos codificados (One-hot Encoding):** Para treinar a rede, os rótulos das classes são frequentemente codificados usando uma técnica chamada "one-hot encoding". Para \(N\) classes, cada rótulo é representado como um vetor de comprimento \(N\), onde um elemento é "1" e todos os outros são "0". Por exemplo, em nosso caso de animais, "gato" pode ser codificado como [1, 0, 0, 0], "cão" como [0, 1, 0, 0] e assim por diante.
+
+4. **Função de perda:** A função de perda é usada durante o treinamento para medir o erro entre as previsões da rede e os rótulos verdadeiros. Para problemas de classificação multiclasse com uma ativação Softmax, a função de perda de "entropia cruzada" (cross-entropy) é comumente utilizada. Esta função de perda penaliza previsões que estão longe do rótulo verdadeiro, incentivando a rede a fazer previsões corretas.
+
+Ao fazer previsões usando a rede treinada, a classe prevista é normalmente a que possui a maior probabilidade de saída. Por exemplo, se a saída da Softmax para uma imagem é [0.7, 0.2, 0.05, 0.05], a rede está prevendo a imagem como pertencente à primeira classe com uma probabilidade de 70%.
+
+A combinação da camada de saída configurada dessa forma, com a função de perda de entropia cruzada e o uso de backpropagation e otimização baseada em gradiente, permite que a rede neural aprenda a classificar entradas em várias categorias de forma eficaz.
+
+## One-hot Encoding
+
+O "One-hot Encoding" é uma técnica usada para representar variáveis categóricas como vetores binários. É comum em aprendizado de máquina e processamento de linguagem natural quando se trabalha com dados que têm um número finito de categorias e nenhuma ordem intrínseca.
+
+Aqui está uma visão geral de como funciona o one-hot encoding:
+
+1. **Determinar número de categorias:** Primeiro, identifique quantas categorias distintas existem na variável que você deseja codificar. Vamos chamar esse número de \(N\).
+
+2. **Criar um vetor binário:** Para cada categoria, crie um vetor binário de tamanho \(N\) onde um elemento é "1" e todos os outros são "0". O "1" indica a presença (ou verdade) da categoria.
+
+Por exemplo, vamos considerar que temos uma variável categórica "fruta" que pode assumir valores: "maçã", "banana" e "cereja". Para one-hot encoding dessa variável:
+
+- Maçã seria representada como [1, 0, 0]
+- Banana seria representada como [0, 1, 0]
+- Cereja seria representada como [0, 0, 1]
+
+**Algumas considerações ao usar one-hot encoding:**
+
+- **Espaço:** Se você tiver uma variável categórica com muitas categorias, o one-hot encoding pode criar vetores muito longos. Isso pode aumentar significativamente a dimensão dos seus dados, potencialmente tornando o treinamento mais lento e requerendo mais memória.
+
+- **Colinearidade:** Em modelos estatísticos, como regressão, usar one-hot encoding sem remover uma das colunas codificadas (às vezes chamada de "dummy variable trap") pode causar multicolinearidade, o que pode tornar os coeficientes do modelo difíceis de interpretar. Em tais casos, frequentemente se remove uma das colunas codificadas para evitar esse problema.
+
+- **Dados desconhecidos:** Se, ao usar o modelo em dados novos, você se deparar com uma categoria que não estava presente nos dados de treinamento, precisará decidir como lidar com ela. Uma abordagem comum é ignorar essa nova categoria ou tratá-la como uma categoria "outro".
+
+Muitas bibliotecas de aprendizado de máquina, como `pandas` e `scikit-learn` em Python, fornecem utilitários para realizar one-hot encoding com facilidade.
+
 
 
 
