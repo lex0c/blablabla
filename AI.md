@@ -908,5 +908,35 @@ Quantização é o processo de reduzir a precisão dos pesos e biases do modelo,
    - **Perda de Precisão:** A quantização pode levar à perda de precisão e, em alguns casos, à degradação do desempenho do modelo.
    - **Complexidade de Implementação:** Aplicar otimização e quantização pode ser complexo e exigir conhecimento especializado para evitar impactos negativos no desempenho do modelo.
 
+## Inferência na GPU
+
+A inferência na GPU refere-se ao uso de uma Unidade de Processamento Gráfico (GPU) para realizar a inferência de modelo de aprendizado de máquina/deep learning, que é o processo de fazer previsões com um modelo treinado. As GPUs são particularmente adequadas para inferência de modelos deep learning devido à sua capacidade de processar paralelamente grandes volumes de cálculos, o que pode acelerar significativamente o tempo de inferência em comparação com a realização de inferência na CPU.
+
+### Como Funciona
+1. **Transferência de Dados:**
+   Os dados de entrada são transferidos para a GPU.
+   
+2. **Computação Paralela:**
+   A GPU executa cálculos paralelamente em seus múltiplos núcleos para processar a inferência.
+   
+3. **Transferência de Resultados:**
+   Os resultados da inferência são então transferidos de volta da GPU para a CPU ou para onde forem necessários.
+
+### Vantagens de Inferência na GPU
+- **Velocidade:**
+   Inferência mais rápida em comparação com CPUs, especialmente para modelos complexos, devido à arquitetura paralela da GPU.
+   
+- **Eficiência:**
+   Maior eficiência energética por inferência em comparação com CPUs para modelos complexos.
+   
+- **Concorrência:**
+   Capacidade de lidar com múltiplas inferências simultaneamente.
+
+### Frameworks e Bibliotecas
+Diversos frameworks e bibliotecas de deep learning, como TensorFlow, PyTorch, e ONNX Runtime, suportam inferência na GPU, e muitos oferecem opções para otimizar a inferência na GPU, como a conversão de modelos para formatos otimizados e o uso de bibliotecas de inferência especializadas como TensorRT da NVIDIA.
+
+### Considerações
+- É importante ter os drivers adequados e, se necessário, as bibliotecas CUDA/cuDNN instaladas e configuradas corretamente para habilitar a inferência na GPU.
+- A inferência na GPU pode ser mais vantajosa para modelos maiores e mais complexos, enquanto para modelos menores e mais simples, a inferência na CPU pode ser suficiente e, em alguns casos, até mais rápida, considerando o overhead de transferência de dados entre CPU e GPU.
 
 ...
