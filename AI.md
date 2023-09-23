@@ -979,6 +979,43 @@ A limpeza de dados é uma etapa fundamental no processo de treinamento de modelo
 
 Lembrando que cada dataset é único, então essas etapas podem variar, e nem todas podem ser necessárias dependendo do seu caso específico.
 
+## Javascript
+
+Javascript tem várias bibliotecas que facilitam a implementação de aprendizado de máquina (ML) e aprendizado profundo (DL). Algumas das mais notáveis incluem:
+
+### TensorFlow.js
+   Como mencionado anteriormente, TensorFlow.js é uma biblioteca de aprendizado de máquina em JavaScript desenvolvida pelo Google. Ela permite o treinamento e a inferência de modelos de aprendizado de máquina diretamente no navegador ou em Node.js.
+
+### Brain.js
+   Brain.js é uma biblioteca de redes neurais em JavaScript. É bastante amigável e fácil de usar, ideal para aqueles que estão apenas começando com o aprendizado de máquina em JavaScript.
+
+### Synaptic
+   Synaptic é uma biblioteca de arquitetura de redes neurais que permite o treinamento de redes neurais em JavaScript. Ela fornece arquiteturas de redes neurais como Perceptron Multicamadas (MLP), Rede de Hopfield, entre outras.
+
+### Mind
+   Mind é uma biblioteca mais leve e mais flexível para a construção de redes neurais. Pode ser uma boa escolha para projetos menores ou para aprender os conceitos básicos de redes neurais.
+
+### ConvNetJS
+   ConvNetJS é uma biblioteca JavaScript para o treinamento de redes neurais convolucionais. É particularmente útil para tarefas de visão computacional, como reconhecimento de imagem.
+
+### ml5.js
+   ml5.js é uma biblioteca de alto nível construída em cima do TensorFlow.js, projetada para tornar o aprendizado de máquina acessível para artistas, educadores e estudantes. Ela fornece uma API simplificada e fácil de usar para criar modelos de aprendizado de máquina.
+
+### WebDNN
+   WebDNN é uma biblioteca de inferência de rede neural de ponta, permitindo a execução rápida de modelos DL em navegadores web através do WebAssembly e WebGPU.
+
+### 8. **ONNX.js:**
+   ONNX.js permite a execução de modelos ONNX (Open Neural Network Exchange) em navegadores web. ONNX é um formato de modelo aberto para representação de modelos de aprendizado de máquina e aprendizado profundo.
+
+### Keras.js
+   Keras.js permite a execução de modelos Keras no navegador, oferecendo inferência em GPU via WebGL. É especialmente útil se você já tem experiência com o Keras em Python.
+
+### Danfo.js
+   Danfo.js é uma biblioteca semelhante ao pandas em Python, fornecendo estruturas de dados para manipulação e análise de dados em JavaScript. Pode ser útil para pré-processamento e análise de dados em projetos de ML.
+
+### Uso combinado com outras tecnologias:
+   Essas bibliotecas podem ser utilizadas em conjunto com outras tecnologias web como HTML, CSS, e SVG para criar visualizações interativas, interfaces de usuário intuitivas e experiências de usuário envolventes com aprendizado de máquina integrado.
+
 
 
 ...
