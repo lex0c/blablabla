@@ -19,7 +19,7 @@ Aqui está uma exploração um pouco mais detalhada de cada etapa desse resumo:
    - Reflexão é crucial, pois permite que a pessoa pense criticamente sobre as novas informações, avalie sua veracidade, significado, e relevância, e considere suas implicações. A reflexão também envolve a comparação de novas informações com o que já se sabe, a fim de integrá-las de maneira significativa.
 
 3. **Conectar a conhecimentos já adquiridos:**
-   - [Conectar novas informações a conhecimentos existentes](/CONTINUOUS_LEARNING.md#conex%C3%B5es-mentais) pode facilitar a compreensão e a retenção. Isso pode envolver a identificação de semelhanças, diferenças, e relações entre novos e antigos conhecimentos, e pode ajudar a construir uma compreensão mais rica e integrada.
+   - [Conectar novas informações a conhecimentos existentes](/CONTINUOUS_LEARNING.md#conex%C3%B5es-mentais) pode facilitar a compreensão e a [retenção](/CONTINUOUS_LEARNING.md#recupera%C3%A7%C3%A3o-ativa). Isso pode envolver a identificação de semelhanças, diferenças, e relações entre novos e antigos conhecimentos, e pode ajudar a construir uma compreensão mais rica e integrada.
 
 4. **Adicionar nossos próprios viéses:**
    - A interpretação de novas informações é inevitavelmente influenciada pelos nossos próprios pontos de vista, experiências, crenças, e valores. Esses [viéses](https://en.wikipedia.org/wiki/List_of_cognitive_biases) podem afetar a maneira como percebemos, avaliamos, e utilizamos novos conhecimentos.
@@ -58,7 +58,7 @@ O aprendizado profundo e verdadeiro ocorre mais eficazmente quando o aluno está
    - **Inspiração e apoio:** O mentor deve inspirar, motivar, e apoiar os alunos, ajudando-os a superar obstáculos e a alcançar seus objetivos.
 
 ### 3. **Processo de aprendizagem:**
-   - **Reflexão e metacognição:** O aluno deve [refletir](/CONTINUOUS_LEARNING.md#metacogni%C3%A7%C3%A3o) sobre o que está aprendendo e como está aprendendo, desenvolvendo uma consciência e controle sobre seus próprios processos cognitivos.
+   - **Reflexão e metacognição:** O aluno deve [refletir](/CONTINUOUS_LEARNING.md#metacogni%C3%A7%C3%A3o) sobre o que está aprendendo e como está aprendendo, desenvolvendo uma consciência e controle sobre seus próprios [processos cognitivos](https://en.wikipedia.org/wiki/Cognition).
    - **Conexão e aplicação:** O aprendizado se aprofunda quando os alunos conseguem [conectar novos conhecimentos](/CONTINUOUS_LEARNING.md#conex%C3%B5es-mentais) a conhecimentos prévios e aplicar o que aprenderam de maneira prática e significativa.
 
 ## Conhecimento Interdisciplinar
@@ -67,16 +67,16 @@ O conhecimento não é isolado; ele é interconectado. Quebrar as fronteiras dis
 
 Aqui está uma análise um pouco mais detalhada dessa ideia:
 
-### **1. Conexões e Sinapses Cognitivas:**
+### **1. Conexões e sinapses cognitivas:**
 Ao aprender coisas novas de diferentes disciplinas, novas sinapses são formadas no cérebro, possibilitando a construção de mais conexões entre informações já existentes e novos conhecimentos. Quanto mais vasto e diversificado é o conhecimento de uma pessoa, mais pontos de conexão ela tem para associar informações novas, permitindo uma aprendizagem mais profunda e integrada.
 
-### **2. Interdisciplinaridade e Inovação:**
-A interdisciplinaridade é a chave para a inovação. A integração de conhecimentos de diferentes campos pode levar ao desenvolvimento de soluções criativas e inovadoras para problemas complexos. É comum as maiores inovações surgirem na interseção de diferentes disciplinas, como a bioinformática que une biologia e ciência da computação.
+### **2. Interdisciplinaridade e inovação:**
+A [interdisciplinaridade](https://en.wikipedia.org/wiki/Interdisciplinarity) é a chave para a inovação. A integração de conhecimentos de diferentes campos pode levar ao desenvolvimento de soluções criativas e inovadoras para problemas complexos. É comum as maiores inovações surgirem na interseção de diferentes disciplinas, como a bioinformática que une biologia e ciência da computação.
 
-### **3. Reflexão e Insights:**
+### **3. Reflexão e insights:**
 A exposição a diferentes campos do conhecimento propicia uma reflexão mais profunda sobre as informações recebidas, favorecendo a geração de insights originais. A síntese de ideias de diferentes áreas pode propiciar a emergência de novas perspectivas, teorias, modelos e soluções.
 
-### **4. Aprendizagem Significativa:**
+### **4. Aprendizagem significativa:**
 O conhecimento adquirido tem mais significado e é melhor retido quando pode ser relacionado ou integrado a conhecimentos prévios. Uma base de conhecimento diversificada proporciona um terreno fértil para que novos aprendizados se ancorarem, tornando o processo de aprendizagem mais fácil.
 
 ## Conclusão
