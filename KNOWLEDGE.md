@@ -68,7 +68,7 @@ O conhecimento não é isolado; ele é interconectado. Quebrar as fronteiras dis
 Aqui está uma análise um pouco mais detalhada dessa ideia:
 
 ### **1. Conexões e sinapses cognitivas:**
-Ao aprender coisas novas de diferentes disciplinas, novas sinapses são formadas no cérebro, possibilitando a construção de mais conexões entre informações já existentes e novos conhecimentos. Quanto mais vasto e diversificado é o conhecimento de uma pessoa, mais pontos de conexão ela tem para associar informações novas, permitindo uma aprendizagem mais profunda e integrada.
+Ao aprender coisas novas de diferentes disciplinas, [novas sinapses](https://en.wikipedia.org/wiki/Neuroplasticity) são formadas no cérebro, possibilitando a construção de mais conexões entre informações já existentes e novos conhecimentos. Quanto mais vasto e diversificado é o conhecimento de uma pessoa, mais pontos de conexão ela tem para associar informações novas, permitindo uma aprendizagem mais profunda e integrada.
 
 ### **2. Interdisciplinaridade e inovação:**
 A [interdisciplinaridade](https://en.wikipedia.org/wiki/Interdisciplinarity) é a chave para a inovação. A integração de conhecimentos de diferentes campos pode levar ao desenvolvimento de soluções criativas e inovadoras para problemas complexos. É comum as maiores inovações surgirem na interseção de diferentes disciplinas, como a bioinformática que une biologia e ciência da computação.
