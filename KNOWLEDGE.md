@@ -43,11 +43,11 @@ Os alunos constroem o conhecimento integrando novas informações com o que já 
 
 ### Mentor como Facilitador
 
-Em um ambiente de aprendizagem ideal, o [mentor](https://en.wikipedia.org/wiki/Mentorship) atua mais como um facilitador ou guia, ajudando os alunos a descobrirem o conhecimento por si mesmos, em vez de simplesmente transmitir informações. Isso pode envolver a criação de atividades de aprendizagem envolventes, proporcionando recursos, dando feedback e apoio, e ajudando os alunos a desenvolver habilidades de pensamento crítico e resolução de problemas.
+Em um ambiente de aprendizagem ideal, o [mentor](https://en.wikipedia.org/wiki/Mentorship) atua mais como um facilitador ou guia, ajudando os alunos a descobrirem o conhecimento por si mesmos, em vez de simplesmente transmitir informações. Isso pode envolver a criação de atividades de aprendizagem envolventes, proporcionando recursos, dando feedback e apoio, e ajudando os alunos a desenvolver habilidades de [pensamento crítico](https://en.wikipedia.org/wiki/Critical_thinking) e [resolução de problemas](/PROBLEM_SOLUTION.md).
 
 ## Profundidade
 
-O aprendizado profundo e verdadeiro ocorre mais eficazmente quando o aluno está [intrinsecamente motivado](), curioso, e engajado no processo de aprendizagem. Aqui está uma análise um pouco mais detalhada dessa ideia:
+O aprendizado profundo e verdadeiro ocorre mais eficazmente quando o aluno está [intrinsecamente motivado](/PRODUCTIVITY.md#motiva%C3%A7%C3%A3o), curioso, e engajado no processo de aprendizagem. Aqui está uma análise um pouco mais detalhada dessa ideia:
 
 ### 1. **Aluno como protagonista:**
    - **Autonomia do aluno:** O aluno deve ter autonomia e controle sobre seu próprio processo de aprendizagem, sendo responsável por buscar e assimilar conhecimento.
@@ -58,8 +58,8 @@ O aprendizado profundo e verdadeiro ocorre mais eficazmente quando o aluno está
    - **Inspiração e apoio:** O mentor deve inspirar, motivar, e apoiar os alunos, ajudando-os a superar obstáculos e a alcançar seus objetivos.
 
 ### 3. **Processo de aprendizagem:**
-   - **Reflexão e metacognição:** O aluno deve [reflexão](/CONTINUOUS_LEARNING.md#metacogni%C3%A7%C3%A3o) sobre o que está aprendendo e como está aprendendo, desenvolvendo uma consciência e controle sobre seus próprios processos cognitivos.
-   - **Conexão e aplicação:** O aprendizado se aprofunda quando os alunos conseguem conectar novos conhecimentos a conhecimentos prévios e aplicar o que aprenderam de maneira prática e significativa.
+   - **Reflexão e metacognição:** O aluno deve [refletir](/CONTINUOUS_LEARNING.md#metacogni%C3%A7%C3%A3o) sobre o que está aprendendo e como está aprendendo, desenvolvendo uma consciência e controle sobre seus próprios processos cognitivos.
+   - **Conexão e aplicação:** O aprendizado se aprofunda quando os alunos conseguem [conectar novos conhecimentos](/CONTINUOUS_LEARNING.md#conex%C3%B5es-mentais) a conhecimentos prévios e aplicar o que aprenderam de maneira prática e significativa.
 
 ## Conhecimento Interdisciplinar
 
@@ -77,9 +77,9 @@ A interdisciplinaridade é a chave para a inovação. A integração de conhecim
 A exposição a diferentes campos do conhecimento propicia uma reflexão mais profunda sobre as informações recebidas, favorecendo a geração de insights originais. A síntese de ideias de diferentes áreas pode propiciar a emergência de novas perspectivas, teorias, modelos e soluções.
 
 ### **4. Aprendizagem Significativa:**
-O conhecimento adquirido tem mais significado e é melhor retido quando pode ser relacionado ou integrado a conhecimentos prévios. Uma base de conhecimento diversificada proporciona um terreno fértil para que novos aprendizados se ancorarem, tornando o processo de aprendizagem mais eficaz e significativo.
+O conhecimento adquirido tem mais significado e é melhor retido quando pode ser relacionado ou integrado a conhecimentos prévios. Uma base de conhecimento diversificada proporciona um terreno fértil para que novos aprendizados se ancorarem, tornando o processo de aprendizagem mais fácil.
 
 ## Conclusão
 
-O aprendizado profundo e duradouro ocorre quando o aluno está ativamente envolvido e investido em seu processo de aprendizagem, enquanto o mentor serve como um guia sábio e apoiador, proporcionando as condições e os recursos necessários para o aprendizado. Este modelo reconhece que o aprendizado verdadeiro é muitas vezes complexo, não-linear, e único para cada indivíduo, requerendo uma abordagem mais flexível, personalizada e centrada no aluno.
+O aprendizado profundo e duradouro ocorre quando o aluno está ativamente envolvido e investido em seu processo de aprendizagem, enquanto o mentor serve como um guia sábio e apoiador, proporcionando as condições e os recursos necessários para o aprendizado. Este modelo reconhece que o aprendizado verdadeiro é muitas vezes complexo, [não-linear](https://en.wikipedia.org/wiki/Complex_system), e único para cada indivíduo, requerendo uma abordagem mais flexível, personalizada e centrada no aluno.
 
