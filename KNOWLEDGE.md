@@ -81,5 +81,5 @@ O conhecimento adquirido tem mais significado e é melhor retido quando pode ser
 
 ## Conclusão
 
-O aprendizado profundo e duradouro ocorre quando o aluno está ativamente envolvido e investido em seu processo de aprendizagem, enquanto o mentor serve como um guia sábio e apoiador, proporcionando as condições e os recursos necessários para o aprendizado. Este modelo reconhece que o aprendizado verdadeiro é muitas vezes complexo, [não-linear](https://en.wikipedia.org/wiki/Complex_system), e único para cada indivíduo, requerendo uma abordagem mais flexível, personalizada e centrada no aluno.
+O aprendizado profundo e duradouro ocorre quando o aluno está ativamente envolvido e investido em seu [processo de aprendizagem](https://en.wikipedia.org/wiki/Learning), enquanto o mentor serve como um guia sábio e apoiador, proporcionando as condições e os recursos necessários para o aprendizado. Este modelo reconhece que o aprendizado verdadeiro é muitas vezes complexo, [não-linear](https://en.wikipedia.org/wiki/Complex_system), e único para cada indivíduo, requerendo uma abordagem mais flexível, personalizada e centrada no aluno.
 
