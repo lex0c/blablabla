@@ -77,7 +77,3 @@ Embora seja tentador ter um "conhecimento sobre tudo", é vital reconhecer a imp
 O pensamento crítico é uma habilidade indispensável para todos que desejam navegar com segurança e inteligência pelo vasto mar de informações do mundo digital. Ele nos empodera a pensar de forma independente, tomar decisões informadas e construir um entendimento mais profundo e nuanceado do mundo ao nosso redor.
 
 O valor da [informação](/CONTENT.md) reside na forma como é usada, e a habilidade de usá-la de maneira eficaz está enraizada no pensamento crítico. O verdadeiro desafio não é saber mais, mas pensar melhor.
-
-
-...
-
