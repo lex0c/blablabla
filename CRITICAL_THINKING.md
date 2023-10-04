@@ -36,6 +36,8 @@ Um avaliador crítico procura por [consistência nas informações e credibilida
 
 ## Síntese e Conclusão
 
+A síntese de informações é um processo intelectual que envolve combinar múltiplas fontes de informação para formar uma visão geral ou um novo entendimento sobre um tópico ou questão específica. Trata-se de mais do que apenas resumir; envolve identificar relações, padrões e principais temas entre diferentes fontes e, então, criar uma perspectiva unificada.
+
 Integrar informações diversificadas, identificar padrões e formular conclusões lógicas são etapas fundamentais do pensamento crítico. É por meio da síntese de informações que novas soluções e ideias são geradas.
 
 ## Aplicação Prática
@@ -46,7 +48,7 @@ Aplicar o pensamento crítico de maneira prática implica em tomar decisões inf
 
 Manter uma [mente aberta](/CONTINUOUS_LEARNING.md#sei-que-nada-sei) e ser flexível diante de novas ideias e pontos de vista são características do pensador crítico. Estar disposto a mudar de opinião na luz de novas evidências é uma qualidade valiosa no mundo volátil de hoje.
 
-A flexibilidade cognitiva alimenta a evolução do pensamento e a aceitação da diversidade de perspectivas.
+A [flexibilidade cognitiva](https://en.wikipedia.org/wiki/Cognitive_flexibility) alimenta a evolução do pensamento e a aceitação da diversidade de perspectivas.
 
 ## Cultivando o Pensamento Crítico
 
