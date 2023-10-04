@@ -58,6 +58,8 @@ Desenvolver o pensamento crítico requer prática contínua e uma educação que
 
 Explorar diferentes pontos de vista e [disciplinas](/KNOWLEDGE.md#conhecimento-interdisciplinar) enriquece a compreensão e incentiva a inovação e a criatividade.
 
+Ter uma compreensão em várias áreas pode permitir uma visão mais [holística](https://en.wikipedia.org/wiki/Holism) e integrada do mundo, ao invés de uma visão fragmentada.
+
 ### Engajamento e Discussão
 
 Debater ideias, justificar opiniões e avaliar argumentos aprimora as habilidades de pensamento crítico e promove a compreensão mútua.
@@ -66,7 +68,7 @@ Debater ideias, justificar opiniões e avaliar argumentos aprimora as habilidade
 
 O pensamento crítico é uma habilidade indispensável para todos que desejam navegar com segurança e inteligência pelo vasto mar de informações do mundo digital. Ele nos empodera a pensar de forma independente, tomar decisões informadas e construir um entendimento mais profundo e nuanceado do mundo ao nosso redor.
 
-O valor da informação reside na forma como é usada, e a habilidade de usá-la de maneira eficaz está enraizada no pensamento crítico. O verdadeiro desafio não é saber mais, mas pensar melhor.
+O valor da [informação](/CONTENT.md) reside na forma como é usada, e a habilidade de usá-la de maneira eficaz está enraizada no pensamento crítico. O verdadeiro desafio não é saber mais, mas pensar melhor.
 
 
 ...
