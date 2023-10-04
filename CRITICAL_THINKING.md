@@ -28,7 +28,7 @@ Pensadores críticos fazem perguntas pertinentes e investigam suposições e evi
 
 ## Avaliação de Informações
 
-Na era da informação, avaliar a credibilidade das fontes e a consistência das informações é crucial. Distinguir fatos de opiniões e evidências de inferências é essencial para evitar a desinformação.
+Na era da informação, avaliar a credibilidade das fontes e a consistência das informações é crucial. Distinguir fatos de opiniões e evidências de [inferências](https://en.wikipedia.org/wiki/Inference) é essencial para evitar a desinformação.
 
 Um avaliador crítico procura por [consistência nas informações e credibilidade nas fontes](/CONTENT.md#valida%C3%A7%C3%A3o-independente-de-informa%C3%A7%C3%B5es), descartando o que é irrelevante ou não confiável.
 
