@@ -24,7 +24,7 @@ Pensadores críticos [refletem profundamente](/CONTINUOUS_LEARNING.md#metacogni%
 
 ## Questionamento e Investigação
 
-É crucial levantar questões relevantes, explorar diferentes perspectivas e investigar suposições e evidências. O questionamento diligente pode revelar novas verdades e proporcionar uma compreensão mais profunda dos problemas enfrentados.
+É crucial levantar questões relevantes, explorar diferentes perspectivas e investigar suposições e evidências. O [questionamento diligente](https://en.wikipedia.org/wiki/Due_diligence) pode revelar novas verdades e proporcionar uma compreensão mais profunda dos problemas enfrentados.
 
 Pensadores críticos fazem perguntas pertinentes e investigam suposições e evidências. Buscam explorar [diferentes perspectivas](/KNOWLEDGE.md#conhecimento-interdisciplinar) e interpretações para construir um entendimento mais abrangente da realidade.
 
