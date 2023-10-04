@@ -10,7 +10,7 @@ A habilidade de [pensar criticamente](https://en.wikipedia.org/wiki/Critical_thi
 
 3. **Avaliação de Informações:** Na era digital, qualquer um pode publicar qualquer coisa. Portanto, avaliar a credibilidade e a consistência das informações é mais crucial do que nunca.
 
-4. **Síntese e Conclusão:** Após a análise, os pensadores críticos são capazes de juntar diferentes fragmentos de informações e formar uma visão coerente e bem fundamentada.
+4. **Síntese e Conclusão:** Após a análise, os pensadores críticos são capazes de juntar diferentes [fragmentos de informações](/) e formar uma visão coerente e bem fundamentada.
 
 5. **Aplicação Prática:** O pensamento crítico não se limita à teoria. Ele guia ações, decisões e interações diárias.
 
@@ -42,7 +42,7 @@ Aplicar o pensamento crítico de maneira prática implica em tomar decisões inf
 
 ## Abertura e Flexibilidade
 
-Manter uma mente aberta e ser flexível diante de novas ideias e pontos de vista são características do pensador crítico. Estar disposto a mudar de opinião na luz de novas evidências é uma qualidade valiosa no mundo volátil de hoje.
+Manter uma [mente aberta](/CONTINUOUS_LEARNING.md#sei-que-nada-sei) e ser flexível diante de novas ideias e pontos de vista são características do pensador crítico. Estar disposto a mudar de opinião na luz de novas evidências é uma qualidade valiosa no mundo volátil de hoje.
 
 A flexibilidade cognitiva alimenta a evolução do pensamento e a aceitação da diversidade de perspectivas.
 
@@ -58,7 +58,7 @@ Desenvolver o pensamento crítico requer prática contínua e uma educação que
 
 Explorar diferentes pontos de vista e [disciplinas](/KNOWLEDGE.md#conhecimento-interdisciplinar) enriquece a compreensão e incentiva a inovação e a criatividade.
 
-Ter uma compreensão em várias áreas pode permitir uma visão mais [holística](https://en.wikipedia.org/wiki/Holism) e integrada do mundo, ao invés de uma visão fragmentada.
+Ter uma compreensão em várias áreas pode permitir uma visão mais [holística](https://en.wikipedia.org/wiki/Holism) e integrada, ao invés de uma visão fragmentada.
 
 ### Engajamento e Discussão
 
