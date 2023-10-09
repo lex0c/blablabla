@@ -42,3 +42,21 @@ Por décadas, o SS7 tem sido o padrão para sinalização em redes de telecomuni
 
 - **Interceptação de Chamadas e Mensagens:** Embora isso não seja exatamente "spoofing", a capacidade de interceptar chamadas e mensagens é uma consequência das vulnerabilidades do SS7. Um atacante pode redirecionar chamadas ou mensagens destinadas a um número para outro número. Isso pode ser feito fazendo o sistema acreditar que o telefone do alvo está em uma localização geográfica diferente da real.
 
+## Diameter
+
+O [Diameter](https://en.wikipedia.org/wiki/Diameter_(protocol)) é um protocolo de sinalização de autenticação, autorização e contabilidade (AAA) que foi desenvolvido para substituir o protocolo mais antigo chamado "RADIUS" (Remote Authentication Dial-In User Service). Enquanto o RADIUS foi predominantemente usado para acesso dial-up, o Diameter foi projetado para atender a requisitos mais modernos e para ser mais versátil em ambientes de rede, especialmente nas redes 3G, 4G (LTE) e futuras redes móveis.
+
+### SS7
+- **Chamadas de Voz (2G e 3G):** Em redes 2G (GSM) e 3G (UMTS), o SS7 é a principal tecnologia de sinalização utilizada para estabelecer, gerenciar e encerrar chamadas de voz.
+  
+- **SMS (2G e 3G):** O SS7 também é usado para enviar e receber mensagens SMS em redes GSM e UMTS. Quando uma mensagem SMS é enviada, ela passa por um centro de serviço de mensagens curtas (SMSC) que utiliza SS7 para rotear e entregar a mensagem.
+
+### Diameter
+- **4G (LTE) e além:** À medida que as redes evoluem para 4G e além, o protocolo Diameter começa a substituir o SS7 para a sinalização de serviços de dados. No entanto, para serviços de voz e SMS em redes 4G, a situação é um pouco mais complexa.
+  
+- **Voz sobre LTE (VoLTE):** Em redes 4G que suportam VoLTE (Voice over LTE), o protocolo Diameter é usado para a sinalização de chamadas de voz. No entanto, muitas redes 4G não possuem VoLTE e, em vez disso, regridem para 2G ou 3G para chamadas de voz (usando SS7 para sinalização).
+
+- **SMS em 4G:** Mesmo em redes 4G, o SMS ainda pode usar a sinalização SS7, especialmente quando a rede regride para 2G/3G para serviços de voz e mensagens. No entanto, em redes com VoLTE, o SMS pode ser enviado sobre IP usando o protocolo Diameter para sinalização.
+
+Resumindo: enquanto o Diameter desempenha um papel crescente na sinalização de redes móveis modernas, especialmente para serviços de dados e VoLTE, o SS7 ainda é amplamente utilizado para chamadas de voz e SMS, especialmente em redes 2G e 3G, e em redes 4G sem suporte a VoLTE.
+
