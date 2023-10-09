@@ -47,6 +47,34 @@ As [redes móveis](https://en.wikipedia.org/wiki/Cellular_network) representam u
 - **Função Principal:** Ultra alta velocidade, baixa latência e capacidade massiva de dispositivos.
 - **Características:** Suporte para IoT (Internet das Coisas), comunicação M2M (máquina a máquina), latência extremamente baixa, velocidades de até 10 Gbps ou mais.
 
+## Comunicação
+
+A comunicação entre celulares envolve uma complexa interação de hardware, software, protocolos de sinalização e infraestrutura de rede.
+
+1. **Início da Comunicação**
+   - Quando você decide fazer uma chamada ou enviar uma mensagem, seu celular inicia o processo se comunicando com a torre de celular mais próxima (ou estação base) usando ondas de rádio.
+
+2. **Conexão com a Rede**
+   - A estação base é conectada a uma infraestrutura maior de rede. Ela encaminha sua solicitação (seja para uma chamada, SMS ou uso de dados) para um controlador, que gerencia várias estações base.
+
+3. **Roteamento**
+   - Se você está fazendo uma chamada ou enviando uma mensagem, o controlador consulta os registros da rede para determinar a localização do dispositivo de destino. Para chamadas e mensagens, isso envolve consultar registros como o Home Location Register (HLR) ou Visitor Location Register (VLR).
+
+4. **Estabelecendo a Comunicação**
+   - Uma vez determinada a localização do dispositivo de destino, a rede estabelece um canal de comunicação entre os dois dispositivos. No caso de uma chamada, você ouvirá um tom de chamada enquanto isso está acontecendo.
+
+5. **Comunicação**
+   - Uma vez estabelecido o canal, os dados podem fluir entre os dois dispositivos. Isso pode ser voz, texto (SMS) ou outros dados.
+
+6. **Encerramento**
+   - Quando a comunicação é concluída (por exemplo, você encerra a chamada), a rede desmonta o canal de comunicação e libera os recursos associados.
+
+7. **Comunicação de Dados**
+   - Para serviços de dados (como navegação na web), o processo é um pouco diferente. Em vez de rotear a comunicação para outro dispositivo celular, a rede conecta o seu dispositivo a um gateway que fornece acesso à Internet. A partir daí, seu dispositivo pode se comunicar com servidores e outros recursos na web.
+
+8. **Roaming**
+   - Se você estiver em uma área que não é atendida por sua operadora original (por exemplo, viajando para outro país), sua comunicação é roteada através de redes locais. Isso é possível graças aos acordos de roaming entre operadoras e à sinalização global, como o SS7, que permite que redes diferentes em diferentes localizações se comuniquem e cooperem.
+
 ## SS7
 
 O [SS7 (Signaling System No. 7)](https://en.wikipedia.org/wiki/Signalling_System_No._7) é um protocolo internacional que define como os elementos da rede se comunicam em redes de telecomunicações públicas. Ele foi desenvolvido na década de 1970 para suportar redes de comutação de circuitos e desde então tem sido a espinha dorsal da sinalização em redes de telecomunicações em todo o mundo. Aqui está um resumo completo:
@@ -108,4 +136,40 @@ O [Diameter](https://en.wikipedia.org/wiki/Diameter_(protocol)) é um protocolo 
 - **SMS em 4G:** Mesmo em redes 4G, o SMS ainda pode usar a sinalização SS7, especialmente quando a rede regride para 2G/3G para serviços de voz e mensagens. No entanto, em redes com VoLTE, o SMS pode ser enviado sobre IP usando o protocolo Diameter para sinalização.
 
 Resumindo: enquanto o Diameter desempenha um papel crescente na sinalização de redes móveis modernas, especialmente para serviços de dados e VoLTE, o SS7 ainda é amplamente utilizado para chamadas de voz e SMS, especialmente em redes 2G e 3G, e em redes 4G sem suporte a VoLTE.
+
+## Vulnerabilidades
+
+Smartphones, redes móveis e SMS têm uma variedade de vulnerabilidades que podem ser exploradas por atores maliciosos.
+
+### Smartphones
+
+**1. Sistemas Operacionais Desatualizados:** Muitos smartphones não têm as últimas atualizações de segurança, tornando-os suscetíveis a várias ameaças conhecidas.
+
+**2. Aplicativos Maliciosos:** Aplicativos maliciosos podem ser baixados de fontes não confiáveis ou até mesmo de lojas oficiais de aplicativos que não conseguiram detectar o software malicioso.
+
+**3. Phishing e Engenharia Social:** Os usuários podem ser enganados para baixar aplicativos, clicar em links ou fornecer informações pessoais.
+
+**4. Interfaces Expostas:** Muitos smartphones têm interfaces, como Bluetooth, NFC e Wi-Fi, que, se não forem protegidas adequadamente, podem ser exploradas.
+
+**5. Permissões excessivas:** Muitos aplicativos solicitam mais permissões do que realmente precisam, o que pode levar a violações de privacidade e outras ameaças.
+
+### Redes Móveis
+
+**1. Ataques Man-in-the-Middle:** Ataques em que um adversário intercepta a comunicação entre duas partes sem que elas saibam.
+
+**2. Falsificação de Torre de Celular (Stingrays):** Dispositivos que se passam por torres de celular legítimas para interceptar comunicações móveis.
+
+**3. SS7 (Signalling System No. 7) e vulnerabilidades Diameter:** Os protocolos de sinalização usados em redes móveis têm vulnerabilidades conhecidas que podem permitir a interceptação de chamadas e mensagens, bem como rastrear a localização do dispositivo.
+
+### SMS
+
+**1. Phishing por SMS (Smishing):** Ataques que usam mensagens SMS para enganar os usuários a clicar em links maliciosos ou fornecer informações pessoais.
+
+**2. Interceptação:** Se a rede não estiver usando criptografia robusta ou se estiver vulnerável (por exemplo, através das vulnerabilidades SS7 mencionadas), as mensagens SMS podem ser interceptadas.
+
+**3. Falsificação de SMS:** Ataques onde mensagens são enviadas parecendo ser de fontes confiáveis, mas são de atores maliciosos.
+
+**4. Vulnerabilidades em Aplicativos de SMS:** Alguns aplicativos de mensagens têm vulnerabilidades que podem ser exploradas para executar código malicioso ou interceptar mensagens.
+
+Para se proteger contra essas e outras vulnerabilidades, é importante manter os dispositivos e aplicativos atualizados, ter cuidado com as permissões dos aplicativos, ser cético em relação a links e mensagens desconhecidas e considerar o uso de soluções de segurança adicionais, como VPNs, firewalls e software antivírus.
 
