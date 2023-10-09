@@ -1,8 +1,57 @@
-# SS7
+# Redes Móveis
+
+As [redes móveis](https://en.wikipedia.org/wiki/Cellular_network) representam um complexo ecossistema de infraestrutura, padrões e tecnologias desenvolvidas ao longo dos anos para permitir a comunicação sem fio entre dispositivos móveis e sistemas fixos.
+
+### 1G (Primeira Geração)
+
+- **Tecnologia:** Analógica.
+- **Função Principal:** Voz.
+- **Características:** A primeira geração de telefonia móvel introduziu a comunicação sem fio, mas tinha uma qualidade de chamada limitada, era suscetível a interferências e não tinha criptografia.
+
+### 2G (Segunda Geração)
+
+- **Tecnologia:** Digital.
+- **Função Principal:** Voz e texto (SMS).
+- **Padrões Principais:** GSM (Global System for Mobile Communications), CDMA (Code Division Multiple Access).
+- **Características:** Introdução do SMS, maior segurança através da criptografia, melhor qualidade de chamada e serviços como MMS e GPRS (General Packet Radio Service) para dados.
+
+### 2.5G e 2.75G
+
+- **Tecnologias:** GPRS e EDGE (Enhanced Data rates for GSM Evolution), respectivamente.
+- **Função Principal:** Melhorias na transmissão de dados.
+- **Características:** Estas são extensões do 2G que ofereceram velocidades de transmissão de dados mais rápidas, preparando o caminho para a internet móvel.
+
+### 3G (Terceira Geração)
+
+- **Tecnologia:** Digital com foco em dados de alta velocidade.
+- **Função Principal:** Dados e voz.
+- **Padrões Principais:** UMTS (Universal Mobile Telecommunications System) baseado em WCDMA (Wideband Code Division Multiple Access), CDMA2000.
+- **Características:** Internet móvel de alta velocidade, chamadas de vídeo, maior capacidade e cobertura.
+
+### 4G (Quarta Geração)
+
+- **Tecnologia:** IP totalmente orientado a dados.
+- **Função Principal:** Dados de alta velocidade.
+- **Padrões Principais:** LTE (Long-Term Evolution), WiMAX.
+- **Características:** Velocidades de internet muito mais rápidas (até 10 vezes mais rápidas que 3G), VoLTE (Voice over LTE), baixa latência.
+
+### 4.5G (LTE-A)
+
+- **Tecnologia:** Melhorias no LTE.
+- **Função Principal:** Velocidades de dados ainda mais rápidas e melhorias de capacidade.
+- **Características:** Agregação de portadoras, MIMO (Multiple Input, Multiple Output) e modulação avançada para aumentar a capacidade e a velocidade.
+
+### 5G (Quinta Geração)
+
+- **Tecnologia:** Novas faixas de frequência e infraestrutura.
+- **Função Principal:** Ultra alta velocidade, baixa latência e capacidade massiva de dispositivos.
+- **Características:** Suporte para IoT (Internet das Coisas), comunicação M2M (máquina a máquina), latência extremamente baixa, velocidades de até 10 Gbps ou mais.
+
+## SS7
 
 O [SS7 (Signaling System No. 7)](https://en.wikipedia.org/wiki/Signalling_System_No._7) é um protocolo internacional que define como os elementos da rede se comunicam em redes de telecomunicações públicas. Ele foi desenvolvido na década de 1970 para suportar redes de comutação de circuitos e desde então tem sido a espinha dorsal da sinalização em redes de telecomunicações em todo o mundo. Aqui está um resumo completo:
 
-## Componentes Chave
+### Componentes Chave
 
 - **STP (Signal Transfer Point):** Atua como um roteador para mensagens SS7, direcionando-as através da rede para seus destinos corretos.
   
@@ -10,7 +59,7 @@ O [SS7 (Signaling System No. 7)](https://en.wikipedia.org/wiki/Signalling_System
   
 - **SSP (Service Switching Point):** Centrais telefônicas que iniciam, encaminham ou terminam chamadas. Eles interagem com o sistema SS7 para realizar funções como estabelecer ou encerrar chamadas.
 
-## Funcionalidades
+### Funcionalidades
 
 1. **Estabelecimento de Chamada:** Quando um usuário inicia uma chamada, o SSP de origem envia uma mensagem através do SS7 para o SSP de destino para configurar a chamada. Esta sinalização inclui etapas como solicitando o estabelecimento da chamada, indicando quando um telefone está tocando e confirmando quando a chamada é atendida.
 
@@ -22,7 +71,7 @@ O [SS7 (Signaling System No. 7)](https://en.wikipedia.org/wiki/Signalling_System
 
 5. **Consulta de Informações:** O SCP pode ser consultado para obter informações específicas necessárias para rotear uma chamada ou fornecer um serviço específico.
 
-## Vulnerabilidades
+### Vulnerabilidades
 
 Por décadas, o SS7 tem sido o padrão para sinalização em redes de telecomunicações. No entanto, foi projetado em uma época em que as redes eram mais fechadas e os riscos de segurança eram diferentes. Como resultado:
 
@@ -32,7 +81,7 @@ Por décadas, o SS7 tem sido o padrão para sinalização em redes de telecomuni
 
 - Há uma crescente conscientização sobre estas vulnerabilidades, e muitas operadoras e organizações estão implementando medidas de segurança para mitigar os riscos associados ao SS7.
 
-### Spoofing
+#### Spoofing
 
 - **Spoofing de Localização:** Um atacante pode solicitar a localização atual de um número de telefone específico, fazendo parecer que a solicitação vem de uma operadora legítima. Isso pode ser usado para rastrear a localização de um indivíduo sem seu conhecimento ou consentimento.
 
