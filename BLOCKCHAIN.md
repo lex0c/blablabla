@@ -200,6 +200,32 @@ Imagine um contrato tradicional que requer várias partes para cumprir determina
 
 3. **Custos de Transação:** Dependendo da rede em que o Dapp é construído, taxas de transação ou "gas fees" podem ser elevadas, afetando a viabilidade de certas operações ou funções.
 
+## Pool de Mineração
+
+Uma [pool de mineração](https://en.wikipedia.org/wiki/Mining_pool) é um grupo de mineiros que combinam seus recursos computacionais para aumentar a probabilidade e estabilidade dos rendimentos de mineração. Ao juntar-se a uma pool, cada participante contribui com uma parte do poder de mineração da pool e, em troca, recebe uma parte da recompensa da mineração proporcional à sua contribuição.
+
+**Razão de Ser das Pools:**
+- A probabilidade de um mineiro individual resolver um bloco e receber a recompensa do bloco é relativamente baixa, especialmente em redes com alta concorrência e poder computacional, como o Bitcoin.
+- Ao se unir em pools, os mineiros podem receber recompensas menores, mas mais frequentes, em vez de grandes pagamentos ocasionais e imprevisíveis.
+
+### Como Funciona
+
+1. **Compartilhando Poder de Mineração:** Mineiros individuais contribuem com seu poder de mineração para a pool.
+2. **Resolvendo Blocos:** A pool tenta resolver blocos no blockchain. Quando um bloco é resolvido pela pool, a recompensa é distribuída entre os mineiros com base em sua contribuição.
+3. **Pagamento:** Existem vários esquemas de pagamento que as pools podem usar, incluindo Pay-per-Share (PPS), Pay-per-Last-N-Shares (PPLNS), entre outros.
+
+### Vantagens das Pools
+
+1. **Pagamentos Mais Frequentes:** Em vez de esperar para encontrar um bloco por conta própria, o que pode nunca acontecer ou demorar muito tempo, os mineiros em uma pool podem receber pagamentos menores, mas mais consistentes.
+2. **Redução da Variância:** A mineração por conta própria pode ser como jogar na loteria. Juntar-se a uma pool ajuda a suavizar os pagamentos.
+
+### Desvantagens e Considerações
+
+1. **Taxas da Pool:** Muitas pools cobram uma taxa dos mineiros pelos serviços prestados. 
+2. **Centralização:** Embora a natureza descentralizada do blockchain seja uma de suas principais características, as pools de mineração podem introduzir centralização. Se algumas poucas pools controlarem uma grande parte do poder de mineração de uma rede, isso pode representar riscos de segurança.
+
+
+
 
 
 ...
