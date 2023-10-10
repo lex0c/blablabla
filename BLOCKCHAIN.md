@@ -250,6 +250,26 @@ Uma [pool de mineração](https://en.wikipedia.org/wiki/Mining_pool) é um grupo
    - Th/s: terahashes por segundo
    - Ph/s: petahashes por segundo
 
+## Hive OS
+
+Hive OS é um sistema operacional e uma plataforma de gerenciamento projetados especificamente para mineração de criptomoedas. Ele se destaca por fornecer aos mineiros uma interface intuitiva e ferramentas poderosas para controlar e monitorar máquinas de mineração, seja uma única GPU em uma estação de trabalho ou um grande número de rigs em um data center. O Hive OS é popular entre muitos mineiros, especialmente aqueles que gerenciam várias máquinas, devido à sua facilidade de uso e eficiência.
+
+1. **Interface Amigável:** O Hive OS possui uma interface gráfica de usuário que permite monitorar a atividade de mineração, o status do hardware, temperaturas, consumo de energia e outros parâmetros essenciais, tudo em um único painel.
+
+2. **Compatibilidade:** Ele suporta uma ampla variedade de GPUs, incluindo modelos da NVIDIA e AMD. Além disso, é compatível com a maioria dos softwares populares de mineração e uma ampla gama de pools de mineração.
+
+3. **Overclocking e Undervolting:** Hive OS permite ajustes finos em GPUs para otimizar a eficiência e o desempenho. Os usuários podem realizar overclock ou undervolt em suas GPUs diretamente através da interface do Hive OS, sem precisar fazer ajustes manuais no BIOS da GPU.
+
+4. **Estatísticas e Monitoramento:** Oferece gráficos detalhados e estatísticas em tempo real sobre a taxa de hash, rejeições, erros e outros parâmetros essenciais para a mineração. Isso facilita o diagnóstico e a resolução de problemas.
+
+5. **Atualizações e Manutenção:** Com o Hive OS, os usuários podem enviar comandos remotos para atualizar software, reiniciar rigs ou fazer outros ajustes sem a necessidade de acesso físico direto às máquinas.
+
+6. **Segurança:** A plataforma possui vários recursos de segurança, como autenticação de dois fatores, para ajudar a proteger as operações de mineração.
+
+7. **Modelo de Preço:** O Hive OS adota um modelo de preços baseado no número de workers (ou rigs de mineração) que um usuário está gerenciando. Há um número limitado de workers que podem ser usados gratuitamente, mas taxas mensais são aplicadas para gerenciar um número maior de rigs.
+
+8. **Integração com Pools e Exchanges:** O Hive OS facilita a integração com várias pools de mineração e exchanges, permitindo que os mineiros sejam pagos diretamente em sua moeda preferida.
+
 
 
 
