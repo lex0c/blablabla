@@ -46,6 +46,48 @@ A engenharia social frequentemente explora os [vieses cognitivos](https://en.wik
 
 7. **[Ancoragem](https://en.wikipedia.org/wiki/Anchoring_(cognitive_bias)):** As primeiras informações que recebemos sobre algo atuam como uma "âncora", influenciando nossas decisões subsequentes. Um atacante pode fornecer uma informação inicial (mesmo que falsa) para moldar as percepções da vítima.
 
+## Conhecimento
+
+O conhecimento é uma das ferramentas mais poderosas que as pessoas têm para evitar cair em golpes. Entender as táticas comuns dos golpistas, reconhecer sinais de alerta e saber como reagir pode ser crucial para evitar ser vítima. Alguns pontos importantes incluem:
+
+1. **Educação Contínua:** O cenário de ameaças está sempre evoluindo. Portanto, é crucial manter-se atualizado sobre os golpes mais recentes e as táticas usadas pelos golpistas.
+
+2. **Ceticismo Saudável:** Se algo parece bom demais para ser verdade, provavelmente é. Seja sempre cauteloso com ofertas, prêmios ou solicitações inesperadas, especialmente se forem acompanhadas de pressão para agir rapidamente.
+
+3. **Verificação Dupla:** Antes de compartilhar informações pessoais, fazer pagamentos ou clicar em links, verifique a autenticidade da solicitação. Isso pode envolver ligar diretamente para a empresa ou organização envolvida, usando um número que você encontrou independentemente (e não o número fornecido na solicitação suspeita).
+
+4. **Proteção de Informações Pessoais:** Seja cauteloso ao compartilhar informações pessoais. Pergunte-se sempre por que alguém precisaria dessa informação e o que ela fará com ela.
+
+5. **Configurações de Privacidade:** Em plataformas online e redes sociais, revise e ajuste suas configurações de privacidade para limitar o que é compartilhado publicamente.
+
+6. **Discussão:** Converse com amigos e familiares sobre golpes conhecidos. Muitas vezes, ouvir sobre as experiências dos outros pode ser uma forma eficaz de aprendizado.
+
+7. **Reconheça Táticas de Pressão:** Muitos golpistas tentarão criar um senso de urgência, alegando que uma oferta é limitada no tempo ou que há consequências negativas se você não agir imediatamente.
+
+8. **Use Ferramentas de Segurança:** Mantenha software antivírus atualizado, use firewalls e considere a autenticação de dois fatores para contas importantes.
+
+9. **URLs Suspeitas:** Sempre verifique a URL na barra de endereços. Páginas de phishing muitas vezes têm URLs que se assemelham, mas não são exatamente iguais às verdadeiras.
+
+10. **Certificados SSL:** Procure pelo ícone de um cadeado na barra de endereços, o que indica uma conexão segura. No entanto, esteja ciente de que alguns sites de phishing também podem ter certificados SSL.
+
+11. **Erros Gramaticais ou de Formatação:** Muitas páginas de phishing têm erros evidentes que podem ser sinais de alerta.
+
+12. **Solicitações Não Solicitadas:** Seja extremamente cauteloso com e-mails ou mensagens que solicitam informações pessoais, mesmo que pareçam vir de uma fonte confiável.
+
+13. **Evite Clicar em Links Suspeitos:** Em vez de clicar em links em e-mails ou mensagens, digite a URL diretamente na barra de endereços ou use um marcador/favorito que você tenha salvo anteriormente.
+
+14. **Notificações de Login:** Configure notificações de login para suas contas importantes. Dessa forma, você será alertado sempre que um novo login ocorrer.
+
+15. **Limitar Informações em Redes Sociais:** Golpistas podem usar informações que você compartilha online para tentar enganá-lo ou enganar outras pessoas em sua vida.
+
+16. **Treinamento e Educação:** Participar regularmente de treinamentos de segurança cibernética pode mantê-lo atualizado sobre as últimas ameaças e táticas de golpistas.
+
+17. **Backups:** Mantenha backups regulares de seus dados. Se algo der errado, você tem uma cópia de suas informações.
+
+18. **Consulte a Fonte:** Se receber uma solicitação inesperada de informações, especialmente se parecer suspeita, ligue diretamente para a empresa ou pessoa em questão (usando informações de contato que você já possui, não as fornecidas na solicitação) para verificar a legitimidade.
+
+Ter conhecimento sobre golpes comuns e táticas de engenharia social não apenas protege o indivíduo, mas também permite que ele informe e proteja outros em sua comunidade. Porém, é importante lembrar que ninguém está imune a ser alvo de golpes, então é fundamental combinar o conhecimento com uma postura sempre vigilante e cautelosa.
+
 ## Conclusão
 
 A engenharia social explora nossa natureza humana e nossa tendência a confiar. No entanto, com a devida educação e vigilância, podemos nos proteger contra esses ataques. Lembre-se, no mundo digital de hoje, não são apenas nossos computadores que precisam de proteção, mas também nossas mentes.
