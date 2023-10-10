@@ -86,6 +86,53 @@ O conhecimento é uma das ferramentas mais poderosas que as pessoas têm para ev
 
 18. **Consulte a Fonte:** Se receber uma solicitação inesperada de informações, especialmente se parecer suspeita, ligue diretamente para a empresa ou pessoa em questão (usando informações de contato que você já possui, não as fornecidas na solicitação) para verificar a legitimidade.
 
+## Cartões de Crédito 
+
+Evitar golpes relacionados a cartões de crédito ou débito requer uma combinação de práticas cautelosas e conhecimento. Aqui estão algumas medidas recomendadas:
+
+1. **Mantenha seu cartão seguro:** 
+   - Não o deixe exposto ou acessível a estranhos.
+   - Não o perca de vista ao fazer pagamentos em restaurantes ou lojas.
+
+2. **Verifique regularmente seus extratos:** 
+   - Revise seu extrato bancário ou fatura do cartão regularmente em busca de transações não autorizadas.
+   - Reporte imediatamente quaisquer transações suspeitas ao banco ou à operadora do cartão.
+
+3. **Use tecnologia de chip e PIN:** 
+   - Se possível, opte por cartões com tecnologia de chip e PIN, que são mais seguros do que cartões com tarja magnética.
+
+4. **Seja cauteloso com ligações e e-mails:** 
+   - Nunca forneça informações de cartão em resposta a um e-mail ou ligação não solicitada.
+   - As operadoras de cartão e bancos nunca solicitam detalhes completos do cartão ou senhas por telefone ou e-mail.
+
+5. **Proteja suas informações online:** 
+   - Use senhas fortes e únicas para contas online.
+   - Ative a autenticação de dois fatores quando disponível.
+   - Nunca salve os detalhes do seu cartão em sites de compras, a menos que você confie completamente no site.
+
+6. **Evite usar caixas eletrônicos suspeitos:** 
+   - Esteja atento a dispositivos estranhos ou câmeras apontando para o teclado.
+   - Se o caixa eletrônico parecer ter sido adulterado, não o use.
+
+7. **Cuidado com golpes comuns:** 
+   - Esteja ciente dos golpes mais comuns, como os golpes de troca de cartão, onde o golpista troca seu cartão real por um falso enquanto você está distraído.
+
+8. **Use redes seguras:** 
+   - Evite fazer transações online em redes Wi-Fi públicas ou não seguras.
+   - Considere usar uma VPN para transações online em redes não confiáveis.
+
+9. **Mantenha seu software atualizado:** 
+   - Certifique-se de que seu sistema operacional, navegador e software de segurança estejam atualizados com as últimas correções de segurança.
+
+10. **Destrua cartões antigos:** 
+   - Se você receber um novo cartão, corte o antigo em pedaços, especialmente através do chip e da tarja magnética, antes de descartá-lo.
+
+11. **Ative alertas:** 
+   - Muitos bancos oferecem alertas via SMS ou e-mail para transações acima de um determinado valor. Ative esses alertas para ser informado sobre atividades incomuns.
+
+12. **Informe-se sobre seguros e proteções:** 
+   - Alguns cartões vêm com seguros ou serviços de proteção contra fraudes. Familiarize-se com esses benefícios e saiba como ativá-los se necessário.
+
 Ter conhecimento sobre golpes comuns e táticas de engenharia social não apenas protege o indivíduo, mas também permite que ele informe e proteja outros em sua comunidade. Porém, é importante lembrar que ninguém está imune a ser alvo de golpes, então é fundamental combinar o conhecimento com uma postura sempre vigilante e cautelosa.
 
 ## Conclusão
