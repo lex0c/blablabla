@@ -151,6 +151,89 @@ Implementar essas práticas e continuamente manter-se atualizado com as melhores
 
 O Pi-hole é uma ferramenta poderosa para melhorar a privacidade e a performance da rede, reduzindo a quantidade de anúncios e rastreadores que são capazes de acessar seus dispositivos.
 
+## Static IP
+
+Definir um IP estático para o seu Raspberry Pi na sua rede local pode ser feito de duas maneiras principais: configurando o Raspberry Pi para solicitar sempre o mesmo IP ou configurando o seu roteador para atribuir sempre o mesmo IP ao Raspberry Pi (reserva de DHCP). Aqui estão as instruções para ambos os métodos:
+
+### **Método 1: Configurar IP Estático no Raspberry Pi**
+
+1. **Abra o terminal** no seu Raspberry Pi e edite o arquivo de configuração `dhcpcd.conf` usando um editor de texto. Você pode usar o `nano`:
+   ```bash
+   sudo nano /etc/dhcpcd.conf
+   ```
+
+2. **Vá até o final do arquivo** e adicione as seguintes linhas:
+   ```bash
+   interface eth0
+   static ip_address=192.168.1.100/24
+   static routers=192.168.1.1
+   static domain_name_servers=192.168.1.1
+   ```
+   - `interface eth0`: Especifica que você está configurando a interface Ethernet. Use `wlan0` para Wi-Fi.
+   - `static ip_address`: O IP estático que você deseja atribuir ao Raspberry Pi.
+   - `static routers`: O endereço IP do seu roteador/gateway.
+   - `static domain_name_servers`: O endereço IP do seu DNS (geralmente o mesmo que o roteador).
+
+3. **Salve e feche o arquivo**. Se você estiver usando `nano`, pressione `CTRL+X`, depois `Y` para confirmar as mudanças e `ENTER` para sair.
+
+4. **Reinicie o Raspberry Pi** para aplicar as configurações:
+   ```bash
+   sudo reboot
+   ```
+
+### **Método 2: Reserva de DHCP no Roteador**
+
+1. **Acesse as configurações do roteador**: Abra um navegador web e entre no endereço IP do seu roteador, geralmente algo como `192.168.1.1`.
+
+2. **Localize as configurações de DHCP**: Navegue pelas configurações até encontrar a seção de DHCP ou algo similar.
+
+3. **Adicione uma Reserva de DHCP**: 
+   - Procure uma opção para adicionar uma reserva de DHCP ou IP estático.
+   - Você precisará fornecer o endereço MAC do Raspberry Pi e o endereço IP que deseja reservar.
+
+4. **Salve as configurações e reinicie o roteador se necessário**.
+
+5. **Reinicie o Raspberry Pi** para garantir que ele obtenha o novo endereço IP reservado.
+
+O método da reserva de DHCP é geralmente preferido porque permite gerenciar todos os IPs estáticos em um único lugar e reduz a possibilidade de conflitos de IP.
+
+## Domain
+
+Domínio ou hostname personalizado em rede local para acessar o Pi-hole ou outros serviços no seu Raspberry Pi, você pode fazer isso configurando um servidor DNS local ou editando o arquivo hosts nos dispositivos da sua rede. Aqui estão as opções:
+
+### **Opção 1: Configurando um Servidor DNS Local**
+
+1. **Use o Pi-hole como seu DNS Server**:
+   - Certifique-se de que todos os dispositivos na sua rede estejam configurados para usar o Pi-hole como seu servidor DNS.
+
+2. **Adicionar Entrada DNS Customizada no Pi-hole**:
+   - Acesse a interface de administração do Pi-hole.
+   - Vá até "Local DNS Records" e adicione um novo registro com o nome de domínio desejado e o endereço IP do seu Raspberry Pi.
+
+### **Opção 2: Editando o Arquivo Hosts nos Dispositivos**
+
+- **Windows**:
+   1. Navegue até `C:\Windows\System32\drivers\etc`.
+   2. Abra o arquivo `hosts` com um editor de texto como administrador.
+   3. Adicione uma linha com o IP do Raspberry Pi seguido pelo domínio desejado, por exemplo:
+      ```
+      192.168.1.100 pihole.local
+      ```
+
+- **Mac e Linux**:
+   1. Abra o terminal.
+   2. Edite o arquivo hosts usando um editor de texto, por exemplo usando o comando:
+      ```
+      sudo nano /etc/hosts
+      ```
+   3. Adicione uma linha como no exemplo do Windows.
+
+### **Opção 3: Usando um Router com Funcionalidades de DNS**
+
+- Alguns roteadores permitem que você adicione entradas DNS customizadas.
+   1. Acesse as configurações do seu roteador.
+   2. Procure por configurações DNS ou DHCP e adicione uma entrada apontando para o IP do seu Raspberry Pi.
+
 ## HTTPS
 
 Para configurar o HTTPS na interface web do Pi-hole, você pode usar um certificado SSL/TLS. O Let’s Encrypt é uma autoridade certificadora que fornece certificados SSL/TLS gratuitos e é amplamente utilizado para esse propósito. Aqui está um guia passo a passo sobre como configurar o HTTPS no Pi-hole usando o Let’s Encrypt:
@@ -211,43 +294,6 @@ Para configurar o HTTPS na interface web do Pi-hole, você pode usar um certific
 - **Domínio**: Você deve ter um domínio apontando para o endereço IP do seu Raspberry Pi.
 - **Portas**: Certifique-se de que as portas 80 e 443 estejam abertas no seu roteador e redirecionadas para o Raspberry Pi.
 - **Segurança**: Usar HTTPS ajuda a proteger as informações transmitidas entre o seu navegador e o Pi-hole, especialmente útil se você planeja acessar a interface administrativa fora da sua rede local.
-
-## Domain
-
-Domínio ou hostname personalizado em rede local para acessar o Pi-hole ou outros serviços no seu Raspberry Pi, você pode fazer isso configurando um servidor DNS local ou editando o arquivo hosts nos dispositivos da sua rede. Aqui estão as opções:
-
-### **Opção 1: Configurando um Servidor DNS Local**
-
-1. **Use o Pi-hole como seu DNS Server**:
-   - Certifique-se de que todos os dispositivos na sua rede estejam configurados para usar o Pi-hole como seu servidor DNS.
-
-2. **Adicionar Entrada DNS Customizada no Pi-hole**:
-   - Acesse a interface de administração do Pi-hole.
-   - Vá até "Local DNS Records" e adicione um novo registro com o nome de domínio desejado e o endereço IP do seu Raspberry Pi.
-
-### **Opção 2: Editando o Arquivo Hosts nos Dispositivos**
-
-- **Windows**:
-   1. Navegue até `C:\Windows\System32\drivers\etc`.
-   2. Abra o arquivo `hosts` com um editor de texto como administrador.
-   3. Adicione uma linha com o IP do Raspberry Pi seguido pelo domínio desejado, por exemplo:
-      ```
-      192.168.1.100 pihole.local
-      ```
-
-- **Mac e Linux**:
-   1. Abra o terminal.
-   2. Edite o arquivo hosts usando um editor de texto, por exemplo usando o comando:
-      ```
-      sudo nano /etc/hosts
-      ```
-   3. Adicione uma linha como no exemplo do Windows.
-
-### **Opção 3: Usando um Router com Funcionalidades de DNS**
-
-- Alguns roteadores permitem que você adicione entradas DNS customizadas.
-   1. Acesse as configurações do seu roteador.
-   2. Procure por configurações DNS ou DHCP e adicione uma entrada apontando para o IP do seu Raspberry Pi.
 
 ---
 
