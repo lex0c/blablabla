@@ -75,6 +75,37 @@ A comunicação entre celulares envolve uma complexa interação de hardware, so
 8. **Roaming**
    - Se você estiver em uma área que não é atendida por sua operadora original (por exemplo, viajando para outro país), sua comunicação é roteada através de redes locais. Isso é possível graças aos acordos de roaming entre operadoras e à sinalização global, como o SS7, que permite que redes diferentes em diferentes localizações se comuniquem e cooperem.
 
+## LTE
+
+[LTE](https://en.wikipedia.org/wiki/LTE_(telecommunication)) (Long-Term Evolution) é uma padrão de comunicação móvel de alta velocidade e alta capacidade destinado a dispositivos móveis e terminais de dados sem fio. É popularmente conhecido como 4G LTE, representando a quarta geração de tecnologias de telefonia móvel. Aqui estão alguns aspectos e características do LTE:
+
+### 1. **Velocidade e Capacidade:**
+   - O LTE oferece velocidades de download e upload significativamente mais rápidas em comparação com as tecnologias anteriores (3G, 2G).
+   - Ele suporta navegação na web de alta velocidade, streaming de vídeo HD, jogos online e outras atividades de dados intensivos.
+
+### 2. **Eficiência Espectral:**
+   - LTE é projetado para ser mais eficiente espectralmente, permitindo maior transferência de dados em uma faixa de espectro limitada.
+
+### 3. **Conectividade Melhorada:**
+   - Ele proporciona uma melhor experiência de usuário com menor latência, o que significa um atraso reduzido durante a transmissão de dados.
+   - Melhor desempenho em movimento, permitindo uma conexão estável mesmo em altas velocidades, como quando se viaja de carro ou trem.
+
+### 4. **Arquitetura Simplificada:**
+   - A arquitetura de rede LTE é mais simples e mais plana em comparação com as redes 3G, o que ajuda a reduzir os custos e a latência.
+
+### 5. **Suporte a Múltiplas Frequências:**
+   - O LTE pode operar em várias bandas de frequência, proporcionando flexibilidade para as operadoras e melhor cobertura para os usuários.
+
+### 6. **Tecnologia MIMO:**
+   - O LTE usa a tecnologia MIMO (Multiple Input Multiple Output) para aumentar a capacidade e desempenho da rede, utilizando múltiplas antenas para transmissão e recepção.
+
+### 7. **Segurança:**
+   - O LTE tem várias camadas de segurança para proteção contra várias ameaças, como interceptação e interferência.
+
+### Vulnerabilidades:
+   - Como qualquer tecnologia de comunicação sem fio, o LTE também tem suas vulnerabilidades, incluindo potenciais ataques de interceptação, rastreamento de localização e ataques de negação de serviço.
+   - Há também preocupações com a segurança relacionadas à implementação de redes 5G, onde o LTE ainda desempenhará um papel, funcionando em conjunto com novas tecnologias 5G.
+
 ## SS7
 
 O [SS7 (Signaling System No. 7)](https://en.wikipedia.org/wiki/Signalling_System_No._7) é um protocolo internacional que define como os elementos da rede se comunicam em redes de telecomunicações públicas. Ele foi desenvolvido na década de 1970 para suportar redes de comutação de circuitos e desde então tem sido a espinha dorsal da sinalização em redes de telecomunicações em todo o mundo. Aqui está um resumo completo:
