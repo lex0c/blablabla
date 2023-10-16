@@ -448,6 +448,118 @@ A escolha de plugins ou extensões tanto para o Blender quanto para a Unreal Eng
 - **VRM Importer (Blender):** Facilita a importação de avatares VRM para uso em VR.
 - **VR Expansion Plugin (Unreal Engine):** Adiciona funcionalidades extra e facilita o desenvolvimento de projetos de VR.
 
+## Save points
+
+"Save points" ou pontos de salvamento são locais específicos ou mecânicas dentro de um jogo onde o progresso do jogador é automaticamente ou manualmente salvo. A implementação de pontos de salvamento varia de acordo com o design e a engine do jogo, mas aqui está uma visão geral de como eles podem ser criados:
+
+### **1. Escolhendo Locais para Save Points:**
+   - Decida onde os save points serão colocados nos levels. Eles podem estar no início ou no final de um level, após completar um desafio significativo, ou em locais estratégicos ao longo do jogo.
+
+### **2. Desenvolvendo a Lógica de Salvamento:**
+   - Desenvolva a lógica de programação que irá capturar o estado atual do jogo, incluindo a posição do jogador, inventário, saúde, e outros elementos relevantes.
+
+### **3. Criando Triggers de Salvamento:**
+   - Triggers podem ser criados para salvar o jogo automaticamente quando o jogador atinge um ponto de salvamento. 
+   - Alternativamente, você pode permitir que os jogadores escolham manualmente quando salvar, oferecendo uma opção no menu do jogo.
+
+### **4. Salvando Dados:**
+   - Os dados do jogo são salvos em um arquivo ou banco de dados, permitindo que os jogadores retornem ao último ponto de salvamento se o jogo for fechado ou o jogador morrer.
+
+### **5. Carregando Dados Salvos:**
+   - Implemente a funcionalidade para carregar os dados salvos, restaurando o jogo ao estado no último ponto de salvamento.
+   - Certifique-se de que todos os elementos do jogo sejam restaurados corretamente, como inimigos derrotados, itens coletados, e o progresso do level.
+
+### **6. Teste de Save Points:**
+   - Teste os save points para garantir que funcionem como esperado, salvando e carregando o jogo corretamente.
+
+Os pontos de salvamento são uma parte essencial da experiência do jogador, permitindo que os jogadores retornem ao jogo sem perder progresso significativo e ajudando a manter o jogo desafiador, mas justo.
+
+## Sons
+
+Existem vários repositórios online onde os desenvolvedores de jogos podem encontrar efeitos sonoros e músicas gratuitas para usar em projetos.
+
+### **1. Freesound:**
+   - **Website:** [Freesound](https://freesound.org/)
+   - **Descrição:** Uma plataforma que oferece acesso a uma ampla variedade de efeitos sonoros carregados por criadores de todo o mundo.
+
+### **2. Incompetech:**
+   - **Website:** [Incompetech](https://incompetech.com/)
+   - **Descrição:** Oferece uma vasta coleção de músicas de Kevin MacLeod que são gratuitas para usar em projetos de jogos.
+
+### **3. ccMixter:**
+   - **Website:** [ccMixter](http://ccmixter.org/)
+   - **Descrição:** Uma comunidade de músicos e sound designers onde você pode encontrar músicas e efeitos sonoros sob licenças Creative Commons.
+
+### **4. Open Game Art:**
+   - **Website:** [Open Game Art](https://opengameart.org/)
+   - **Descrição:** Além de artes visuais, este site também oferece uma seleção de músicas e efeitos sonoros gratuitos para jogos.
+
+### **5. Jamendo:**
+   - **Website:** [Jamendo](https://www.jamendo.com/start)
+   - **Descrição:** Uma plataforma que oferece música sob licenças Creative Commons, adequada para uso em projetos de jogos.
+
+### **6. Bensound:**
+   - **Website:** [Bensound](https://www.bensound.com/)
+   - **Descrição:** Oferece uma coleção de músicas que são gratuitas para uso em projetos de jogos, com atribuição.
+
+### **7. Zapsplat:**
+   - **Website:** [Zapsplat](https://www.zapsplat.com/)
+   - **Descrição:** Um repositório que oferece uma vasta gama de efeitos sonoros e músicas de fundo gratuitas.
+
+### **8. Purple Planet:**
+   - **Website:** [Purple Planet](https://www.purple-planet.com/)
+   - **Descrição:** Oferece uma variedade de músicas gratuitas para usar em projetos, incluindo jogos, com atribuição.
+
+Sempre verifique as licenças dos assets de som que você está baixando para garantir que você os use de maneira compatível com seus termos, incluindo atribuição quando necessário.
+
+## Atribuições
+
+As atribuições para assets ou quaisquer outros recursos de terceiros usados em um jogo geralmente devem ser feitas de maneira visível e acessível aos usuários e jogadores. Aqui estão algumas maneiras comuns de fornecer atribuições:
+
+### **1. Tela de Créditos:**
+   - Uma tela de créditos dentro do jogo é um local comum para atribuições. Pode listar os criadores dos recursos usados e suas contribuições específicas.
+
+### **2. Documentação ou Arquivo:**
+   - Em alguns casos, as atribuições podem ser fornecidas em documentação externa, como um arquivo README incluído com o jogo.
+
+### **3. Menu ou Configurações do Jogo:**
+   - As atribuições podem também ser incluídas em uma seção do menu do jogo, como uma parte das configurações ou informações do jogo.
+
+### **4. Website ou Página do Jogo:**
+   - Se o jogo tiver uma página ou site oficial, as atribuições podem ser listadas lá, talvez em uma seção dedicada a créditos ou reconhecimentos.
+
+### **5. Durante o Gameplay ou Telas de Loading:**
+   - Em alguns casos, as atribuições podem ser incluídas diretamente durante o gameplay ou em telas de loading, especialmente para músicas ou efeitos sonoros específicos.
+
+### **Nota Importante:**
+- **Verifique as Licenças:** Sempre verifique os requisitos específicos da licença do recurso que você está usando. Algumas licenças podem ter requisitos específicos sobre como e onde as atribuições devem ser feitas.
+- **Seja Claro e Preciso:** Certifique-se de que as atribuições sejam claras, precisas e facilmente visíveis ou acessíveis, para que os criadores recebam o devido crédito por seu trabalho.
+
+## Escala
+
+A escala em modelagem 3D e desenvolvimento de jogos é crucial para garantir que todos os elementos dentro de um jogo interajam de maneira realista e coerente.
+
+### **1. Consistência:**
+   - **Manter a Escala Consistente:** Todos os objetos e personagens dentro de um jogo devem manter uma escala consistente em relação uns aos outros para evitar distorções e manter um senso de realismo.
+
+### **2. Unidades de Medida:**
+   - **Definir Unidades:** Certifique-se de definir e seguir uma unidade de medida padrão (metros, centímetros, etc.) em todo o projeto para manter a consistência.
+   - **Softwares Diferentes:** Verifique as unidades de medida ao exportar e importar entre softwares diferentes, como Blender e Unreal Engine, e ajuste conforme necessário.
+
+### **3. Importação e Exportação:**
+   - **Verificar a Escala:** Ao importar modelos para a engine de jogo, certifique-se de que a escala esteja correta. Ajuste a escala se necessário antes de começar a trabalhar com o modelo na engine.
+
+### **4. Ambientes e Cenários:**
+   - **Escala Humana:** Ao criar ambientes, é útil usar uma escala humana de referência (como um modelo humano) para garantir que os elementos do ambiente estejam em proporção.
+
+### **5. Teste de Gameplay:**
+   - **Testar a Escala:** Durante o teste de gameplay, verifique se a escala de objetos e personagens parece correta e ajuste conforme necessário.
+
+### **6. Performance:**
+   - **Níveis de Detalhe (LODs):** Considere usar diferentes níveis de detalhe para objetos distantes versus objetos próximos para manter a performance, ajustando a escala e detalhes conforme necessário.
+
+Usar uma escala humana de referência é uma prática de design fundamental que pode significativamente impactar a qualidade do design de níveis e a experiência geral do jogador, garantindo um mundo de jogo coerente e convincente.
+
 ## Game jams
 
 Game jams são eventos onde desenvolvedores de jogos, sejam profissionais, estudantes ou entusiastas, se reúnem para criar um jogo em um período de tempo limitado. O objetivo é inovar, colaborar e compartilhar conhecimentos e ideias. Aqui está um resumo de como uma game jam geralmente funciona:
