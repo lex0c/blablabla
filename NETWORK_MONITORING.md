@@ -167,6 +167,44 @@ Network monitoring is a crucial aspect of ensuring that a system is secure and h
 - **Frequency:** High frequency of connections or data transfer could be suspicious.
 - **Protocols:** Unexpected protocols (not HTTP, HTTPS, SSH, etc.) might be used for malicious activities.
 
+## ARP Table
+
+### 1. **Displaying the ARP Table**
+   Display the current ARP table to see the mapping of IP addresses to MAC addresses.
+   ```bash
+   arp -a
+   ```
+
+### 2. **Adding a Static ARP Entry**
+   Add a permanent/static ARP entry to prevent it from being overwritten.
+   ```bash
+   arp -s [IPAddress] [MACAddress]
+   ```
+
+### 3. **Removing an ARP Entry**
+   If you identify a suspicious ARP entry, you can remove it using the following command.
+   ```bash
+   arp -d [IPAddress]
+   ```
+
+### 4. **IPtables for Filtering Traffic**
+   You can use `iptables` to filter traffic, including preventing specific IP/MAC pairs from communicating.
+   ```bash
+   sudo iptables -A INPUT -p ARP -s [IPAddress] -m mac --mac-source [MACAddress] -j DROP
+   ```
+
+### 5. **Using Tcpdump for Packet Capture**
+   Tcpdump can be used to monitor traffic, including ARP packets.
+   ```bash
+   tcpdump -i [InterfaceName] arp
+   ```
+
+### 6. **Clear ARP Cache**
+   This will remove all ARP entries, useful when you want to clear suspicious entries.
+   ```bash
+   ip -s -s neigh flush all
+   ```
+
 ## Server
 
 Attackers can use various methods to connect to a vulnerable server. Here are several common methods and how you can monitor and protect against each:
