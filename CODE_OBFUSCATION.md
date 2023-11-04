@@ -17,3 +17,33 @@ Existem várias técnicas utilizadas para ofuscar o código:
 - **Execução de código dinâmico:** Executar código gerado em tempo de execução, em vez de código estático, pode complicar a análise do comportamento real do código.
 
 Embora a ofuscação possa tornar a engenharia reversa mais difícil, é importante notar que ela nunca torna esse processo impossível. Com tempo e recursos suficientes, um programa ofuscado ainda pode ser descompilado. Além disso, a ofuscação pode dificultar a depuração e manutenção do código, e até introduzir erros ou problemas de desempenho se não for bem implementada.
+
+## Metamorfismo
+
+As técnicas metamórficas não são geralmente utilizadas em software legítimo devido à complexidade, dificuldades de manutenção e potenciais implicações legais e éticas. Aqui estão algumas das técnicas metamórficas que são conhecidas:
+
+- **Instruction substitution and reordering**: O código é reescrito para usar diferentes instruções que têm o mesmo efeito, ou as instruções são reordenadas de maneira que não altere o resultado final.
+
+- **Renaming records**: Em linguagens de programação de baixo nível, como assembly, os malwares metamórficos podem mudar quais registros são usados para quais operações.
+
+- **Insertion of NOP instructions**: Inserções de instruções NOP ou outras instruções redundantes que não mudam a funcionalidade do código, mas alteram a assinatura binária.
+
+- **Junk code insertion**: Adicionar código que não tem efeito sobre a lógica do programa (código morto) entre as instruções executáveis.
+
+- **Code transposition**: Reorganizar blocos de código que podem ser executados em qualquer ordem sem alterar o resultado final.
+
+- **Equivalent code substitution**: Usar algoritmos ou instruções matematicamente equivalentes para realizar a mesma tarefa.
+
+- **Dynamic code generation**: Criar código em tempo de execução usando técnicas como JIT (Just-In-Time) compilation ou interpretação de uma linguagem de scripting embutida.
+
+- **Using different programming constructs**: Alterar laços, condicionais, e outras construções lógicas por outras equivalentes.
+
+- **Encrypting/decrypting payloads**: Criptografar o payload do malware e descriptografá-lo em tempo de execução, frequentemente com uma chave diferente a cada execução.
+
+- **Self-modifying code**: Escrever código que se modifica ativamente durante a execução.
+
+- **Polymorphic engines**: Alguns malwares possuem um "motor" que automaticamente gera novas versões metamórficas do código cada vez que é executado.
+
+- **Control flow flattening**: Alterar o fluxo de controle do programa para torná-lo menos previsível e mais difícil de analisar.
+
+Essas técnicas podem ser extremamente eficazes para evitar a detecção estática (análise do código sem execução) e algumas formas de detecção dinâmica (análise do comportamento do código durante a execução). No entanto, a complexidade dessas técnicas também significa que erros podem facilmente ser introduzidos, tornando o software instável.
