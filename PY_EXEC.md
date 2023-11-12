@@ -86,3 +86,47 @@ Algumas considerações adicionais:
 - **Dependências**: Se o seu script depende de bibliotecas externas ou arquivos de dados, você deve garantir que eles estejam incluídos no pacote gerado pelo PyInstaller. Isso pode requerer a configuração de opções adicionais ou a criação de um arquivo de especificação para o PyInstaller.
 - **Testes**: Sempre teste o executável em uma máquina que não tenha o Python instalado para garantir que o PyInstaller incluiu todas as dependências necessárias.
 - **Cross-compilation**: Embora o PyInstaller não suporte a criação de executáveis para um sistema operacional diferente do que está sendo executado, existem algumas ferramentas e serviços que permitem a compilação cruzada (por exemplo, usando máquinas virtuais, Docker ou serviços de CI/CD que oferecem ambientes de compilação para múltiplas plataformas).
+
+## cx_Freeze
+
+O [cx_Freeze](https://pypi.org/project/cx-Freeze/) é uma ferramenta popular para a criação de executáveis a partir de scripts Python. É útil para distribuir aplicações Python para usuários finais que podem não ter Python instalado em seus sistemas. Aqui estão alguns aspectos importantes sobre `cx_Freeze`:
+
+### Funcionalidades e Uso
+1. **Criação de Executáveis**: `cx_Freeze` converte scripts Python em executáveis independentes. Isso é feito empacotando o script Python junto com uma cópia do interpretador Python e quaisquer bibliotecas necessárias.
+
+2. **Plataformas suportadas**: Funciona em várias plataformas, incluindo Windows, macOS e Linux.
+
+3. **Suporte a versões do Python**: Suporta Python 2.7 e Python 3.x, embora seja recomendado usar as versões mais recentes do Python para melhores resultados e segurança.
+
+4. **Independência**: Os executáveis criados são independentes, o que significa que não exigem que o Python esteja instalado no sistema do usuário final.
+
+5. **Personalização**: Oferece opções para personalizar o processo de compilação, como inclusão de módulos adicionais, alteração do ícone do executável, entre outros.
+
+### Como Usar
+Para usar `cx_Freeze`, você precisa:
+1. Instalar `cx_Freeze` via pip (`pip install cx_Freeze`).
+2. Criar um script de configuração (geralmente chamado `setup.py`) onde você especifica os detalhes de como seu aplicativo deve ser congelado.
+3. Executar o script de configuração para criar o executável.
+
+### Exemplo Básico de `setup.py`:
+```python
+from cx_Freeze import setup, Executable
+
+setup(
+    name = "MeuApp",
+    version = "0.1",
+    description = "Um exemplo de app com cx_Freeze",
+    executables = [Executable("meu_script.py")]
+)
+```
+Para gerar o executável, você executaria algo como `python setup.py build` no terminal.
+
+### Considerações:
+- **Dependências**: `cx_Freeze` tenta automaticamente incluir todas as dependências necessárias, mas em alguns casos, você pode precisar especificar manualmente módulos adicionais.
+
+- **Arquivos de dados**: Se o seu aplicativo depende de arquivos de dados externos (como imagens ou arquivos de texto), você precisará garantir que eles também sejam incluídos.
+
+- **UIs gráficas**: Funciona bem com aplicativos GUI (interface gráfica do usuário) construídos com bibliotecas como Tkinter, PyQt, ou wxPython.
+
+- **Depuração**: Pode ser necessário depurar problemas específicos de compilação, como módulos ausentes ou problemas de caminho de arquivo.
+
