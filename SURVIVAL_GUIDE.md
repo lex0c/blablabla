@@ -135,4 +135,38 @@ Manter a segurança e a saúde durante desastres prolongados em ambientes urbano
   
   - **Reservas de Dinheiro**: Ter dinheiro em espécie para emergências.
 
-...
+## OPSEC
+
+"OPSEC" ou Operações de Segurança é um termo que se originou no contexto militar, mas que também é aplicável a situações de emergência ou desastres em ambientes civis. OPSEC envolve a prática de proteger informações críticas para impedir que caiam nas mãos erradas, reduzindo assim a vulnerabilidade a ameaças. Em cenários de desastres, a OPSEC pode ser aplicada da seguinte maneira:
+
+1. **Proteção de Informações Pessoais**:
+   - Evite divulgar detalhes sobre sua localização, recursos, planos de viagem ou estoques de suprimentos a estranhos ou em mídias sociais.
+
+2. **Gestão de Recursos Visíveis**:
+   - Seja discreto com suprimentos como alimentos, água, e combustível. Exibir grandes quantidades pode atrair atenção indesejada.
+
+3. **Comunicação Segura**:
+   - Ao comunicar-se durante uma emergência, seja cauteloso com o que compartilha por telefone, rádio ou internet. Informações sensíveis podem ser interceptadas.
+
+4. **Planejamento e Execução de Movimentos**:
+   - Seja discreto ao se movimentar, especialmente se estiver transportando suprimentos ou se estiver em áreas potencialmente perigosas.
+
+5. **Avaliação de Riscos e Ameaças**:
+   - Mantenha-se informado sobre possíveis ameaças na sua área, como atividades criminosas ou situações de conflito.
+
+6. **Conscientização Situacional**:
+   - Esteja sempre ciente do seu ambiente e de qualquer atividade suspeita ao redor.
+
+7. **Segurança Residencial**:
+   - Tome medidas para proteger sua residência ou abrigo, como reforçar fechaduras, janelas e portas.
+
+8. **Rede de Confiança**:
+   - Estabeleça uma rede de confiança com vizinhos e membros da comunidade para apoio mútuo, mas seja cauteloso ao compartilhar informações sensíveis.
+
+9. **Preparação para Evacuação**:
+   - Tenha um plano de evacuação discreto e seguro, caso seja necessário deixar sua localização atual.
+
+10. **Documentação Segura**:
+    - Proteja documentos importantes, como identidades, documentos de propriedade e informações financeiras.
+
+Lembre-se, a OPSEC não é apenas sobre o que você faz, mas também como e quando você faz. É sobre ser consciente e intencional com suas ações e informações, especialmente em situações onde a segurança pode ser um fator crítico.
