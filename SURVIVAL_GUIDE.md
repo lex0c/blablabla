@@ -170,3 +170,42 @@ Manter a segurança e a saúde durante desastres prolongados em ambientes urbano
     - Proteja documentos importantes, como identidades, documentos de propriedade e informações financeiras.
 
 Lembre-se, a OPSEC não é apenas sobre o que você faz, mas também como e quando você faz. É sobre ser consciente e intencional com suas ações e informações, especialmente em situações onde a segurança pode ser um fator crítico.
+
+## Gray Man
+
+O conceito de "Gray Man" refere-se a uma estratégia de segurança e sobrevivência que envolve passar despercebido, evitando chamar atenção em situações de emergência ou em ambientes potencialmente hostis. O objetivo é misturar-se ao ambiente e às pessoas ao redor, evitando se destacar. Aqui estão algumas diretrizes para adotar a abordagem de Gray Man:
+
+1. **Vestuário e Aparência**:
+   - Use roupas neutras e comuns que sejam apropriadas para o ambiente local. Evite cores chamativas ou roupas com logos grandes e distintos.
+   - Mantenha uma aparência bem cuidada, mas discreta, para evitar chamar a atenção.
+
+2. **Comportamento e Movimentação**:
+   - Movimente-se com confiança, mas sem pressa, e evite padrões previsíveis de movimento.
+   - Seja observador, mas não faça contato visual prolongado ou mostre um interesse óbvio nas pessoas ou no ambiente ao seu redor.
+
+3. **Comunicação**:
+   - Quando falar com outros, seja cortês, mas não se envolva demais em conversas. Evite discutir informações pessoais, planos ou opiniões que possam destacar você.
+
+4. **Equipamento e Acessórios**:
+   - Se estiver carregando equipamentos ou suprimentos, use mochilas ou bolsas que se misturem com o que é comumente usado na área.
+   - Evite equipamentos militares ou táticos em ambientes civis, pois isso pode chamar atenção.
+
+5. **Conscientização Situacional**:
+   - Esteja sempre ciente do seu ambiente e das pessoas ao seu redor, mas de maneira discreta.
+
+6. **Evitando Conflitos**:
+   - Evite confrontos e situações potencialmente perigosas. Se perceber uma ameaça, retire-se discretamente.
+
+7. **Tecnologia e Rastreamento**:
+   - Seja cauteloso com o uso de tecnologia que possa ser rastreada ou chamar atenção, como smartphones ou dispositivos GPS em áreas de alta vigilância.
+
+8. **Rotas e Horários**:
+   - Varie suas rotas e horários para evitar previsibilidade.
+
+9. **Habilidades de Auto-Defesa**:
+   - Embora o objetivo seja evitar confrontos, ter conhecimentos básicos de auto-defesa pode ser útil em situações de emergência.
+
+10. **Preparação Mental**:
+    - Mantenha um estado mental calmo e focado, adaptando-se rapidamente às mudanças de situação.
+
+A estratégia de Gray Man é particularmente útil em situações onde destacar-se pode aumentar o risco de perigo, como em tumultos, desastres naturais, ou em áreas com alta criminalidade. É uma abordagem proativa para a segurança pessoal, focando em prevenção e discrição.
