@@ -423,7 +423,7 @@ Em resumo, o GIS é uma ferramenta indispensável na moderna tomada de decisão 
 
 ## Mudanças Climáticas
 
-As mudanças climáticas referem-se a alterações significativas e duradouras nos padrões climáticos globais ou regionais. Estas mudanças têm sido especialmente notáveis desde meados do século 20, em grande parte devido às atividades humanas. Os principais aspectos das mudanças climáticas incluem:
+As [mudanças climáticas](https://en.wikipedia.org/wiki/Climate_change) referem-se a alterações significativas e duradouras nos padrões climáticos globais ou regionais. Estas mudanças têm sido especialmente notáveis desde meados do século 20, em grande parte devido às atividades humanas. Os principais aspectos das mudanças climáticas incluem:
 
 - **Aquecimento global**: Um dos sinais mais evidentes das mudanças climáticas é o aumento contínuo da temperatura média global. Este aquecimento é atribuído principalmente à elevada emissão de gases de efeito estufa, como dióxido de carbono, metano e óxidos de nitrogênio, resultantes de atividades como a queima de combustíveis fósseis, desmatamento e agricultura.
 
@@ -435,6 +435,4 @@ As mudanças climáticas referem-se a alterações significativas e duradouras n
 
 - **Impactos socioeconômicos**: As mudanças climáticas têm impactos diretos e indiretos em várias áreas, incluindo agricultura, saúde humana, recursos hídricos, e infraestrutura. Estes impactos podem exacerbar desigualdades sociais e econômicas.
 
-Para combater as mudanças climáticas, é necessário um esforço global para reduzir as emissões de gases de efeito estufa, promover o desenvolvimento sustentável e implementar estratégias de adaptação. Acordos internacionais como o Acordo de Paris são passos importantes nesse sentido.
-
-...
+Para combater as [mudanças climáticas](https://climate.nasa.gov/what-is-climate-change), é necessário um esforço global para reduzir as emissões de gases de efeito estufa, promover o desenvolvimento sustentável e implementar estratégias de adaptação. Acordos internacionais como o [Acordo de Paris](https://en.wikipedia.org/wiki/Paris_Agreement) são passos importantes nesse sentido.
