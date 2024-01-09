@@ -327,5 +327,42 @@ Em resumo, a autenticidade de um NFT é verificada e mantida através do registr
 
 - **Regulação**: À medida que a regulamentação das criptomoedas se torna mais rigorosa, os misturadores de Bitcoin enfrentam um escrutínio maior, com governos e agências reguladoras buscando maneiras de combater a lavagem de dinheiro e outras atividades ilícitas.
 
+## Wallets
+
+As [carteiras de criptomoedas](https://en.wikipedia.org/wiki/Cryptocurrency_wallet) são um componente essencial do ecossistema de moeda digital. Elas são programas de software ou dispositivos de hardware que armazenam as chaves públicas e privadas necessárias para realizar transações de criptomoedas. Entender como essas carteiras funcionam e os diferentes tipos disponíveis é crucial para qualquer pessoa envolvida com criptomoedas.
+
+### Tipos de Carteiras de Criptomoedas
+
+1. **Carteiras de Software**: 
+   - **Carteiras de Desktop**: Instaladas em um computador pessoal, oferecendo controle total sobre a carteira. São seguras, mas o computador deve ser protegido contra malwares.
+   - **Carteiras Online**: Funcionam na nuvem e são acessíveis de qualquer dispositivo computacional. Embora sejam convenientes, são menos seguras, pois as chaves privadas são armazenadas online e controladas por um terceiro.
+   - **Carteiras Móveis**: Aplicativos em um smartphone, úteis para transações diárias. São mais convenientes, mas podem ser vulneráveis a problemas de segurança relacionados ao aplicativo.
+
+2. **Carteiras de Hardware**:
+   - São dispositivos físicos que armazenam chaves privadas offline. Consideradas o tipo mais seguro de carteira, pois são imunes a ataques online e podem ser usadas para armazenamento seguro offline de criptomoedas.
+
+3. **Carteiras de Papel**:
+   - São documentos físicos que contêm as chaves públicas e privadas de um usuário, frequentemente na forma de códigos QR. Embora sejam seguras contra ameaças online, podem ser danificadas ou perdidas, e o processo de transferência de moedas pode ser mais complicado do que com carteiras digitais.
+
+### Principais Características e Funções
+
+- **Segurança**: O propósito principal de uma carteira de criptomoedas é manter as chaves privadas seguras e protegidas.
+- **Transações**: As carteiras permitem que os usuários enviem e recebam criptomoedas. Um usuário normalmente insere o endereço do destinatário e a quantidade a ser enviada, e a carteira assina a transação com a chave privada do usuário.
+- **Geração de Endereço**: As carteiras geram endereços públicos derivados das chaves do usuário. Esses endereços são o que os usuários compartilham para receber fundos.
+- **Verificação de Saldo**: As carteiras podem verificar o saldo da criptomoeda detida. Isso é feito consultando o blockchain para o saldo do endereço público do usuário.
+
+### Considerações ao Escolher uma Carteira
+
+- **Segurança vs. Conveniência**: Geralmente, quanto mais segura a carteira, menos conveniente ela é para uso diário (e vice-versa). Carteiras de hardware e papel são muito seguras, mas menos convenientes para transações frequentes.
+- **Backup e Recuperação**: Procure carteiras que ofereçam opções seguras de backup e recuperação. Isso é crucial em caso de perda, roubo ou dano do dispositivo em que sua carteira está.
+- **Suporte a Múltiplas Moedas**: Algumas carteiras suportam várias criptomoedas, o que é útil para usuários que lidam com diversos tipos de moedas.
+- **Interface do Usuário**: Uma interface amigável é essencial, especialmente para iniciantes no espaço de criptomoedas.
+
+### Riscos e Melhores Práticas
+
+- **Riscos de Segurança**: Carteiras online são vulneráveis a hackers, golpes de phishing e malwares. Até mesmo carteiras de hardware podem ser comprometidas se a configuração inicial ou o processo de recuperação forem expostos.
+- **Melhores Práticas**: Atualizar regularmente o software, usar senhas fortes e únicas, habilitar a autenticação de dois fatores e estar ciente de golpes de phishing são práticas essenciais para a segurança da carteira.
+
+Em resumo, carteiras de criptomoedas não são apenas mecanismos de armazenamento, mas também ferramentas para gerenciar e proteger moedas digitais.
 
 ...
