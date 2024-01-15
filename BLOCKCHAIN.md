@@ -365,4 +365,102 @@ As [carteiras de criptomoedas](https://en.wikipedia.org/wiki/Cryptocurrency_wall
 
 Em resumo, carteiras de criptomoedas não são apenas mecanismos de armazenamento, mas também ferramentas para gerenciar e proteger moedas digitais.
 
+## Lightning Network
+
+A [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) é uma solução de "segunda camada" projetada para resolver alguns dos desafios enfrentados pela rede Bitcoin, principalmente relacionados à escalabilidade, velocidade de transações e taxas.
+
+### O Que é a Lightning Network?
+
+1. **Solução de Escalabilidade:**
+   - É uma rede sobreposta (overlay network) que permite transações fora da blockchain principal do Bitcoin (off-chain). Isso aumenta a capacidade de transação da rede sem a necessidade de aumentar o tamanho dos blocos.
+
+2. **Canais de Pagamento:**
+   - Funciona criando canais de pagamento entre usuários. Esses canais permitem transações quase instantâneas com taxas muito baixas.
+
+### Como Funciona
+
+1. **Abertura de Canal:**
+   - Dois usuários depositam uma certa quantidade de Bitcoin em um endereço de multi-assinatura. Isso cria um canal entre eles e é registrado na blockchain do Bitcoin.
+
+2. **Transações Off-Chain:**
+   - Uma vez que o canal está aberto, os usuários podem realizar um número ilimitado de transações entre si, que são quase instantâneas e não precisam ser imediatamente transmitidas à blockchain do Bitcoin.
+
+3. **Fechamento de Canal:**
+   - Quando os usuários decidem fechar o canal, o estado final das transações é registrado na blockchain. Isso significa que apenas duas transações (abertura e fechamento) são registradas na blockchain, independentemente do número de transações realizadas off-chain.
+
+### Benefícios
+
+1. **Alta Velocidade de Transações:**
+   - Transações através da Lightning Network são confirmadas quase que instantaneamente.
+
+2. **Baixas Taxas:**
+   - As taxas são significativamente mais baixas comparadas às transações on-chain na blockchain do Bitcoin.
+
+3. **Escalabilidade:**
+   - Aumenta significativamente o número de transações que a rede pode processar.
+
+4. **Micropagamentos:**
+   - Torna viáveis os micropagamentos em Bitcoin devido às baixas taxas e rapidez de transação.
+
+### Considerações
+
+- **Complexidade e Riscos:**
+   - A Lightning Network ainda é relativamente nova e complexa. Existem riscos associados, como a perda de fundos se um canal não for fechado corretamente.
+
+- **Adoção:**
+   - Embora esteja crescendo, a adoção da Lightning Network ainda está em desenvolvimento. Nem todos os comerciantes e usuários de Bitcoin a utilizam.
+
+- **Necessidade de Estar Online:** Para receber pagamentos através da Lightning Network, os usuários precisam estar online, o que pode ser uma limitação para alguns casos de uso.
+
+A Lightning Network representa um avanço significativo na tentativa de tornar o Bitcoin uma moeda mais prática para transações diárias, especialmente para pagamentos de pequeno valor. Sua adoção e desenvolvimento contínuo são vistos como cruciais para a escalabilidade futura da rede Bitcoin.
+
+## Bisq
+
+O [Bisq](https://bisq.network) é uma plataforma de troca descentralizada para criptomoedas, incluindo Bitcoin. É uma aplicação de código aberto que permite a compra e venda de Bitcoin e outras criptomoedas de maneira segura, privada e sem a necessidade de uma autoridade central ou intermediário.
+
+### Características Principais do Bisq
+
+1. **Descentralização:**
+   - O Bisq opera em uma rede peer-to-peer, o que significa que não há um servidor central ou ponto único de falha. Isso aumenta a segurança e a resistência à censura.
+
+2. **Privacidade:**
+   - A plataforma prioriza a privacidade. As transações são seguras e anônimas, e não é necessário fornecer informações pessoais para negociar na plataforma.
+
+3. **Segurança:**
+   - Usa um sistema de depósito de segurança (security deposits) e um mecanismo de arbitragem para garantir transações justas e seguras entre as partes.
+
+4. **Métodos de Pagamento Diversos:**
+   - Suporta vários métodos de pagamento, incluindo transferências bancárias, pagamentos móveis, vales-presente e outros.
+
+5. **Sem Necessidade de Registro:**
+   - Não requer registro ou aprovação de uma autoridade central para usar a plataforma.
+
+6. **Código Aberto:**
+   - Sendo um software de código aberto, qualquer um pode revisar e contribuir para o código, o que ajuda na transparência e na confiabilidade.
+
+### Como Funciona
+
+- **Processo de Negociação:**
+  - Os usuários publicam ofertas de compra ou venda de criptomoedas. Quando duas partes concordam com uma negociação, elas depositam garantias e procedem com a troca usando os métodos
+
+ de pagamento acordados. Após a conclusão da transação, as garantias são devolvidas.
+
+- **Resolução de Disputas:**
+  - Caso haja disputas, o Bisq tem um sistema de arbitragem para resolver as questões.
+
+### Benefícios do Uso do Bisq
+
+- **Autonomia:** Os usuários têm controle total sobre suas chaves privadas e fundos.
+- **Diversidade de Moedas:** Além do Bitcoin, o Bisq suporta várias outras criptomoedas.
+- **Acessibilidade:** Acessível a qualquer pessoa com uma conexão de internet, sem necessidade de cumprir requisitos regulatórios ou de identificação.
+
+### Considerações
+
+- **Curva de Aprendizado:** Para novos usuários, a plataforma pode ser um pouco complexa no início.
+- **Volume de Negociação:** O volume de negociação pode ser menor do que em grandes exchanges centralizadas.
+- **Dependência da Confiabilidade das Partes:** Como em qualquer sistema peer-to-peer, há uma dependência da honestidade e confiabilidade das outras partes na negociação.
+
+O Bisq é uma opção atraente para aqueles que valorizam a privacidade e a descentralização no comércio de criptomoedas, oferecendo uma alternativa segura às exchanges centralizadas.
+
+
 ...
