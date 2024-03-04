@@ -1143,4 +1143,12 @@ param_grid = {
 
 Lembrando, esses são valores comuns e iniciais, mas o melhor intervalo para seu caso específico pode variar e requer experimentação. Utilizar técnicas de ajuste como pesquisa aleatória ou otimização Bayesiana pode ajudar a identificar valores ótimos de hiperparâmetros mais rapidamente.
 
+## One Pixel Attack
+
+O One Pixel Attack é uma técnica notável dentro do campo da segurança de redes neurais e da adversarial machine learning, que demonstra a vulnerabilidade de modelos de deep learning a perturbações mínimas. Essa abordagem foi introduzida em um estudo que destacou como a modificação de apenas um pixel em imagens pode ser suficiente para enganar redes neurais, levando a classificações erradas com alta confiança.
+
+A essência do One Pixel Attack reside na exploração de vulnerabilidades dos modelos de deep learning, que, apesar de sua alta precisão em tarefas de classificação de imagens sob condições normais, podem ser surpreendentemente sensíveis a pequenas alterações nos dados de entrada. Isso é particularmente intrigante porque, para um humano, essas alterações são praticamente imperceptíveis e não afetariam a percepção ou classificação da imagem.
+
+O ataque é realizado utilizando técnicas de otimização para encontrar o pixel e os valores RGB específicos que, quando alterados, maximizam a probabilidade de que a rede classifique incorretamente a imagem. Isso é feito sem qualquer necessidade de conhecimento interno sobre a arquitetura ou os pesos da rede neural, tornando-se um exemplo de um ataque "black-box".
+
 ...
