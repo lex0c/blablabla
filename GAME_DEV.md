@@ -662,6 +662,34 @@ Game jams são eventos onde desenvolvedores de jogos, sejam profissionais, estud
 
 Participar de uma game jam é uma maneira excelente de aprimorar habilidades, superar desafios, completar um projeto jogável em um curto espaço de tempo e receber feedback valioso da comunidade.
 
+## Variáveis de Rede
 
+As variáveis de rede na Unreal Engine (e em outros motores de jogo) são uma parte crucial do desenvolvimento de jogos multiplayer. Elas são usadas para sincronizar o estado do jogo entre diferentes jogadores conectados através da rede. Aqui está uma visão geral de como as variáveis de rede funcionam e como são utilizadas:
+
+### **1. Replicação:**
+- **O Que É:** A replicação é o processo pelo qual a Unreal Engine (ou qualquer outro motor de jogo que suporte multiplayer) sincroniza o estado do jogo entre o servidor e os clientes. Isso inclui a posição dos personagens, estado da saúde, munição, e assim por diante.
+- **Variáveis Replicadas:** Para que uma variável seja replicada (sincronizada entre o servidor e os clientes), ela precisa ser explicitamente marcada para replicação.
+
+### **2. Marcação de Variáveis para Replicação:**
+- Na Unreal Engine, isso é feito utilizando a palavra-chave `Replicated` na declaração de uma variável em C++, ou marcando a variável como replicada nas configurações do Blueprint.
+- Além de marcar a variável para replicação, é necessário implementar a função `GetLifetimeReplicatedProps` e adicionar cada variável replicada a ela, para informar ao motor como e quando replicar a variável.
+
+### **3. Tipos de Replicação:**
+- **Replicação de Propriedades:** Sincroniza o valor de variáveis entre o servidor e os clientes.
+- **Replicação de Eventos (RPCs - Remote Procedure Calls):** Permite que funções sejam chamadas no servidor pelos clientes (RPCs de Cliente para Servidor) ou no cliente pelo servidor (RPCs de Servidor para Cliente).
+
+### **4. Condições de Replicação:**
+- A Unreal Engine permite definir condições sob as quais uma variável é replicada. Por exemplo, uma variável pode ser configurada para replicar apenas para o jogador que "possui" o objeto, o que é útil para informações sensíveis ao contexto, como a interface do usuário.
+
+### **5. Desafios com a Replicação:**
+- **Lidando com Latência:** A latência de rede pode causar atrasos na replicação, o que pode resultar em inconsistências temporárias entre o que diferentes jogadores veem.
+- **Previsão (Prediction) e Reconciliação:** Métodos de previsão podem ser usados para que os clientes não sintam a latência. No entanto, isso pode exigir reconciliação com o estado do servidor para corrigir quaisquer discrepâncias.
+
+### **6. Otimização da Replicação:**
+- **Uso Eficiente de Banda:** É importante ser seletivo sobre o que replicar e com que frequência, para evitar sobrecarregar a banda de rede.
+- **Interpolação e Extrapolação:** Técnicas para suavizar movimentos e ações entre atualizações de estado replicadas, melhorando a experiência do jogador em conexões com alta latência.
+
+### **Conclusão:**
+As variáveis de rede e a replicação são fundamentais para criar uma experiência de jogo multiplayer coesa e sincronizada. O domínio desses conceitos é essencial para desenvolvedores de jogos que desejam criar jogos multiplayer robustos e envolventes.
 
 ...
