@@ -48,8 +48,6 @@ O princípio por trás dos juros compostos é simples: os juros são calculados 
 - **Taxa de Juros**: A taxa de juros também desempenha um papel crucial; taxas mais altas aceleram o crescimento do investimento.
 - **Tempo**: O tempo é um fator crítico; iniciar investimentos mais cedo pode resultar em ganhos significativamente maiores devido ao efeito dos juros compostos.
 
-Juros compostos são um conceito poderoso que sublinha a importância de economizar e investir consistentemente ao longo do tempo, aproveitando a capacidade de "juros sobre juros" para construir riqueza.
-
 ## Marketing Share
 
 "Market share", ou participação de mercado, é uma métrica que indica a proporção das vendas totais ou da receita de uma empresa em relação ao mercado total em que opera. É um indicador importante da competitividade de uma empresa, refletindo sua força em relação aos concorrentes dentro do mesmo setor ou categoria de produto.
@@ -642,8 +640,6 @@ Stock options são opções de compra de ações oferecidas por uma empresa aos 
 ### Considerações Fiscais
 
 As implicações fiscais das stock options podem variar significativamente dependendo da jurisdição e do tipo específico de opção (opções de ações não qualificadas versus opções de ações de incentivo, por exemplo). É crucial que os beneficiários de stock options consultem um profissional de finanças ou um contador para entender as consequências fiscais de exercer opções e vender ações.
-
-Em resumo, as stock options podem ser uma ferramenta valiosa tanto para as empresas quanto para os funcionários, oferecendo um meio de compensação que beneficia ambas as partes no sucesso financeiro da empresa. No entanto, é importante que tanto os empregadores quanto os funcionários compreendam completamente os termos, condições e implicações fiscais associadas a essas opções.
 
 ...
 
