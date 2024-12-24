@@ -601,7 +601,7 @@ As finanças comportamentais focam em como fatores psicológicos e emocionais af
 
 ### Integração dos Conceitos
 
-Embora a análise fundamentalista e as finanças comportamentais pareçam abordagens distintas, elas são complementares ao avaliar oportunidades de investimento. A análise fundamentalista fornece uma base sólida para entender o valor intrínseco de um ativo, enquanto as finanças comportamentais oferecem insights sobre como fatores psicológicos podem levar a distorções de preço que criam oportunidades de mercado. Ao reconhecer os próprios vieses e entender os fundamentos do mercado, os investidores podem tomar decisões mais informadas e potencialmente lucrativas.
+Embora a análise fundamentalista e as finanças comportamentais pareçam abordagens distintas, elas são complementares ao avaliar oportunidades de investimento. A análise fundamentalista fornece uma base sólida para entender o valor intrínseco de um ativo, enquanto as finanças comportamentais oferecem insights sobre como fatores psicológicos podem levar a distorções de preço que criam oportunidades de mercado.
 
 ## Candlestick
 
