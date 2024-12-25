@@ -641,34 +641,7 @@ As finanças comportamentais focam em como fatores psicológicos e emocionais af
 
 Embora a análise fundamentalista e as finanças comportamentais pareçam abordagens distintas, elas são complementares ao avaliar oportunidades de investimento. A análise fundamentalista fornece uma base sólida para entender o valor intrínseco de um ativo, enquanto as finanças comportamentais oferecem insights sobre como fatores psicológicos podem levar a distorções de preço que criam oportunidades de mercado.
 
-## Candlestick
-
-O gráfico de candlestick, ou gráfico de velas, é uma ferramenta popular de análise técnica utilizada por traders e investidores para avaliar movimentos e tendências do mercado financeiro. Originário do Japão no século XVIII, inicialmente para o comércio de arroz, o gráfico de candlestick oferece uma representação visual rica das flutuações de preço de um ativo em um determinado período.
-
-### Estrutura do Candlestick
-
-Cada "candle" (vela) no gráfico fornece quatro pontos principais de informação sobre o preço de um ativo durante um período específico (por exemplo, diário, semanal, mensal):
-
-- **Preço de Abertura**: O preço do ativo no início do período.
-- **Preço de Fechamento**: O preço do ativo no final do período.
-- **Preços Máximo e Mínimo**: Os extremos de preço alcançados durante o período.
-
-A "corpo" do candle representa a diferença entre os preços de abertura e fechamento. Se o preço de fechamento for maior que o preço de abertura, o corpo é geralmente colorido de branco ou verde, indicando um aumento de preço (candle de alta). Se o preço de fechamento for menor, o corpo é colorido de preto ou vermelho, indicando uma queda de preço (candle de baixa).
-
-As "sombras" ou "pavios" se estendem acima e abaixo do corpo, mostrando os preços máximo e mínimo alcançados. A presença e o tamanho das sombras podem fornecer insights sobre a volatilidade do mercado e a pressão de compra ou venda.
-
-### Interpretação dos Candlesticks
-
-- **Candles de Alta e Baixa**: Candles de alta sugerem que os compradores dominaram o período, enquanto candles de baixa indicam que os vendedores estavam no controle.
-- **Sentimento do Mercado**: A análise de padrões de candlestick em conjunto pode dar uma ideia do sentimento do mercado, ajudando a identificar possíveis reversões de tendência ou a continuação de uma tendência existente.
-
-### Vantagens do Gráfico de Candlestick
-
-- **Informação Detalhada**: Oferece mais informações do que um gráfico de linhas, permitindo uma análise mais profunda das tendências do mercado.
-- **Análise Visual**: A representação visual facilita a identificação de padrões de comportamento do preço.
-- **Flexibilidade**: Pode ser usado em diferentes mercados e períodos temporais, tornando-o versátil para vários estilos de trading e investimento.
-
-## Mercado de Criptomoedas
+## Criptomoedas
 
 O mercado de criptomoedas é um setor financeiro emergente e dinâmico que envolve a negociação de moedas digitais. Desde o lançamento do Bitcoin em 2009, o primeiro e mais conhecido exemplo de criptomoeda, o mercado expandiu-se rapidamente para incluir milhares de criptomoedas distintas com diversas funções e tecnologias subjacentes. Este mercado é descentralizado, operando 24 horas por dia, 7 dias por semana, e é acessível globalmente, o que diferencia significativamente das bolsas de valores tradicionais.
 
@@ -824,6 +797,33 @@ Stock options são opções de compra de ações oferecidas por uma empresa aos 
 ### Considerações Fiscais
 
 As implicações fiscais das stock options podem variar significativamente dependendo da jurisdição e do tipo específico de opção (opções de ações não qualificadas versus opções de ações de incentivo, por exemplo). É crucial que os beneficiários de stock options consultem um profissional de finanças ou um contador para entender as consequências fiscais de exercer opções e vender ações.
+
+## Candlestick
+
+O gráfico de candlestick, ou gráfico de velas, é uma ferramenta popular de análise técnica utilizada por traders e investidores para avaliar movimentos e tendências do mercado financeiro. Originário do Japão no século XVIII, inicialmente para o comércio de arroz, o gráfico de candlestick oferece uma representação visual rica das flutuações de preço de um ativo em um determinado período.
+
+### Estrutura do Candlestick
+
+Cada "candle" (vela) no gráfico fornece quatro pontos principais de informação sobre o preço de um ativo durante um período específico (por exemplo, diário, semanal, mensal):
+
+- **Preço de Abertura**: O preço do ativo no início do período.
+- **Preço de Fechamento**: O preço do ativo no final do período.
+- **Preços Máximo e Mínimo**: Os extremos de preço alcançados durante o período.
+
+A "corpo" do candle representa a diferença entre os preços de abertura e fechamento. Se o preço de fechamento for maior que o preço de abertura, o corpo é geralmente colorido de branco ou verde, indicando um aumento de preço (candle de alta). Se o preço de fechamento for menor, o corpo é colorido de preto ou vermelho, indicando uma queda de preço (candle de baixa).
+
+As "sombras" ou "pavios" se estendem acima e abaixo do corpo, mostrando os preços máximo e mínimo alcançados. A presença e o tamanho das sombras podem fornecer insights sobre a volatilidade do mercado e a pressão de compra ou venda.
+
+### Interpretação dos Candlesticks
+
+- **Candles de Alta e Baixa**: Candles de alta sugerem que os compradores dominaram o período, enquanto candles de baixa indicam que os vendedores estavam no controle.
+- **Sentimento do Mercado**: A análise de padrões de candlestick em conjunto pode dar uma ideia do sentimento do mercado, ajudando a identificar possíveis reversões de tendência ou a continuação de uma tendência existente.
+
+### Vantagens do Gráfico de Candlestick
+
+- **Informação Detalhada**: Oferece mais informações do que um gráfico de linhas, permitindo uma análise mais profunda das tendências do mercado.
+- **Análise Visual**: A representação visual facilita a identificação de padrões de comportamento do preço.
+- **Flexibilidade**: Pode ser usado em diferentes mercados e períodos temporais, tornando-o versátil para vários estilos de trading e investimento.
 
 ## DeFi (Finanças Descentralizadas)
 
