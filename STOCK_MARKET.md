@@ -63,12 +63,12 @@ A economia de um país é um sistema complexo que envolve a produção, distribu
 ### Funcionamento da Economia
 
 - **Produção e Consumo**:
-   - Empresas produzem bens e serviços para atender às necessidades das famílias e do governo.
+   - Empresas produzem bens e serviços para atender às necessidades das pessoas e do governo.
    - O consumo ocorre quando bens e serviços são adquiridos, movendo o dinheiro pela economia.
 
 - **Fluxo de Renda**:
-   - Empresas pagam salários, juros, aluguéis e lucros às famílias.
-   - Famílias gastam, poupam ou investem essa renda, reinjetando dinheiro no sistema.
+   - Empresas pagam salários, juros, aluguéis e lucros às pessoas.
+   - Pessoas gastam, poupam ou investem essa renda, reinjetando dinheiro no sistema.
 
 - **Oferta e Demanda**:
    - Preços são determinados pela interação entre oferta (produção) e demanda (consumo).
@@ -185,36 +185,6 @@ A economia de um país é um sistema complexo que envolve a produção, distribu
 - **Endividamento Público**:
    - Dívidas excessivas podem limitar a capacidade de investimento do governo.
 
-## Mercado de Ações
-
-O mercado de ações é uma componente vital da economia global e funciona como um mecanismo para a negociação de ações, que são partes do capital de uma empresa. Ao comprar ações, os investidores tornam-se proprietários de uma pequena fração da empresa, com direito a uma parcela dos lucros e a uma voz em algumas decisões corporativas, tipicamente através do voto em assembleias de acionistas.
-
-### Como Funciona o Mercado
-
-1. **Empresas Listadas**: Para captar recursos para investimentos ou para permitir que os proprietários vendam parte de suas participações, as empresas podem se listar em bolsas de valores através de um processo chamado oferta pública inicial (IPO).
-
-2. **Investidores e Traders**: Uma vez listadas, as ações da empresa podem ser compradas e vendidas por investidores e traders. Investidores geralmente mantêm ações a longo prazo, enquanto traders podem comprar e vender ações rapidamente para capitalizar sobre as flutuações de preço a curto prazo.
-
-3. **Bolsas de Valores**: As bolsas de valores facilitam a negociação de ações, fornecendo uma plataforma regulamentada e transparente onde os preços das ações são determinados pela oferta e demanda.
-
-4. **Corretoras**: Para comprar ou vender ações, os indivíduos geralmente usam serviços de corretoras, que atuam como intermediários entre compradores e vendedores e podem oferecer conselhos e gestão de portfólio.
-
-### Componentes Importantes
-
-- **Índices de Ações**: Índices rastreiam o desempenho de grupos selecionados de ações e são usados como indicadores do mercado mais amplo.
-
-- **Dividendos**: Algumas empresas distribuem uma parte de seus lucros aos acionistas na forma de dividendos, proporcionando uma fonte de renda passiva.
-
-- **Análise de Mercado**: Investidores e analistas usam várias técnicas para avaliar ações, incluindo análise fundamentalista e técnica, para tomar decisões informadas sobre quais ações comprar ou vender.
-
-### Riscos e Retornos
-
-- **Volatilidade**: O mercado de ações é conhecido por sua volatilidade. Os preços das ações podem flutuar amplamente devido a fatores como desempenho da empresa, condições econômicas, mudanças políticas, desastres naturais e crises financeiras.
-
-- **Retorno Potencial**: Historicamente, o mercado de ações ofereceu retornos mais altos do que muitos outros investimentos, como títulos e contas de poupança, mas com maior risco.
-
-- **Diversificação**: Uma das estratégias para gerenciar risco no mercado de ações é a diversificação, que envolve a distribuição de investimentos entre várias ações, setores e até classes de ativos.
-
 ## Juros Compostos
 
 Juros compostos são um conceito fundamental no mundo das finanças, desempenhando um papel crucial no crescimento de investimentos ao longo do tempo. Eles são frequentemente descritos como "juros sobre juros", onde os ganhos gerados por um investimento são reinvestidos para gerar seus próprios ganhos no futuro. Essa característica dos juros compostos os torna uma ferramenta poderosa para o crescimento exponencial de capital.
@@ -259,6 +229,36 @@ O princípio por trás dos juros compostos é simples: os juros são calculados 
 - **Foco Excessivo**: Embora ter uma alta participação de mercado seja geralmente positivo, um foco excessivo nessa métrica pode levar a decisões que sacrificam a rentabilidade ou a qualidade em favor do volume de vendas.
 - **Dinâmica de Mercado**: A participação de mercado deve ser avaliada no contexto das tendências do mercado, incluindo novas tecnologias, mudanças nas preferências dos consumidores e a entrada de novos concorrentes.
 - **Regulação**: Em alguns casos, uma participação de mercado dominante pode atrair a atenção dos reguladores antitruste, especialmente se a empresa usar sua posição para praticar a concorrência desleal.
+
+## Mercado de Ações
+
+O mercado de ações é uma componente vital da economia global e funciona como um mecanismo para a negociação de ações, que são partes do capital de uma empresa. Ao comprar ações, os investidores tornam-se proprietários de uma pequena fração da empresa, com direito a uma parcela dos lucros e a uma voz em algumas decisões corporativas, tipicamente através do voto em assembleias de acionistas.
+
+### Como Funciona o Mercado
+
+1. **Empresas Listadas**: Para captar recursos para investimentos ou para permitir que os proprietários vendam parte de suas participações, as empresas podem se listar em bolsas de valores através de um processo chamado oferta pública inicial (IPO).
+
+2. **Investidores e Traders**: Uma vez listadas, as ações da empresa podem ser compradas e vendidas por investidores e traders. Investidores geralmente mantêm ações a longo prazo, enquanto traders podem comprar e vender ações rapidamente para capitalizar sobre as flutuações de preço a curto prazo.
+
+3. **Bolsas de Valores**: As bolsas de valores facilitam a negociação de ações, fornecendo uma plataforma regulamentada e transparente onde os preços das ações são determinados pela oferta e demanda.
+
+4. **Corretoras**: Para comprar ou vender ações, os indivíduos geralmente usam serviços de corretoras, que atuam como intermediários entre compradores e vendedores e podem oferecer conselhos e gestão de portfólio.
+
+### Componentes Importantes
+
+- **Índices de Ações**: Índices rastreiam o desempenho de grupos selecionados de ações e são usados como indicadores do mercado mais amplo.
+
+- **Dividendos**: Algumas empresas distribuem uma parte de seus lucros aos acionistas na forma de dividendos, proporcionando uma fonte de renda passiva.
+
+- **Análise de Mercado**: Investidores e analistas usam várias técnicas para avaliar ações, incluindo análise fundamentalista e técnica, para tomar decisões informadas sobre quais ações comprar ou vender.
+
+### Riscos e Retornos
+
+- **Volatilidade**: O mercado de ações é conhecido por sua volatilidade. Os preços das ações podem flutuar amplamente devido a fatores como desempenho da empresa, condições econômicas, mudanças políticas, desastres naturais e crises financeiras.
+
+- **Retorno Potencial**: Historicamente, o mercado de ações ofereceu retornos mais altos do que muitos outros investimentos, como títulos e contas de poupança, mas com maior risco.
+
+- **Diversificação**: Uma das estratégias para gerenciar risco no mercado de ações é a diversificação, que envolve a distribuição de investimentos entre várias ações, setores e até classes de ativos.
 
 ## Guia de Indicadores
 
