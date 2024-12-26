@@ -239,31 +239,6 @@ O princípio por trás dos juros compostos é simples: os juros são calculados 
 - **Taxa de Juros**: A taxa de juros também desempenha um papel crucial; taxas mais altas aceleram o crescimento do investimento.
 - **Tempo**: O tempo é um fator crítico; iniciar investimentos mais cedo pode resultar em ganhos significativamente maiores devido ao efeito dos juros compostos.
 
-## Marketing Share
-
-"Market share", ou participação de mercado, é uma métrica que indica a proporção das vendas totais ou da receita de uma empresa em relação ao mercado total em que opera. É um indicador importante da competitividade de uma empresa, refletindo sua força em relação aos concorrentes dentro do mesmo setor ou categoria de produto.
-
-### Importância da Participação de Mercado
-
-- **Competitividade**: Uma alta participação de mercado indica que a empresa é um líder em seu setor, o que pode proporcionar vantagens competitivas, como poder de precificação e maior influência sobre fornecedores e distribuidores.
-- **Economias de Escala**: Empresas com maior participação de mercado frequentemente beneficiam-se de economias de escala, reduzindo os custos unitários à medida que a produção aumenta.
-- **Visibilidade da Marca**: Uma participação de mercado significativa pode melhorar a visibilidade e a percepção da marca entre os consumidores.
-- **Resiliência**: Empresas líderes de mercado podem ser mais resilientes em tempos de desaceleração econômica devido à sua base de clientes estabelecida e recursos financeiros.
-
-### Estratégias para Aumentar a Participação de Mercado
-
-- **Inovação**: Desenvolver produtos ou serviços inovadores que atendam melhor às necessidades dos consumidores.
-- **Expansão**: Entrar em novos mercados geográficos ou segmentos de mercado.
-- **Competitividade de Preços**: Ajustar a estratégia de precificação para tornar os produtos ou serviços mais atraentes.
-- **Marketing e Promoções**: Intensificar esforços de marketing e campanhas promocionais para aumentar a conscientização e atração da marca.
-- **Aquisições**: Adquirir ou fundir-se com outras empresas para aumentar rapidamente a base de clientes e a participação de mercado.
-
-### Desafios e Considerações
-
-- **Foco Excessivo**: Embora ter uma alta participação de mercado seja geralmente positivo, um foco excessivo nessa métrica pode levar a decisões que sacrificam a rentabilidade ou a qualidade em favor do volume de vendas.
-- **Dinâmica de Mercado**: A participação de mercado deve ser avaliada no contexto das tendências do mercado, incluindo novas tecnologias, mudanças nas preferências dos consumidores e a entrada de novos concorrentes.
-- **Regulação**: Em alguns casos, uma participação de mercado dominante pode atrair a atenção dos reguladores antitruste, especialmente se a empresa usar sua posição para praticar a concorrência desleal.
-
 ## Mercado de Ações
 
 O mercado de ações é uma componente vital da economia global e funciona como um mecanismo para a negociação de ações, que são partes do capital de uma empresa. Ao comprar ações, os investidores tornam-se proprietários de uma pequena fração da empresa, com direito a uma parcela dos lucros e a uma voz em algumas decisões corporativas, tipicamente através do voto em assembleias de acionistas.
@@ -962,6 +937,31 @@ Valuation, ou avaliação de empresas, é o processo de determinar o valor justo
 - **Fins Legais e Regulatórios**: Em situações de disputas legais, divórcio ou regulamentações que exigem avaliação patrimonial.
 
 Valuation é tanto uma arte quanto uma ciência, combinando análises quantitativas rigorosas com julgamentos qualitativos. As técnicas e premissas utilizadas podem variar significativamente dependendo do contexto e do propósito do valuation.
+
+## Marketing Share
+
+"Market share", ou participação de mercado, é uma métrica que indica a proporção das vendas totais ou da receita de uma empresa em relação ao mercado total em que opera. É um indicador importante da competitividade de uma empresa, refletindo sua força em relação aos concorrentes dentro do mesmo setor ou categoria de produto.
+
+### Importância da Participação de Mercado
+
+- **Competitividade**: Uma alta participação de mercado indica que a empresa é um líder em seu setor, o que pode proporcionar vantagens competitivas, como poder de precificação e maior influência sobre fornecedores e distribuidores.
+- **Economias de Escala**: Empresas com maior participação de mercado frequentemente beneficiam-se de economias de escala, reduzindo os custos unitários à medida que a produção aumenta.
+- **Visibilidade da Marca**: Uma participação de mercado significativa pode melhorar a visibilidade e a percepção da marca entre os consumidores.
+- **Resiliência**: Empresas líderes de mercado podem ser mais resilientes em tempos de desaceleração econômica devido à sua base de clientes estabelecida e recursos financeiros.
+
+### Estratégias para Aumentar a Participação de Mercado
+
+- **Inovação**: Desenvolver produtos ou serviços inovadores que atendam melhor às necessidades dos consumidores.
+- **Expansão**: Entrar em novos mercados geográficos ou segmentos de mercado.
+- **Competitividade de Preços**: Ajustar a estratégia de precificação para tornar os produtos ou serviços mais atraentes.
+- **Marketing e Promoções**: Intensificar esforços de marketing e campanhas promocionais para aumentar a conscientização e atração da marca.
+- **Aquisições**: Adquirir ou fundir-se com outras empresas para aumentar rapidamente a base de clientes e a participação de mercado.
+
+### Desafios e Considerações
+
+- **Foco Excessivo**: Embora ter uma alta participação de mercado seja geralmente positivo, um foco excessivo nessa métrica pode levar a decisões que sacrificam a rentabilidade ou a qualidade em favor do volume de vendas.
+- **Dinâmica de Mercado**: A participação de mercado deve ser avaliada no contexto das tendências do mercado, incluindo novas tecnologias, mudanças nas preferências dos consumidores e a entrada de novos concorrentes.
+- **Regulação**: Em alguns casos, uma participação de mercado dominante pode atrair a atenção dos reguladores antitruste, especialmente se a empresa usar sua posição para praticar a concorrência desleal.
 
 ## Short Selling
 
