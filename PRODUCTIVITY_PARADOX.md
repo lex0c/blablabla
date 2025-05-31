@@ -4,7 +4,7 @@
 
 Você investe pesado em um time de engenharia.
 
-Arquitetos seniores, processos maduros, deploy contínuo, testes automatizados, documentação, performance impecável.
+Arquitetos, processos maduros, deploy contínuo, testes automatizados, documentação, performance impecável.
 
 - Mas… os resultados não aparecem.
 - As entregas atrasam.
@@ -39,9 +39,9 @@ Isso fica ainda mais crítico com a adoção de ferramentas de IA na programaç�
 
 Produtividade não é sobre fazer mais — é sobre fazer certo.
 
-**Produtividade sustentável** é o resultado da combinação entre uma gestão competente e um time técnico competente.
-
 Muita gente ainda associa produtividade a volume: mais linhas de código, mais tarefas concluídas, mais reuniões feitas. Mas isso é só movimento. Produtividade de verdade é entregar valor, e isso só acontece quando o time trabalha nas coisas certas, com clareza de propósito e prioridades bem definidas.
+
+**Produtividade sustentável** é o resultado da combinação entre uma gestão competente e um time técnico competente.
 
 > Não adianta ter uma Ferrari se o motorista não sabe como dirigir.
 
@@ -51,4 +51,8 @@ Muita gente ainda associa produtividade a volume: mais linhas de código, mais t
 - [Why AI-generated code is creating a technical debt nightmare](https://www.okoone.com/spark/technology-innovation/why-ai-generated-code-is-creating-a-technical-debt-nightmare)
 - [Engineering Teams Burnout](https://www.linkedin.com/posts/gabrielgreenberg_ive-seen-engineering-teams-burn-out-because-activity-7270104587582275584-dRQt)
 - [The True Cost of Multi-Tasking](http://psychologytoday.com/us/blog/brain-wise/201209/the-true-cost-of-multi-tasking)
+- [Make Time for the Work That Matters](https://hbr.org/2013/09/make-time-for-the-work-that-matters)
+- [Understand Team Effectiveness](https://rework.withgoogle.com/en/guides/understanding-team-effectiveness#introduction)
+- [Cannot Measure Productivity](https://martinfowler.com/bliki/CannotMeasureProductivity.html)
+- [Maximize your tech investments with Engineering Effectiveness](https://www.thoughtworks.com/en-us/insights/articles/a-comprehensive-methodology-for-engineering-effectiveness)
 
