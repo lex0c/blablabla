@@ -23,7 +23,7 @@ Vale notar que líderes ruins muitas vezes transferem a culpa para a equipe. É 
 
 ## Sintomas do problema: prioridades voláteis, retrabalho e dívidas
 
-Entregas atrasadas, equipe frustrada, pouco impacto no negócio, surge tipicamente de falta de foco e mudanças frequentes de rumo. Quando "tudo é urgente" e as prioridades mudam semana a semana, o time sofre com context switching contínuo (troca de contexto). Essa alternância constante destrói a concentração e produtividade: pesquisas mostram que multitarefa e interrupções excessivas podem consumir quase 40% do tempo produtivo diário. Cada vez que a equipe "vira a direção" para um novo foco, paga-se um preço em tempo perdido e qualidade reduzida.
+Entregas atrasadas, equipe frustrada, pouco impacto no negócio, surge tipicamente de falta de foco e mudanças frequentes de rumo. Quando "tudo é urgente" e as prioridades mudam semana a semana, o time sofre com context switching contínuo (troca de contexto). Essa alternância constante destrói a concentração e produtividade: pesquisas mostram que multitarefa e interrupções excessivas podem consumir quase 40% do tempo produtivo diário. Cada vez que a equipe "vira a direção" para um novo foco, paga-se um preço em tempo perdido.
 
 Além disso, a pressão por velocidade sem clareza leva a decisões apressadas, implementação apressada e falta de qualidade. O resultado? Código impecável em aparência, mas que não resolve o problema certo. A equipe pode até "entregar rápido", mas, se estiver caminhando na direção errada, isso só cria retrabalho e frustração mais à frente. Funcionalidades mal definidas acabam gerando bugs, fluxos quebrados e inconsistências. É um falso senso de produtividade: muito movimento, pouco progresso real.
 
@@ -33,7 +33,13 @@ Um efeito colateral severo são as dívidas técnicas crescendo silenciosamente.
 
 Outro ponto importante é a diferença entre estar ocupado e gerar valor. Muitas organizações confundem movimento com progresso. Medir produtividade apenas por atividades pode dar uma falsa sensação de eficiência, enquanto o resultado concreto para o negócio continua fraco. Por exemplo, se a liderança incentiva quantidade em vez de qualidade, as funcionalidades crescem rápido, mas de forma inchada e mal pensada, levando a bases de código cada vez mais complexas e lentas de evoluir. Entregar muitas funcionalidades sem estratégia clara é apenas "barulho", não avanço significativo.
 
-Isso fica ainda mais crítico com a adoção de ferramentas de IA na programação. Sem dúvida, a IA pode acelerar a escrita de código, blocos inteiros em segundos, aumentando muito a velocidade aparente do time. Contudo, essa rapidez tem um custo: estudos recentes apontam que a codificação impulsionada por IA está inflando a duplicação de código e degradando a qualidade geral, gerando um pesadelo de dívida técnica. Em 2024, por exemplo, detectou-se um salto de 8x em trechos duplicados nos repositórios onde IA é utilizada indiscriminadamente. Ou seja, mais código não significa software melhor – o que importa é ter estratégia e clareza. Sem uma liderança que defina arquitetura e boas práticas, a IA acaba apenas gerando "lixo mais rápido", aumentando o caos futuro. Em resumo, a alta produtividade anunciada pela quantidade de código produzido se torna ilusória, pois não se traduz em valor sustentável para o negócio.
+Isso fica ainda mais crítico com a adoção de ferramentas de IA na programação. Sem dúvida, a IA pode acelerar a escrita de código, blocos inteiros em segundos, aumentando muito a velocidade aparente do time. Contudo, essa rapidez tem um custo: estudos recentes apontam que a codificação impulsionada por IA está inflando a duplicação de código e degradando a qualidade geral, gerando um pesadelo de dívida técnica. Em 2024, por exemplo, detectou-se um salto de 8x em trechos duplicados nos repositórios onde IA é utilizada indiscriminadamente. Ou seja, mais código não significa software melhor. Sem uma liderança que defina arquitetura e boas práticas, a IA acaba apenas gerando "lixo mais rápido", aumentando o caos futuro. Em resumo, a alta produtividade anunciada pela quantidade de código produzido se torna ilusória, pois não se traduz em valor sustentável para o negócio.
+
+### Adendo sobre terceirizar know-how
+
+A dependência de IA é outro problema grave. Os fornecedores de IA tipicamente operam via termos de uso padrão, sem contratos firmes que obriguem garantias de serviço. Na prática, isso significa que não há SLA nem obrigação contratual que garanta continuidade ou suporte formal. Qualquer mudança unilateral: queda de serviço, alteração de preço ou até descontinuação da ferramenta, pode impactar imediatamente o negócio. Decisões do provedor de IA podem paralisar projetos ou forçar retrabalho, sem que a empresa tenha direitos de exigir compensação.
+
+Em síntese, terceirizar totalmente o desenvolvimento para IA compromete a capacidade técnica interna e deixa o negócio à mercê de terceiros. A longo prazo, a combinação de perda de habilidades, dependência tecnológica, falta de controle do código e ausência de contratos formais cria riscos operacionais e estratégicos severos.
 
 ## Conclusão
 
@@ -55,4 +61,5 @@ Muita gente ainda associa produtividade a volume: mais linhas de código, mais t
 - [Understand Team Effectiveness](https://rework.withgoogle.com/en/guides/understanding-team-effectiveness#introduction)
 - [Cannot Measure Productivity](https://martinfowler.com/bliki/CannotMeasureProductivity.html)
 - [Maximize your tech investments with Engineering Effectiveness](https://www.thoughtworks.com/en-us/insights/articles/a-comprehensive-methodology-for-engineering-effectiveness)
+- [Risks Of Using AI In Software Development](https://impalaintech.com/blog/risks-of-ai-software-development)
 
