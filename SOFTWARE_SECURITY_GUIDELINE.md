@@ -1,6 +1,6 @@
 # Software Security Guideline
 
-If your code were guarding nuclear launch codes, you wouldn’t secure it with a sticky note password. You’re not building Fort Knox, but at least don’t leave the door open with a neon sign that says “Free Data.” These 10 rules will keep your software from being the low-hanging fruit in the hacker orchard.
+If your code were guarding nuclear launch codes, you wouldn’t secure it with a sticky note password. You’re not building Fort Knox, but at least don’t leave the door open with a neon sign that says “Free Data.” These rules will keep your software from being the low-hanging fruit in the hacker orchard.
 
 Follow these rules if you want your codebase to go from “hack me for fun” to “meh, too much work”.
 
@@ -33,3 +33,6 @@ Follow these rules if you want your codebase to go from “hack me for fun” to
 
 10. **Logs are forensics, not confessions**
     Record security events, but never credentials or PII. Centralize, encrypt, monitor, and alert. If no one’s watching, it didn’t happen.
+
+11. **SQL is not a suggestion box**:
+    Never concatenate strings into queries. Use parameterized statements or ORM bindings only. Escape nothing manually. If you’re building SQL by string concatenation, you’re basically handing attackers a Sharpie and telling them to finish your query.
