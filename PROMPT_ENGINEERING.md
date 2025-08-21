@@ -130,3 +130,24 @@ Embora as vantagens sejam claras, é essencial ter consciência dos riscos e lim
 
 Um ponto crucial da ética em IA é: quem é responsável pelo que a IA produz? No nosso contexto, o engenheiro de software é responsável pelo produto final, independentemente de ter usado IA no meio do caminho. Não seria aceitável, por exemplo, introduzir uma funcionalidade insegura e, diante de um incidente, culpar "o código que a IA escreveu". Profissionalmente, espera-se que o desenvolvedor aplique due diligence em qualquer contribuição, seja escrita por ele ou sugerida por uma ferramenta. Assim, devemos assumir a autoria do código integrado ao projeto, passando-o pelos mesmos critérios de qualidade.
 
+## Guia de sobrevivência
+
+1. **A IA não é vidente**
+
+    Se você não sabe o que precisa, a IA também não vai saber. Especifique o problema com clareza ou aceite receber um monte de código Frankenstein.
+
+2. **Prompt mal formulado = resposta inútil**
+
+    Quanto mais contexto, requisitos e restrições você der, melhor a saída.
+
+3. **Sempre valide e teste**
+
+    Código gerado pela IA pode compilar, mas pode estar errado, inseguro ou com performance ruim. Rode, revise e teste.
+
+4. **Não copie-cola no escuro**
+
+    Entenda o que está sendo feito no seu repo. Um dia você vai ter que dar manutenção sem a IA do lado.
+
+5. **Segurança em primeiro lugar**
+
+    IA pode gerar código vulnerável: SQL injection, XSS, segredos hardcoded. Sempre verifique o código.
