@@ -36,3 +36,6 @@ Follow these rules if you want your codebase to go from “hack me for fun” to
 
 11. **SQL is not a suggestion box**:
     Never concatenate strings into queries. Use parameterized statements or ORM bindings only. Escape nothing manually. If you’re building SQL by string concatenation, you’re basically handing attackers a Sharpie and telling them to finish your query.
+
+12. **Strings are not infinite scroll**:
+   Every input string needs a leash. No max length = free DoS buffet. Truncate, validate, and set sane limits per field. An attacker with a 10-MB “username” will happily turn your DB, logs, and CPU into a bonfire.

@@ -168,6 +168,90 @@ O [Diameter](https://en.wikipedia.org/wiki/Diameter_(protocol)) é um protocolo 
 
 Resumindo: enquanto o Diameter desempenha um papel crescente na sinalização de redes móveis modernas, especialmente para serviços de dados e VoLTE, o SS7 ainda é amplamente utilizado para chamadas de voz e SMS, especialmente em redes 2G e 3G, e em redes 4G sem suporte a VoLTE.
 
+## Baseband
+
+Baseband é o “cérebro de rádio” do seu celular. Ele fala com a torre, negocia criptografia, mantém a sessão de dados viva e decide quando sua ligação cai. Você raramente o vê, mas se ele falhar você vira um tijolo com bateria.
+
+### O que é e onde vive
+
+* **Chip dedicado** no SoC ou separado, com **firmware próprio** e um **RTOS** minimalista. Nada de Android ou iOS ali. É C em cima de C, com otimizações agressivas e zero paciência para bug.
+* **Isolado** do processador de apps, mas não tanto. Conversa com o sistema via canais de IPC como **QMI** em Qualcomm, **RIL** no Android, filas em memória compartilhada, interfaces seriais e drivers no kernel.
+
+### O que ele faz
+
+1. **Camadas de rádio**
+
+   * **PHY**: modulação, codificação, MIMO, beamforming.
+   * **MAC**: agendamento de uplink e downlink.
+   * **RLC/PDCP**: retransmissão, cifragem e compactação.
+   * **RRC**: controle do rádio, estabelecimento de conexão, handover.
+   * **NAS**: autenticação com a rede, mobilidade, gestão de sessão.
+2. **Sessão de dados**
+
+   * Cria **bearers** de dados com QoS, abre o **PDP context** e conecta ao seu **APN**. Há bearer default e dedicados para tráfego sensível.
+3. **Voz**
+
+   * 2G e 3G usam circuito, 4G e 5G usam **IMS** com **SIP** e **RTP**. VoLTE é baseband + pilha IMS.
+4. **Mobilidade e energia**
+
+   * Decide **handover**, DRX, quando dormir e acordar o rádio para economizar bateria.
+5. **SIM e autenticação**
+
+   * Fala com **SIM e eSIM**. Executa o **AKA** com a rede, deriva chaves e mantém segredos fora do Android iOS.
+
+### Segurança em 2G 3G 4G 5G
+
+* **2G**: cifragem fraca ou inexistente. Aceita **downgrade**. Perfeito para museu de vulnerabilidades.
+* **3G**: melhora a autenticação e integridade. Ainda tem heranças.
+* **4G LTE**: chaves derivadas fortes. Cifras típicas **AES** e **SNOW 3G** para cifragem e integridade.
+* **5G**: autenticação reforçada, **SUCI** para esconder IMSI, novos domínios de chaves e separação melhor de planos.
+
+Tradução sem marketing: 4G e 5G são muito melhores, contanto que você **não caia para 2G** e que o firmware não seja uma peneira.
+
+### Caminho do tráfego
+
+* **Plano de controle**: RRC e NAS ajustam rádio, autenticação, mobilidade.
+* **Plano de usuário**: pacotes de dados passam por PDCP cifrados e seguem para a rede da operadora. O sistema operacional só vê pacotes depois do baseband.
+
+### Por que é alvo valioso
+
+* Recebe **entradas do ar** de qualquer torre válida ou fake.
+* Roda **código privilegiado** com pouco sandboxing.
+* Se cair, pode expor chamadas, SMS e localização sem pop-up de permissão.
+* Correção é lenta. Patches dependem de fornecedor do modem, OEM e operadora. Boa sorte na fila.
+
+### Superfícies de ataque típicas
+
+Sem o manual do crime, só o mapa conceitual:
+
+* **Sinalização RRC NAS malformada**: parser errado, buffer overflow. Clássico.
+* **SMS especiais e WAP Push legados**: menos comum hoje, ainda existe.
+* **Downgrade e BTS falsa**: força 2G, manipula autenticação fraca, injeta lixo.
+* **Drivers de IPC**: ponte entre baseband e o sistema. Bug aí vira escalada para o kernel do AP.
+* **SIM Toolkit e provisioning**: canais de configuração que já renderam CVEs.
+
+### Como o SO conversa com ele
+
+* **Android**: apps falam com **Telephony Framework**, que fala com **RIL**, que fala com o **vendor daemon** que fala com o **baseband** via QMI ou equivalente.
+* **iOS**: arquitetura parecida, ainda mais fechada, com sandbox e políticas rígidas entre o modem e o userland.
+
+### Atualizações e cadeia de confiança
+
+* **Secure Boot** do modem valida firmware assinado pelo fornecedor.
+* Atualizações chegam embaladas com o update do sistema ou do vendor. Muitas vezes atrasadas. Em aparelhos baratos, às vezes nunca.
+
+### Diagnóstico e visibilidade
+
+* Usuário vê quase nada. Pesquisadores usam **SDR** e stacks open source para observar a sinalização, o que exige laboratório e dinheiro. Não é “abrir um app e ver a mágica”.
+
+### O que melhora sua vida na prática
+
+* **Desative 2G** se seu aparelho e operadora permitirem. 2G é armadilha.
+* **Mantenha VoLTE e 5G**. Mais segurança que cair para 3G 2G.
+* **Compre aparelhos com política de update longa** e chipset recente.
+* **Não instale lixo**. Se o atacante não quebrar o rádio, vai tentar quebrar você via APK.
+* **Cuidado com eSIM de fontes aleatórias**. Provisionamento também é superfície.
+
 ## Vulnerabilidades
 
 Smartphones, redes móveis e SMS têm uma variedade de vulnerabilidades que podem ser exploradas por atores maliciosos.
