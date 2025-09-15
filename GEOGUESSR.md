@@ -56,5 +56,232 @@
 | Santa Catarina    | 47, 48, 49             | Joinville (47), Florianópolis (48), Chapecó (49)                                             |
 | Rio Grande do Sul | 51, 53, 54, 55         | Porto Alegre (51), Pelotas (53), Caxias do Sul (54), Santa Maria (55)                        |
 
+## Capitais do mundo
+
+### África
+
+| País                       | Capital                                                     |
+|----------------------------|-------------------------------------------------------------|
+| África do Sul              | Pretória (adm.), Cidade do Cabo (leg.), Bloemfontein (jud.) |
+| Angola                     | Luanda                                                      |
+| Argélia                    | Argel                                                       |
+| Benim                      | Porto Novo (ofic.), Cotonou (sede gov.)                     |
+| Botsuana                   | Gaborone                                                    |
+| Burkina Faso               | Uagadugu                                                    |
+| Burundi                    | Gitega                                                      |
+| Cabo Verde                 | Praia                                                       |
+| Camarões                   | Iaundé                                                      |
+| Chade                      | N'Djamena                                                   |
+| Comores                    | Moroni                                                      |
+| Costa do Marfim            | Yamoussoukro (ofic.), Abidjan (econ.)                       |
+| Djibuti                    | Djibuti                                                     |
+| Egito                      | Cairo                                                       |
+| Eritreia                   | Asmara                                                      |
+| Essuatíni (Suazilândia)    | Mbabane (adm.), Lobamba (leg.)                              |
+| Etiópia                    | Adis Abeba                                                  |
+| Gabão                      | Libreville                                                  |
+| Gâmbia                     | Banjul                                                      |
+| Gana                       | Acra                                                        |
+| Guiné                      | Conacri                                                     |
+| Guiné-Bissau               | Bissau                                                      |
+| Guiné Equatorial           | Malabo                                                      |
+| Lesoto                     | Maseru                                                      |
+| Libéria                    | Monróvia                                                    |
+| Líbia                      | Trípoli                                                     |
+| Madagascar                 | Antananarivo                                                |
+| Malawi                     | Lilongwe                                                    |
+| Mali                       | Bamaco                                                      |
+| Marrocos                   | Rabat                                                       |
+| Maurício                   | Port Louis                                                  |
+| Mauritânia                 | Nouakchott                                                  |
+| Moçambique                 | Maputo                                                      |
+| Namíbia                    | Windhoek                                                    |
+| Níger                      | Niamey                                                      |
+| Nigéria                    | Abuja                                                       |
+| Quênia                     | Nairóbi                                                     |
+| Rep. Centro-Africana       | Bangui                                                      |
+| Rep. Democrática do Congo  | Kinshasa                                                    |
+| Ruanda                     | Kigali                                                      |
+| São Tomé e Príncipe        | São Tomé                                                    |
+| Senegal                    | Dacar                                                       |
+| Serra Leoa                 | Freetown                                                    |
+| Seicheles                  | Victoria                                                    |
+| Somália                    | Mogadíscio                                                  |
+| Sudão                      | Cartum                                                      |
+| Sudão do Sul               | Juba                                                        |
+| Tanzânia                   | Dodoma (ofic.), Dar es Salaam (econ.)                       |
+| Togo                       | Lomé                                                        |
+| Tunísia                    | Túnis                                                       |
+| Uganda                     | Kampala                                                     |
+| Zâmbia                     | Lusaca                                                      |
+| Zimbábue                   | Harare                                                      |
+
+### Américas
+
+| País            | Capital         |
+|-----------------|-----------------|
+| Antígua e Barbuda | Saint John’s  |
+| Argentina       | Buenos Aires    |
+| Bahamas         | Nassau          |
+| Barbados        | Bridgetown      |
+| Belize          | Belmopan        |
+| Bolívia         | Sucre (constit.), La Paz (sede gov.) |
+| Brasil          | Brasília        |
+| Canadá          | Ottawa          |
+| Chile           | Santiago        |
+| Colômbia        | Bogotá          |
+| Costa Rica      | San José        |
+| Cuba            | Havana          |
+| Dominica        | Roseau          |
+| El Salvador     | San Salvador    |
+| Equador         | Quito           |
+| Estados Unidos  | Washington, D.C.|
+| Granada         | Saint George’s  |
+| Guatemala       | Cidade da Guatemala |
+| Guiana          | Georgetown      |
+| Haiti           | Porto Príncipe  |
+| Honduras        | Tegucigalpa     |
+| Jamaica         | Kingston        |
+| México          | Cidade do México|
+| Nicarágua       | Manágua         |
+| Panamá          | Cidade do Panamá|
+| Paraguai        | Assunção        |
+| Peru            | Lima            |
+| República Dominicana | Santo Domingo |
+| São Cristóvão e Nevis | Basseterre |
+| Santa Lúcia     | Castries        |
+| São Vicente e Granadinas | Kingstown |
+| Suriname        | Paramaribo      |
+| Trinidad e Tobago | Porto de Espanha |
+| Uruguai         | Montevidéu      |
+| Venezuela       | Caracas         |
+
+### Ásia
+
+| País            | Capital                                    |
+|-----------------|--------------------------------------------|
+| Afeganistão     | Cabul                                      |
+| Arábia Saudita  | Riad                                       |
+| Armênia         | Erevã                                      |
+| Azerbaijão      | Bacu                                       |
+| Bahrein         | Manama                                     |
+| Bangladesh      | Daca                                       |
+| Butão           | Thimphu                                    |
+| Brunei          | Bandar Seri Begawan                        |
+| Camboja         | Phnom Penh                                 |
+| Catar           | Doha                                       |
+| China           | Pequim                                     |
+| Chipre          | Nicósia                                    |
+| Coreia do Norte | Pyongyang                                  |
+| Coreia do Sul   | Seul                                       |
+| Emirados Árabes Unidos | Abu Dhabi                          |
+| Filipinas       | Manila                                     |
+| Geórgia         | Tbilisi                                    |
+| Índia           | Nova Déli                                  |
+| Indonésia       | Jacarta                                    |
+| Irã             | Teerã                                      |
+| Iraque          | Bagdá                                      |
+| Israel          | Jerusalém*                                 |
+| Japão           | Tóquio                                     |
+| Jordânia        | Amã                                        |
+| Kuwait          | Cidade do Kuwait                           |
+| Laos            | Vientiane                                  |
+| Líbano          | Beirute                                    |
+| Malásia         | Kuala Lumpur (ofic.), Putrajaya (adm.)     |
+| Maldivas        | Malé                                       |
+| Mongólia        | Ulaanbaatar                                |
+| Mianmar (Birmânia) | Naypyidaw                               |
+| Nepal           | Catmandu                                   |
+| Omã             | Mascate                                    |
+| Paquistão       | Islamabad                                  |
+| Palestina**     | Ramala (adm.), Jerusalém Oriental (reivind.)|
+| Quirguistão     | Bisqueque                                  |
+| Qatar           | Doha                                       |
+| Síria           | Damasco                                    |
+| Singapura       | Singapura                                  |
+| Sri Lanka       | Sri Jayawardenapura Kotte (leg.), Colombo (econ.) |
+| Tailândia       | Bangcoc                                    |
+| Tajiquistão     | Duchambe                                   |
+| Timor-Leste     | Díli                                       |
+| Turquemenistão  | Asgabate                                   |
+| Turquia         | Ancara                                     |
+| Uzbequistão     | Tashkent                                   |
+| Vietnã          | Hanói                                      |
+| Iémen           | Sanaá                                      |
+
+### Europa
+
+| País            | Capital         |
+|-----------------|-----------------|
+| Albânia         | Tirana          |
+| Alemanha        | Berlim          |
+| Andorra         | Andorra-a-Velha |
+| Áustria         | Viena           |
+| Bélgica         | Bruxelas        |
+| Bielorrússia    | Minsk           |
+| Bósnia e Herzegovina | Sarajevo   |
+| Bulgária        | Sófia           |
+| Croácia         | Zagreb          |
+| Dinamarca       | Copenhague      |
+| Eslováquia      | Bratislava      |
+| Eslovênia       | Liubliana       |
+| Espanha         | Madri           |
+| Estônia         | Tallinn         |
+| Finlândia       | Helsinque       |
+| França          | Paris           |
+| Grécia          | Atenas          |
+| Hungria         | Budapeste       |
+| Islândia        | Reiquiavique    |
+| Irlanda         | Dublin          |
+| Itália          | Roma            |
+| Kosovo***       | Pristina        |
+| Letônia         | Riga            |
+| Liechtenstein   | Vaduz           |
+| Lituânia        | Vilnius         |
+| Luxemburgo      | Luxemburgo      |
+| Malta           | Valeta          |
+| Moldávia        | Chisinau        |
+| Mônaco          | Mônaco          |
+| Montenegro      | Podgorica       |
+| Noruega         | Oslo            |
+| Países Baixos   | Amsterdã (constit.), Haia (sede gov.) |
+| Polônia         | Varsóvia        |
+| Portugal        | Lisboa          |
+| Reino Unido     | Londres         |
+| República Tcheca| Praga           |
+| Romênia         | Bucareste       |
+| Rússia          | Moscou          |
+| San Marino      | San Marino      |
+| Sérvia          | Belgrado        |
+| Suécia          | Estocolmo       |
+| Suíça           | Berna           |
+| Ucrânia         | Kiev (Kyiv)     |
+| Vaticano        | Cidade do Vaticano |
+
+### Oceania
+
+| País            | Capital         |
+|-----------------|-----------------|
+| Austrália       | Camberra        |
+| Fiji            | Suva            |
+| Ilhas Marshall  | Majuro          |
+| Ilhas Salomão   | Honiara         |
+| Kiribati        | Tarawa do Sul   |
+| Micronésia      | Palikir         |
+| Nauru           | Yaren (de facto)|
+| Nova Zelândia   | Wellington      |
+| Palau           | Ngerulmud       |
+| Papua-Nova Guiné| Porto Moresby   |
+| Samoa           | Apia            |
+| Tonga           | Nucualofa       |
+| Tuvalu          | Funafuti        |
+| Vanuatu         | Port Vila       |
+
+### Notas
+
+- Israel e Palestina disputam Jerusalém.
+- África do Sul tem 3 capitais, Bolívia 2, Sri Lanka 2 funções, Países Baixos e Costa do Marfim têm capital constitucional vs sede de governo.
+- Kosovo é parcialmente reconhecido.
+
 
 ...
