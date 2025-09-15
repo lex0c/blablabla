@@ -283,5 +283,77 @@
 - África do Sul tem 3 capitais, Bolívia 2, Sri Lanka 2 funções, Países Baixos e Costa do Marfim têm capital constitucional vs sede de governo.
 - Kosovo é parcialmente reconhecido.
 
+## Locais turísticos mundiais
+
+### África
+
+| País             | Locais Turísticos                                   |
+|------------------|-----------------------------------------------------|
+| Egito            | Pirâmides de Gizé, Esfinge, Vale dos Reis (Luxor)   |
+| Marrocos         | Marrakech, Fez, Chefchaouen                         |
+| Tanzânia         | Serengeti, Monte Kilimanjaro, Zanzibar              |
+| África do Sul    | Cidade do Cabo, Parque Kruger, Cabo da Boa Esperança|
+| Namíbia          | Deserto do Namibe, Dunas de Sossusvlei              |
+
+### Américas
+
+| País             | Locais Turísticos                                   |
+|------------------|-----------------------------------------------------|
+| Brasil           | Cristo Redentor, Cataratas do Iguaçu, Amazônia, Lençóis Maranhenses |
+| Argentina        | Buenos Aires (Caminito), Glaciar Perito Moreno, Cataratas do Iguaçu |
+| Peru             | Machu Picchu, Cusco, Vale Sagrado                   |
+| México           | Chichén Itzá, Teotihuacán, Cancún, Tulum            |
+| Chile            | Torres del Paine, Ilha de Páscoa (Moais), Atacama   |
+| EUA              | Estátua da Liberdade, Grand Canyon, Yellowstone, Las Vegas Strip |
+| Canadá           | Cataratas do Niágara, Toronto (CN Tower), Vancouver, Banff |
+| Cuba             | Havana Velha, Varadero                              |
+
+### Ásia
+
+| País             | Locais Turísticos                                   |
+|------------------|-----------------------------------------------------|
+| China            | Grande Muralha, Cidade Proibida, Terracota (Xian)   |
+| Japão            | Monte Fuji, Kyoto (templos), Tóquio (Shibuya, Akihabara) |
+| Índia            | Taj Mahal, Jaipur (Cidade Rosa), Varanasi           |
+| Tailândia        | Bangkok (Wat Pho, Wat Arun), Chiang Mai, Ilhas Phi Phi |
+| Vietnã           | Halong Bay, Hoi An, Hanói Old Quarter               |
+| Turquia          | Istambul (Santa Sofia, Mesquita Azul), Capadócia, Pamukkale |
+| Nepal            | Himalaias, Kathmandu, Everest Base Camp             |
+| Camboja          | Angkor Wat                                          |
+| Jordânia         | Petra                                               |
+| Emirados Árabes  | Dubai (Burj Khalifa, Palm Islands), Abu Dhabi (Mesquita Sheikh Zayed) |
+
+### Europa
+
+| País             | Locais Turísticos                                   |
+|------------------|-----------------------------------------------------|
+| França           | Torre Eiffel, Louvre, Versalhes, Mont Saint-Michel  |
+| Itália           | Coliseu, Vaticano, Veneza, Florença, Pisa           |
+| Espanha          | Sagrada Família, Alhambra, Madrid (Museu do Prado)  |
+| Reino Unido      | Big Ben, Tower Bridge, Stonehenge, Edimburgo        |
+| Grécia           | Acrópole de Atenas, Santorini, Meteora              |
+| Alemanha         | Portão de Brandemburgo, Castelo Neuschwanstein, Berlim |
+| Portugal         | Lisboa (Belém, Alfama), Porto (Ribeira), Sintra     |
+| Suíça            | Alpes Suíços, Matterhorn, Zurique, Genebra          |
+| Islândia         | Aurora Boreal, Blue Lagoon, Geysers, Gullfoss       |
+
+### Oceania
+
+| País             | Locais Turísticos                                   |
+|------------------|-----------------------------------------------------|
+| Austrália        | Sydney Opera House, Great Barrier Reef, Uluru (Ayers Rock) |
+| Nova Zelândia    | Hobbiton, Milford Sound, Rotorua, Queenstown        |
+| Fiji             | Praias tropicais, Ilhas de coral                    |
+| Samoa            | Apia, praias e recifes                              |
+
+### Regiões Exóticas
+
+| Local            | Destaques                                           |
+|------------------|-----------------------------------------------------|
+| Antártica        | Cruzeiros, geleiras, fauna polar                    |
+| Groenlândia      | Fiordes, geleiras, aurora boreal                    |
+| Polo Norte       | Observação de ursos polares, expedições árticas     |
+
+
 
 ...
