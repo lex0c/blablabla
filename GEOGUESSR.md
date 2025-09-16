@@ -56,6 +56,71 @@
 | Santa Catarina    | 47, 48, 49             | Joinville (47), Florianópolis (48), Chapecó (49)                                             |
 | Rio Grande do Sul | 51, 53, 54, 55         | Porto Alegre (51), Pelotas (53), Caxias do Sul (54), Santa Maria (55)                        |
 
+## Idiomas
+
+### Idiomas Latinos (alfabeto latino)
+
+| Idioma        | Letras/caracteres típicos                                               |
+| ------------- | ----------------------------------------------------------------------- |
+| **Português** | ã, õ, ç, LH, NH. Muito uso de vogais abertas (a, e, o).                 |
+| **Espanhol**  | ñ, ll, rr. Palavras terminando em -ción, -ado.                          |
+| **Italiano**  | uso forte de vogais duplas: -ia, -io, -ti-, chi, gli.                   |
+| **Francês**   | ç, é, è, ê, à, ô, œ, -eau, -que. Muitas vogais com acento.              |
+| **Inglês**    | th, gh, sh, ch. Terminações -ing, -ed, -tion.                           |
+| **Alemão**    | ß, ä, ö, ü. Palavras compostas gigantes, capitalização de substantivos. |
+| **Holandês**  | ij, ui, sch, dubbele klinkers (aa, ee, oo, uu).                         |
+| **Romeno**    | ă, ș, ț, â, î. Parecido com latim, mas com sinais diacríticos.          |
+
+### Idiomas Nórdicos / Germânicos
+
+| Idioma          | Letras/caracteres típicos                            |
+| --------------- | ---------------------------------------------------- |
+| **Sueco**       | å, ä, ö                                              |
+| **Dinamarquês** | æ, ø, å                                              |
+| **Norueguês**   | æ, ø, å (como dinamarquês, mas ortografia diferente) |
+| **Islandês**    | ð, þ (letras próprias), acentos em vogais            |
+
+### Idiomas Eslavos (alfabeto latino e cirílico)
+
+| Idioma        | Letras/caracteres típicos                                   |
+| ------------- | ----------------------------------------------------------- |
+| **Russo**     | алфавит cirílico → ж, й, ы, ю, я, ш, щ, ц                   |
+| **Ucraniano** | і, ї, є, ґ. Parecido com russo, mas tem “і” em vez de “и”.  |
+| **Búlgaro**   | cirílico → ъ, щ, ю                                          |
+| **Sérvio**    | usa tanto cirílico quanto latino. Se latino: đ, č, ć, š, ž. |
+| **Polonês**   | ł, ą, ę, ś, ź, ż, ń, ó                                      |
+| **Tcheco**    | č, š, ž, ě, ů, ř                                            |
+| **Eslovaco**  | parecido com tcheco, mas usa ä, ľ, ô                        |
+| **Esloveno**  | č, š, ž                                                     |
+| **Croata**    | č, ć, đ, š, ž                                               |
+
+### Oriente Médio e arredores
+
+| Idioma            | Escrita / letras típicas                                       |
+| ----------------- | -------------------------------------------------------------- |
+| **Árabe**         | الف ب → ح, خ, ع, غ, ق, ط, ظ. Escrita cursiva, direita→esquerda |
+| **Hebraico**      | אבג → א, ב, ש, ח, ע. Sem vogais explícitas. Direita→esquerda   |
+| **Persa (Farsi)** | usa alfabeto árabe, mas tem letras próprias: پ, چ, ژ, گ        |
+
+### Ásia
+
+| Idioma                 | Sistema / caracteres típicos                                      |
+| ---------------------- | ----------------------------------------------------------------- |
+| **Chinês (Mandarim)**  | 汉字 → ideogramas (中, 国, 人, 学, 大, 小).                               |
+| **Japonês**            | mistura: Kanji (日, 本, 東), Hiragana (あ, い, う), Katakana (カ, ケ, サ). |
+| **Coreano**            | Hangul → 한글, blocos com ㅂ, ㅈ, ㄱ, ㅅ, ㅁ etc.                        |
+| **Tailandês**          | อักษรไทย → caracteres curvos: ก, ข, ง, ช, ฯ                       |
+| **Hindi (Devanágari)** | देवनागरी → अक्षर com linha horizontal contínua em cima (क, त, म). |
+
+### Outros
+
+| Idioma         | Características                                                           |
+| -------------- | ------------------------------------------------------------------------- |
+| **Grego**      | Α, Β, Γ, Δ, Θ, Ξ, Ω. Letras únicas: φ, ψ, χ.                              |
+| **Turco**      | ı, ş, ç, ğ, ö, ü.                                                         |
+| **Vietnamita** | usa alfabeto latino, mas com toneladas de diacríticos (ắ, ằ, ẻ, ộ, ư, ơ). |
+| **Húngaro**    | ő, ű, gy, ny, sz, cs.                                                     |
+
 ## Capitais do mundo
 
 ### África
