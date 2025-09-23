@@ -6,13 +6,13 @@ A pergunta **"onde a consciência fica?"** é quase tão mal formulada quanto pe
 
 Pense no cérebro como um sistema de prediction & compression. Ele tenta prever entradas sensoriais e comprimir padrões para economizar energia e reagir rápido. Esse loop de previsão ficou tão sofisticado que, em algum ponto, o sistema começou a incluir a si mesmo como variável no modelo. O resultado é a consciência: o simulador interno não só prevê o mundo, mas também o próprio simulador rodando o mundo.
 
-## O que sabemos (com algum respaldo científico):
+## O que sabemos (com algum respaldo científico)
 
 - Processos conscientes parecem depender fortemente do córtex pré-frontal, do tálamo e das conexões recíprocas entre eles.
 - A integração de informações distribuídas em redes corticais é crucial (teorias como a [Integrated Information Theory](https://en.wikipedia.org/wiki/Integrated_information_theory) e a [Global Workspace Theory](https://en.wikipedia.org/wiki/Global_workspace_theory) tentam modelar isso).
 - Não existe um "ponto" único da consciência, mas sim um estado global do cérebro quando diferentes módulos se sincronizam.
 
-## Consequências dessa visão:
+## Consequências dessa visão
 
 - O "eu" é só compressão com metadados: sua sensação de identidade é basicamente o cache do sistema preditivo.
 - A consciência pode ser descartável: dá para imaginar máquinas extremamente inteligentes sem consciência, apenas previsão fria.
@@ -97,3 +97,34 @@ A IA pode perfeitamente atingir a estética da consciência — falar como se ti
 ## Consequência filosófica
 
 Se chegarmos a uma entidade que relata sofrimento, que persiste no tempo e que age para preservar sua narrativa, a sociedade terá que decidir se isso importa moralmente.
+
+---
+
+# Cerebro
+
+## Córtex (o palco principal)
+
+* **Lobos frontais**: planejamento, decisão, inibição (o freio de mão que falha em bêbados). O pré-frontal é o "executivo" que tenta dar ordem no caos.
+* **Lobo parietal**: integração sensorial, espacialidade, noção de corpo. É onde você calcula se consegue passar com sofá pela porta.
+* **Lobo temporal**: audição, linguagem ([área de Wernicke](https://en.wikipedia.org/wiki/Wernicke%27s_area)), memória episódica (hipocampo fica por aqui).
+* **Lobo occipital**: processamento visual, do pixel bruto até reconhecimento de formas.
+
+## Subcórtex (as engrenagens velhas, mas críticas)
+
+* **Tálamo**: hub de roteamento. Quase tudo que entra e sai do córtex passa por ele. Pense como load balancer.
+* **Hipotálamo**: homeostase, fome, sede, sono, libido. É o "scheduler" biológico.
+* **Gânglios da base**: motor e hábito. Aqui nasce o loop de "rotina automática". Parkinson é basicamente esse módulo dando segfault.
+* **Amígdala**: alarme de perigo e processamento emocional rápido. Detecta cobra no mato antes do córtex terminar o render.
+
+## Tronco encefálico (firmware vital)
+
+* **Mesencéfalo, ponte, bulbo**: respiração, batimento cardíaco, reflexos básicos. Se desligar, não há sistema operacional, só hardware parado.
+
+## Cerebelo (o engenheiro de controle)
+
+* Coordenação motora fina, equilíbrio, tempo.
+* Aprendizado motor implícito (andar de bicicleta sem pensar na física).
+
+## Sistema límbico (a cola emocional)
+
+* Conjunto de módulos (hipocampo, amígdala, cíngulo) que fazem memória se conectar com emoção. É por isso que você lembra mais do fora do que da equação de Bhaskara.
