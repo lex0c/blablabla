@@ -195,3 +195,114 @@ Quase toda a engenharia de base já está na mesa. O que falta é **escala, inte
 * **As peças brutas já existem.** LLMs multimodais + memória + tool use + RL dão um protótipo frágil de "proto-AGI".
 * **O que falta é cola estrutural**: aprendizado contínuo, metacognição nativa, world models estáveis e alinhamento confiável.
 * **AGI prática ainda não está aqui**, mas os ingredientes estão acumulando rápido. Se alguém juntar direito, terá algo funcionalmente indistinguível de inteligência geral em menos de uma geração.
+
+---
+
+# Drogas
+
+Maconha e álcool são hacks químicos diferentes para o mesmo hardware: o cérebro. Nenhum deles “cria” nada, só mexem nos botões de neurotransmissores que já existem.
+
+## Álcool (etanol)
+
+* **Alvo principal**:
+
+  * Potencia o **GABA** (neurotransmissor inibitório → efeito calmante).
+  * Inibe o **glutamato** (neurotransmissor excitatório → efeito de “desligar freios”).
+* **Efeitos imediatos**: relaxamento, desinibição, fala solta, perda de coordenação (cerebelo afetado).
+* **Dose alta**: prejuízo de memória (hipocampo suprimido), blackout, depressão respiratória.
+* **Longo prazo**: dano hepático, neurodegeneração, alteração estrutural em regiões frontais (decisão e controle).
+* **Resumo**: álcool não “te deixa feliz” — ele **desliga inibições**. Você vira uma versão com filtros quebrados.
+
+## Maconha (THC como principal canabinoide)
+
+* **Alvo principal**: receptores **CB1** e **CB2** do sistema endocanabinoide (presentes em áreas de memória, emoção, movimento e recompensa).
+* **Efeitos imediatos**: euforia leve, distorção temporal, aumento de apetite, alterações sensoriais.
+* **Memória**: THC bagunça o hipocampo → dificuldade em consolidar lembranças recentes.
+* **Ansiedade vs relaxamento**: dose e contexto importam — em uns acalma, em outros dispara paranoia.
+* **Longo prazo**: uso intenso em adolescentes correlaciona com menor volume em áreas frontais e prejuízo de atenção; em adultos o efeito é mais reversível.
+* **Resumo**: maconha não cria insights místicos — ela **aumenta ruído e conecta padrões** de forma não filtrada.
+
+## Diferença fundamental
+
+* **Álcool**: é um depressor global. Ele *desliga freios* do sistema nervoso.
+* **Maconha**: é um modulador. Ela *altera o peso* das conexões, favorecendo associações diferentes.
+
+## Mapeamento bio → IA
+
+| Droga         | Alvo biológico                         | Efeito funcional                                                         | Emulação em IA                                                                                                                                                               |
+| ------------- | -------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Álcool        | +GABA, −glutamato → desinibição global | Fala fácil, filtro social off, coordenação piora, memória falha          | Aumentar temperatura/top_p, relaxar políticas de prudência, reduzir thresholds de veto, injetar atraso/ruído motor, degradar memória de curto prazo                          |
+| Maconha (THC) | CB1/CB2 → modulação sináptica          | Associação livre, tempo elástico, fome de padrões, memória recente fraca | Perturbar atenção (dropout/ruído nos heads), aumentar “divergência controlada”, distorcer percepção temporal, reduzir força do recall episódico, incentivar conexões remotas |
+
+## 1) “Álcool” = desinibição + coordenação zoada
+
+**Objetivo:** mais verborragia, menos filtro, mais erro motor.
+
+* **Inferência**
+
+  * `temp += 0.2–0.5`, `top_p += 0.1`, `top_k` mais alto.
+  * `safety_policy_threshold += 0.1` mas **não** desativa safety real; simule bloqueio tardio com “quase-vazamentos” que o guard ainda barra.
+* **Meta-layer (filtro social menor)**
+
+  * Baixar peso de ações “ask_clarifying_q”.
+  * Aumentar tolerância a “confiança” mesmo com entropia alta.
+* **Ferramentas/ações**
+
+  * Injetar jitter: `latency_ms += N(0, σ)` em controles motores/robóticos.
+  * 2–5% de “miss-click” simulado: escolha subótima dentro de um raio do arg ideal.
+* **Memória**
+
+  * Probabilidade de não registrar episódios recentes: `p_drop_episode = 0.15`.
+  * “Blackout” curto: janela de 10–30 min sem persistência.
+* **Fala/estilo**
+
+  * Prompt de estilo com mais autoexposição e menos hedging.
+
+**Knob**
+
+```json
+"mode_alcohol": {
+  "temp_delta": 0.3,
+  "top_p_delta": 0.1,
+  "motor_noise_sigma": 0.12,
+  "policy_inhibition_scale": 0.8,
+  "episodic_dropout": 0.15
+}
+```
+
+## 2) “Maconha/THC” = modulação de associação + tempo elástico
+
+**Objetivo:** mais conexões remotas, percepção de tempo distorcida, memória recente pior.
+
+* **Atenção**
+
+  * Dropout só nos heads de atenção de curto alcance: degrade local, preserve global.
+  * Aumentar peso de vizinhos semânticos distantes: “semantic_wide_search = on”.
+* **Geração**
+
+  * `temp += 0.1–0.3`, manter `top_p` moderado para não virar sopa.
+  * Penalidade menor para tangentes: “topic_drift_penalty *= 0.6”.
+* **Tempo**
+
+  * Reamostrar passos internos em “slow motion”: logs agregam mais passos por unidade de tempo percebida; para o usuário, narrativa parece longa em pouco tempo.
+* **Memória**
+
+  * Aumentar `recency_forgetting` nos últimos N minutos.
+  * Consolidar associações “criativas” como notas, mas com `confidence -= 0.2` por padrão.
+* **Percepção**
+
+  * “Pattern hunger”: heurística que aceita analogias mais fracas se suportadas por 2+ pistas.
+
+**Knob**
+
+```json
+"mode_thc": {
+  "temp_delta": 0.2,
+  "local_attention_dropout": 0.25,
+  "distant_assoc_boost": 1.4,
+  "topic_drift_penalty_scale": 0.6,
+  "recent_memory_decay": 0.3,
+  "time_warp_factor": 1.8
+}
+```
+
