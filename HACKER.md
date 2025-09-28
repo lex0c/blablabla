@@ -1,4 +1,4 @@
-# ...
+# Domine o protocolo. Explore a norma.
 
 **Outro foi pego hoje, está em todos os jornais.**
 
