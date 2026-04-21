@@ -128,6 +128,55 @@ Quando falamos em [testes de software](https://en.wikipedia.org/wiki/Software_te
 4. **Evite testes de baixo valor**: Nem todo código precisa do mesmo nível de rigor em testes. Alguns códigos, como simples getters/setters ou CRUDs simples, podem não necessitar de testes extensivos.
 5. **Considere o ambiente de produção**: Os testes devem ser relevantes para o ambiente em que o software será executado. Isso pode incluir a testagem em diferentes dispositivos, sistemas operacionais ou condições de rede.
 
+## Mutation Testing
+
+A cobertura de testes diz apenas que uma linha foi **executada**, não que seu comportamento foi **verificado**. É possível ter 100% de cobertura e uma suíte que não detecta regressões reais — por exemplo, testes com assertions fracas como `expect(result).toBeDefined()`. O *mutation testing* (teste de mutação) ataca exatamente esse falso conforto: mede quão bons os testes são em detectar mudanças no código.
+
+### Como funciona
+
+Uma ferramenta de mutação introduz pequenas alterações automáticas no código-fonte. Cada versão alterada é chamada de **mutante**. Em seguida, a suíte de testes é executada contra cada mutante:
+
+1. Se algum teste **falha** → o mutante foi *morto* (killed). Bom sinal: a suíte detectou a mudança de comportamento.
+2. Se todos os testes **passam** → o mutante *sobrevive*. Indica uma lacuna na suíte: o código mudou e ninguém percebeu.
+
+A métrica resultante é o **mutation score** = `mutantes mortos / mutantes totais`. É muito mais rigorosa que cobertura de linha — não é incomum ver projetos com 90% de cobertura e mutation score abaixo de 50%.
+
+### Exemplos de mutadores comuns
+
+| Original | Mutante |
+|---|---|
+| `a > b` | `a >= b`, `a < b` |
+| `a + b` | `a - b` |
+| `return x` | `return null` / `return 0` |
+| `if (cond)` | `if (true)` / `if (false)` |
+| `x && y` | `x \|\| y` |
+| remoção de chamada `void` | *(nada)* |
+
+Se o teste continua passando quando `a > b` vira `a >= b`, provavelmente o caso de borda `a == b` nunca foi testado.
+
+### Desafios práticos
+
+1. **Custo computacional:** para N mutantes e M testes, a suíte pode ser executada milhares de vezes. Ferramentas modernas mitigam isso com análise incremental, *mutant schemata* (um único binário com switches) e filtragem por cobertura (só roda os testes que tocam a linha mutada).
+2. **Mutantes equivalentes:** mutações que não alteram o comportamento observável (ex.: `i < 10` vs `i <= 9` em um loop). Nunca morrem, mas não são falha do teste. A detecção automática é indecidível no caso geral.
+3. **Ruído:** mutações em logs, métricas ou código defensivo geram falsos positivos. Ferramentas sérias permitem excluir arquivos ou operadores específicos.
+
+### Ferramentas por ecossistema
+
+- **Java:** [PIT (pitest)](https://pitest.org) — padrão de facto, integra Maven/Gradle.
+- **JS/TS:** [StrykerJS](https://stryker-mutator.io) — também suporta .NET e Scala.
+- **Python:** `mutmut`, `cosmic-ray`.
+- **Go:** `go-mutesting`, `gremlins`.
+- **Ruby:** `mutant`.
+- **C/C++:** `mull`, `Dextool Mutate`.
+
+### Quando vale a pena
+
+1. **Código crítico:** parsers, lógica financeira, bibliotecas reutilizáveis — onde regressões silenciosas são caras.
+2. **Auditoria de suítes legadas:** antes de uma refatoração grande, para saber em quais áreas a suíte realmente protege.
+3. **Modo incremental em PRs:** rodar apenas sobre os arquivos modificados (`--since`) costuma ser viável em CI; rodar na suíte inteira, raramente.
+
+Não substitui outros tipos de teste — é uma camada sobre a suíte existente, focada em medir (e melhorar) a qualidade das assertions.
+
 ## Conclusão
 
 Escrever testes de alta qualidade e relevância requer um profundo entendimento do software, do domínio do negócio e dos usuários. Embora possa ser tentador focar apenas na cobertura de testes como métrica, a verdadeira eficácia dos testes é determinada por sua capacidade de identificar e prevenir problemas reais que possam afetar os usuários e o negócio.
