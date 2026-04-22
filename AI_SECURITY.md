@@ -2,8 +2,6 @@
 
 Sistemas de IA — sobretudo LLMs, modelos multimodais, e **agentes** que agem no mundo — introduzem classes de ataque que não existem em software tradicional. Input é linguagem natural arbitrária; o "código" (pesos) é um artefato não-interpretável; o comportamento é probabilístico; e agentes atravessam camadas de confiança que antes eram seladas (e-mail, navegador, banco). Este arquivo é o mapa das ameaças e defesas — um campo em 2026 ainda ativo e longe de resolvido.
 
-Complementa `AI.md` (fundamentos), `PROMPT_ENGINEERING.md`, `MLOPS.md`, `THREAT_MODELING.md`, `PRIVACY_ENGINEERING.md`.
-
 ## Por Que é Diferente
 
 Software tradicional: input estruturado → código determinístico → output previsível. Bugs são em lógica explícita.

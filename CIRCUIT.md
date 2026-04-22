@@ -2,8 +2,6 @@
 
 Circuitos elétricos são a base material de quase toda tecnologia moderna — da rede elétrica ao smartphone. Um **circuito** é um caminho fechado através do qual **cargas elétricas** fluem sob ação de uma **tensão** aplicada, passando por componentes que limitam, armazenam, redirecionam ou processam esse fluxo. Eletrônica é o subcampo que trata de **circuitos de baixa potência** controlando sinais e informação — análogo ao que mecânica está para máquinas.
 
-Complementa `COMPUTER_THEORY.md`, `GPGPU.md`, `RASPBERRY_PI.md`, `EGPU.md`, `ROBOTICS.md`, `IOT_FIRMWARE_SECURITY.md`, `HARDWARE_ATTACKS.md`.
-
 ## Grandezas Fundamentais
 
 | Grandeza | Símbolo | Unidade | Intuição |

@@ -2,8 +2,6 @@
 
 Arquitetura de computadores é o estudo de como **hardware executa código** — da instrução assembly até o circuito lógico. Para engenheiros de software, entender arquitetura é o que separa otimização real de superstição: latência de cache, *false sharing*, TLB misses, branch misprediction não aparecem em perfis casuais, mas dominam performance de código moderno.
 
-Complementa `CIRCUIT.md` (camada elétrica), `COMPUTER_THEORY.md` (abstração), `GPGPU.md`/`GPU.md`, `MEMORY_OPTIMIZATION.md`, `PROFILING.md`, `CONCURRENCY.md`.
-
 ## Camadas
 
 Computação moderna é pilha de abstrações:
