@@ -92,6 +92,102 @@ Revisar commits é uma prática essencial em muitas equipes de desenvolvimento d
 - **Descreva suas mudanças**: Ao criar um pull request ou merge request, inclua uma descrição clara do que foi feito e por quê.
 - **Seja receptivo ao feedback**: A revisão de código é uma oportunidade de aprendizado. Aceite feedbacks construtivos e esteja disposto a fazer alterações.
 
+## Conventional Commits
+
+[Conventional Commits](https://www.conventionalcommits.org) é uma convenção leve para padronizar a primeira linha da mensagem, tornando-a **processável por máquina** (para geração de changelog, bump de versão automático, etc).
+
+### Formato
+
+```
+<tipo>(<escopo opcional>): <descrição>
+
+<corpo opcional>
+
+<rodapés opcionais>
+```
+
+### Tipos comuns
+
+- **feat**: nova funcionalidade.
+- **fix**: correção de bug.
+- **docs**: mudança só em documentação.
+- **style**: formatação, ponto-e-vírgula, espaços — sem mudança de comportamento.
+- **refactor**: mudança no código que não adiciona feature nem corrige bug.
+- **perf**: otimização de performance.
+- **test**: adição ou correção de testes.
+- **chore**: tarefas de manutenção (deps, config, tooling).
+- **build**, **ci**, **revert**: menos comuns mas úteis.
+
+### Exemplos
+
+```
+feat(auth): adiciona suporte a login via SSO
+fix(checkout): corrige recálculo de frete em CEPs do AM
+refactor(orders): extrai PricingService de OrderService
+```
+
+### Breaking changes
+
+Indicar com `!` após o tipo ou com um rodapé `BREAKING CHANGE:`:
+
+```
+feat(api)!: remove endpoint /v1/users
+
+BREAKING CHANGE: clientes devem migrar para /v2/users.
+```
+
+### Benefícios
+
+- **Automação**: ferramentas como `standard-version`, `semantic-release`, `git-cliff` geram changelog e bump de versão sem intervenção.
+- **Scan visual**: consegue-se ler `git log --oneline` e entender natureza das mudanças rapidamente.
+- **Filtragem**: `git log --grep="^fix"` lista só correções.
+
+### Quando não vale
+
+Projeto pequeno, solo, sem pipeline de release automatizado. Convenção sem uso é só burocracia.
+
+## Versionamento Semântico (SemVer)
+
+Commits informam versões. [SemVer 2.0](https://semver.org) é o padrão dominante:
+
+- **MAJOR.MINOR.PATCH** (ex.: `2.4.7`).
+- **MAJOR**: mudança incompatível na API.
+- **MINOR**: feature nova, compatível com versões anteriores.
+- **PATCH**: correção de bug, compatível.
+
+Conventional Commits mapeiam naturalmente: `fix` → patch, `feat` → minor, `BREAKING CHANGE` → major. Por isso a combinação é popular.
+
+**Pré-release**: sufixos como `-alpha.1`, `-rc.3`, `-beta`. **Build metadata**: `+build.123` — ignorado em ordenação.
+
+**Armadilha comum**: versões `0.x.y` são, por convenção, consideradas "instáveis" — mudanças quebrando podem acontecer em `MINOR`. Muitas libs ficam em `0.x` por anos para ter essa liberdade.
+
+## Trailers
+
+A última seção da mensagem pode conter **trailers** — pares chave-valor estruturados, ao estilo de headers de e-mail. `git interpret-trailers` lida com eles. Convenções populares:
+
+- `Co-authored-by: Nome <email>` — GitHub reconhece e credita pair programming.
+- `Signed-off-by: Nome <email>` — Developer Certificate of Origin (DCO). Usado no kernel Linux e outros projetos que rejeitam CLA tradicional. `git commit -s` adiciona automaticamente.
+- `Reviewed-by:`, `Acked-by:`, `Tested-by:` — kernel Linux.
+- `Refs: #123`, `Closes: #456`, `Fixes: #789` — linkagem a issues; `Closes` fecha issue ao merge no GitHub.
+
+Trailers são parseáveis. Evite misturar com prosa no corpo.
+
+## Commits Bisect-Friendly
+
+`git bisect` faz busca binária no histórico para encontrar o commit que introduziu um bug. Funciona bem quando cada commit no histórico:
+
+1. **Compila**: se um commit intermediário não compila, `bisect` quebra.
+2. **Passa nos testes**: ou pelo menos roda o que precisa para o bisect.
+3. **É autocontido**: uma mudança lógica completa, não metade de uma refatoração.
+
+Isso implica alguns hábitos:
+
+- **Não commitar estados intermediários quebrados**. Se o trabalho for naturalmente incremental, use `git commit --amend` ou `git rebase -i` antes do push para consolidar.
+- **Separar refatoração de mudança comportamental**. Commit 1: refatora sem mudar comportamento. Commit 2: muda comportamento com a estrutura nova. Bisect aponta para o culpado certo.
+- **Evitar "WIP" no histórico principal**. WIP vive em branches, não em `main`.
+
+Quando um PR é grande, um rebase interativo antes do merge (ou squash com mensagem cuidadosa) produz um histórico linear de mudanças atômicas.
+
 ## Conslusão
 
 Fazer bons commits não é apenas uma boa prática de codificação, mas também uma parte essencial da colaboração eficaz em equipe e da gestão de projetos de software.

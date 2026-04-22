@@ -58,6 +58,57 @@ A arquitetura de software é muito mais do que a organização de arquivos e pas
 
 A estrutura de arquivos e diretórios é apenas uma representação física do código do sistema. Embora possa refletir aspectos da arquitetura, como a organização de código em módulos ou pacotes, ela não fornece informações sobre as interações entre os componentes, as propriedades do sistema ou os princípios de design subjacentes à organização do sistema.
 
+## Arquitetura Evolutiva (Evolutionary Architecture)
+
+Sistemas duram anos; requisitos mudam em meses. A visão tradicional de "arquitetar no início e executar a seguir" falha porque supõe que entendemos tudo antecipadamente — raramente é o caso. **Arquitetura evolutiva**, formalizada por Neal Ford, Rebecca Parsons e Patrick Kua (livro homônimo, 2017), trata a arquitetura como algo que **responde a mudança** de forma controlada, não como um monólito projetado uma vez.
+
+### Princípios
+
+1. **Mudança incremental guiada**: a arquitetura muda em passos pequenos, mensuráveis, reversíveis — não em grandes saltos. Isso casa com entregas contínuas e padrões como *strangler fig* (ver `REFACTORING.md`).
+2. **Múltiplas dimensões arquiteturais**: a arquitetura não é só "estrutural". Há *-ilities* que competem entre si: performance, segurança, escalabilidade, operabilidade, evolutibilidade, custo. Mudanças em uma dimensão afetam as outras.
+3. **Ciclos de feedback curtos**: quanto menor o ciclo entre "mudança feita" e "efeito observado", mais rápido a arquitetura aprende. Testes, observabilidade, deploy contínuo são as máquinas desse feedback.
+
+### Última decisão responsável
+
+Princípio ágil clássico: adie decisões arquiteturais **até o último momento responsável** — o ponto em que mais tarde custa mais que decidir agora com informação incompleta. Decidir cedo demais congela opcionalidade; decidir tarde demais trava progresso. Engenharia sênior é, em grande parte, intuir esse ponto.
+
+## Fitness Functions
+
+Conceito central da arquitetura evolutiva: uma **fitness function** é uma verificação automatizada que mede quão bem a arquitetura satisfaz uma **característica desejável**. Emprestado de algoritmos evolutivos, mas aplicado à arquitetura como *testes contínuos de propriedades arquiteturais*.
+
+Enquanto testes unitários verificam **comportamento**, fitness functions verificam **propriedades transversais**: "o módulo de domínio não importa nada de infraestrutura?", "o p99 de latência está abaixo de 300ms?", "não há ciclo de dependências?".
+
+### Exemplos
+
+1. **Dependências arquiteturais**: "nenhuma classe em `domain/` depende de `infrastructure/`". Verificável com ArchUnit (Java), arch_unit (Python), dependency-cruiser (JS), go-arch-lint (Go).
+2. **Performance**: benchmark automático falha se a latência passar de um limite.
+3. **Cobertura por módulo**: módulo crítico exige cobertura ≥ 90%.
+4. **Tamanho de classe / função**: limites como guarda contra "deus classes".
+5. **Ciclos**: detecção automática de ciclos de importação.
+6. **Observabilidade**: todo handler HTTP tem tracing e log estruturado (lint/test).
+7. **Segurança**: nenhuma dependência com CVE alto na suite (integrar a CI).
+8. **API contract**: schema não sofreu breaking change sem bump de versão.
+
+### Tipos (taxonomia do livro)
+
+- **Atômica vs holística**: atômica mede uma característica isolada; holística mede interação entre várias.
+- **Triggered vs contínua**: disparada por evento (PR, deploy) vs avaliada o tempo todo em produção.
+- **Estática vs dinâmica**: valor fixo como alvo vs valor derivado do contexto atual.
+- **Automatizada vs manual**: ideal é automatizar; alguns aspectos (UX, elegância) precisam de julgamento humano.
+
+### Anti-patterns
+
+1. **Fitness function teatral**: teste que passa sempre, ninguém confere. Cheque que ela já tenha falhado legitimamente pelo menos uma vez.
+2. **Muitas fitness functions**: fadiga; perde-se de vista o que importa. Menos, relevantes, mantidas.
+3. **Ignorar falhas regulares**: se uma FF falha toda semana e ninguém age, ela deixou de ser contrato; virou ruído.
+
+## Integração com Outras Práticas
+
+- **`ADR.md`**: ADRs documentam *por que* da arquitetura atual; fitness functions **protegem** a arquitetura de desviar sem decisão consciente.
+- **`TESTS.md`**: fitness functions são testes — de propriedades arquiteturais, não de comportamento.
+- **`OBSERVABILITY.md`**: SLOs são fitness functions sobre performance e disponibilidade em produção.
+- **`REFACTORING.md`**: arquitetura evolutiva exige o catálogo de estratégias (strangler, branch by abstraction, parallel change) para executar mudanças sem parar o mundo.
+
 ## Conclusão
 
 A arquitetura de software é uma disciplina complexa e abstrata que envolve muito mais do que a organização física do código-fonte. Ela aborda questões fundamentais sobre a estrutura, a organização, a performance, a segurança e a evolução de um sistema de software. Uma compreensão completa da arquitetura de software é fundamental para a criação de sistemas de software robustos, eficientes e manuteníveis. Então, da próxima vez que você pensar em arquitetura de software, lembre-se de que ela vai muito além da estrutura de diretórios e arquivos.

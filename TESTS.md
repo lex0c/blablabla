@@ -177,6 +177,111 @@ Se o teste continua passando quando `a > b` vira `a >= b`, provavelmente o caso 
 
 Não substitui outros tipos de teste — é uma camada sobre a suíte existente, focada em medir (e melhorar) a qualidade das assertions.
 
+## Property-Based Testing
+
+Em testes tradicionais (*example-based*), você escreve casos específicos: `add(2, 3) == 5`. Em **property-based testing**, você descreve **propriedades** que devem valer para **qualquer entrada**, e a ferramenta gera centenas de entradas aleatórias para tentar refutar.
+
+### Exemplos de propriedades
+
+1. **Invertibilidade**: `decode(encode(x)) == x` para qualquer `x`.
+2. **Idempotência**: `f(f(x)) == f(x)`.
+3. **Comutatividade**: `a + b == b + a`.
+4. **Invariantes estruturais**: após ordenar, o tamanho não muda; todo elemento de A ainda está em B; B é monotônica.
+5. **Oráculo alternativo**: `nossaImplementação(x) == implementaçãoDeReferência(x)`.
+
+### Shrinking
+
+Quando uma propriedade falha, a ferramenta tenta **encolher** a entrada até o menor contraexemplo. Em vez de "falhou em `[42, -17, 999, ...]`", você recebe "falhou em `[0, 0]`". Shrinking é o que torna PBT prático — sem ele, contraexemplos são ilegíveis.
+
+### Ferramentas
+
+- **Haskell**: QuickCheck (o original, 1999).
+- **JS/TS**: fast-check.
+- **Python**: Hypothesis.
+- **Rust**: proptest, quickcheck.
+- **Java**: jqwik.
+- **Scala**: ScalaCheck.
+
+### Quando vale
+
+- Lógica com muitos casos de borda (parsers, serializadores, algoritmos numéricos).
+- Código com **invariantes claras** (estruturas de dados, protocolos).
+- Reescrita / refatoração onde existe implementação de referência.
+
+Não substitui testes example-based — complementa. Um bug descoberto pelo PBT deve virar teste example-based para garantir não regressão.
+
+## Snapshot Testing
+
+Captura a saída atual de uma função/componente e compara com um "snapshot" salvo. Se diferir, o teste falha — exigindo atualização explícita do snapshot.
+
+**Popular em**: testes de UI (React via Jest/Vitest), CLI output, schemas gerados, HTML renderizado.
+
+**Prós**:
+- Rápido de escrever — não precisa descrever o output, só gravá-lo.
+- Pega mudanças não-intencionais em output estruturado.
+
+**Contras**:
+- Snapshots são **opacos**: reviewer aprova mudança sem entender o que mudou.
+- Fáceis de "atualizar cegamente" (`--updateSnapshot`), neutralizando o teste.
+- Frágeis: pequena mudança cosmética causa diff enorme.
+- Não substitui assertions explícitas sobre comportamento.
+
+**Uso responsável**: reserve para output que é *naturalmente* um snapshot (screenshot de UI, config gerada). Para lógica, prefira assertions.
+
+## Contract Testing
+
+Em arquiteturas distribuídas, dois serviços têm um contrato: "quando eu chamo seu `/users/:id`, você responde com `{id, name, email}`". Testes de integração verificam isso ponta-a-ponta, mas são lentos, frágeis e exigem ambientes.
+
+**Contract testing** divide o problema:
+
+1. O **consumer** define o que espera do provider (em teste).
+2. Isso gera um **contrato** (arquivo).
+3. O **provider** valida que sua implementação satisfaz o contrato (em teste).
+
+Nenhuma das execuções precisa que ambos estejam vivos ao mesmo tempo. Rápido, estável, detecta breaking changes cedo.
+
+**Ferramenta dominante**: [Pact](https://pact.io). Variantes: Spring Cloud Contract.
+
+**Quando vale**: APIs internas entre equipes diferentes, microserviços, evolução independente de serviços.
+
+## Fuzz Testing
+
+Gera entradas **aleatórias ou malformadas** (intencionalmente inválidas) e procura crashes, hangs, leaks, corrupções de memória. Diferente de PBT em foco: PBT procura violação de propriedade; fuzzing procura **falha catastrófica** (crash, UB, exploração de segurança).
+
+### Variantes
+
+- **Coverage-guided fuzzing**: a ferramenta observa quais caminhos de código cada entrada ativa e evolui entradas para explorar mais caminhos. AFL (American Fuzzy Lop), libFuzzer, honggfuzz.
+- **Mutational**: parte de um corpus de entradas válidas e as muta.
+- **Generational**: gera entradas a partir de gramática/schema (para protocolos estruturados).
+
+### Integrações nativas
+
+- `go test -fuzz` (Go 1.18+).
+- `cargo fuzz` (Rust + libFuzzer).
+- Java: Jazzer.
+- Python: Atheris.
+
+### Quando vale
+
+Parsers, decodificadores, crypto, código que processa entrada não confiável (upload de arquivo, deserialização, network). Fuzzing descobriu milhares de CVEs em projetos como libpng, OpenSSL, ffmpeg. Para lógica de negócio comum, o ROI é menor.
+
+## Taxonomia de Test Doubles
+
+Termo geral "mock" é frequentemente usado para tudo que substitui uma dependência em teste — mas há categorias distintas (Gerard Meszaros, *xUnit Test Patterns*):
+
+1. **Dummy**: passado mas nunca usado. Só para preencher parâmetro obrigatório.
+2. **Stub**: retorna valores fixos predefinidos. "Quando chamarem `getUser(42)`, retorne este objeto." Não verifica nada.
+3. **Fake**: implementação real mas simplificada. Ex.: repositório em memória no lugar do banco. Funciona de verdade, só não é production-grade.
+4. **Spy**: como um stub, mas também **registra** como foi chamado (quantas vezes, com que argumentos). Permite asserções *depois* do teste.
+5. **Mock**: spy que, além de registrar, tem **expectativas pré-declaradas**. Se a chamada esperada não acontece, o próprio mock falha o teste. "Eu *espero* que `save` seja chamado uma vez com X."
+
+A confusão é comum porque frameworks como Mockito chamam tudo de "mock" independente do papel. A distinção importa:
+
+- **Stub/fake** testam *saída* (state-based testing).
+- **Mock/spy** testam *interações* (behavior-based testing).
+
+Mocks em excesso acoplam o teste à implementação — refatoração que preserva comportamento mas muda sequência de chamadas quebra testes. Regra de ouro: **prefira fakes e stubs**; use mocks apenas quando a interação *é* o comportamento a verificar (ex.: garantir que um e-mail foi enviado).
+
 ## Conclusão
 
 Escrever testes de alta qualidade e relevância requer um profundo entendimento do software, do domínio do negócio e dos usuários. Embora possa ser tentador focar apenas na cobertura de testes como métrica, a verdadeira eficácia dos testes é determinada por sua capacidade de identificar e prevenir problemas reais que possam afetar os usuários e o negócio.
