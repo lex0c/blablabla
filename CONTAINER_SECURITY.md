@@ -2,8 +2,6 @@
 
 Containers **não são VMs** — compartilham kernel com o host. Isso muda modelo de ameaça radicalmente: uma vulnerabilidade no kernel ou um escape de container leva ao host. A segurança de containers combina três frentes: **imagem** (o que é distribuído), **runtime** (o que executa), **orquestração** (como e onde).
 
-Complementa `APP_SANDBOX.md`, `CLOUD_SECURITY.md` e `SUPPLY_CHAIN.md`.
-
 ## Modelo Técnico
 
 Container em Linux é um processo com **namespaces** (pid, mount, net, uts, ipc, user, cgroup) isolando visibilidade e **cgroups** limitando recursos. Compartilha **kernel** com outros containers e com host.

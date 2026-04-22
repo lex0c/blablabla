@@ -2,8 +2,6 @@
 
 **External GPU** (eGPU) é uma placa de vídeo desktop colocada em um gabinete externo e conectada ao host (laptop, mini-PC, handheld) por um link PCIe tunelado sobre Thunderbolt, USB4 ou OCuLink. A promessa: ter GPU upgradeable em máquina portátil. A realidade: **depende inteiramente da interface** — o link é invariavelmente mais estreito que o slot PCIe nativo de desktop, e isso muda drasticamente o que funciona bem.
 
-Complementa `GPU.md`, `COMPUTER_ARCHITECTURE.md`, `CIRCUIT.md`.
-
 ## Por que existe
 
 1. **Laptops e mini-PCs** têm GPU integrada ou discreta modesta, não upgradeable. eGPU dá acesso a RTX 4090/5090 ou Radeon 7900/9070.

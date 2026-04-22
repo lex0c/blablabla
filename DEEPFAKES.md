@@ -2,8 +2,6 @@
 
 **Deepfake** é mídia sintética (vídeo, áudio, imagem, texto) gerada ou manipulada por IA de forma a **enganar sobre autoria ou veracidade**. O termo nasceu em 2017 de um subreddit; a tecnologia evoluiu de GANs para modelos de difusão e VLMs capazes de gerar conteúdo quase indistinguível de real. Em 2026, deepfakes deixaram de ser curiosidade para virar vetor central de fraude, influence operations, reputational harm e litígio.
 
-Complementa `AI.md`, `AI_SECURITY.md`, `SOCIAL_ENGINEERING.md`, `THREAT_INTEL.md`, `CYBER_CONFLICT.md`, `STEGANOGRAPHY.md`.
-
 ## Categorias
 
 ### Face swap
