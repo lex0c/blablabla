@@ -93,8 +93,16 @@ Divisão clássica:
 - **Resolver**: robusto a ambientes agressivos, usado em aplicações militares/aeroespaciais.
 - **IMU (Inertial Measurement Unit)**: acelerômetros + giroscópios (e frequentemente magnetômetros). Dá aceleração linear e velocidade angular. Drift acumulado; integrado com outros sensores (fusão).
 - **Sensor de força/torque**: 6 eixos na base ou na junta. Essencial para manipulação com controle de impedância.
-- **Tensão/corrente** de motores: estimativa indireta de torque (via modelo).
+- **Tensão/corrente** de motores: estimativa indireta de torque (via modelo `τ ≈ K_t · i`; preciso se modelo térmico e de atrito é bom).
 - **Temperatura** de motores e drivers: proteção térmica.
+
+**Estimação de torque e estado avançada**:
+
+- **Model-based torque**: combinar corrente + modelo dinâmico (M(q)q̈ + C q̇ + g + τ_atrito) para inferir torque externo sem sensor F/T dedicado. Usado em braços compliantes modernos (Franka Panda, Kinova).
+- **Momentum-based observer**: detecta colisão comparando momento esperado vs real; trigger para parada ou recuo.
+- **Joint torque sensors** (strain gauges na junta): mais caros mas precisos; permitem controle de torque direto (DLR LWR, Franka).
+- **Kinesthetic teaching / lead-through**: humano move o robô fisicamente; ele grava trajetória. Requer back-drivability + torque sensing + gravity compensation — ponte para HRI.
+- **Whole-body estimation**: fusão de IMU + encoders + F/T + kinemática para estimar forças externas distribuídas em humanoides/quadrúpedes.
 
 ### Exteroceptivos (ambiente)
 
@@ -230,6 +238,32 @@ Sobrepõe-se a `AI.md`, mas com sabor robótico:
 5. **Tracking visual**: seguir objeto entre frames. Filter-based (KCF) ou deep (SiamRPN, OSTrack).
 6. **Visual servoing**: controle que usa imagem diretamente como feedback. Image-based (IBVS) ou position-based (PBVS).
 
+### Percepção Ativa (Active Perception)
+
+Em vez de receber passivamente o que o ambiente oferece, o robô **move sensores** para reduzir incerteza ou revelar informação oculta.
+
+- **Next-Best-View (NBV)**: escolher próxima pose de câmera/LIDAR que maximiza ganho de informação. Base em entropia, information gain, frontier-based exploration.
+- **Active SLAM**: planejar trajetória que simultaneamente reduz erro de localização e explora mapa.
+- **Gaze control / foveation**: em humanoides, mover cabeça/olho para região relevante (biomimetic).
+- **Tactile exploration**: mover dedo sobre superfície para mapear forma/textura onde visão falha (objetos transparentes, refletivos, oclusão).
+- **Acoustic / probing**: bater em objeto para identificar material, contato-push para sentir rigidez.
+- **Exploration policies** em RL: recompensa por "visitar desconhecido" além de alcançar objetivo.
+
+Custo: movimento extra. Benefício: evita travar em ambiguidade sensorial — frequentemente a diferença entre robô que "quase funciona" e confiável.
+
+### Percepção Semântica
+
+Além de "o quê há onde", entender **o que significa**:
+
+- **Affordance detection**: superfícies pegáveis, empurráveis, sentáveis. CLIP-based affordance em 2023+.
+- **Relational reasoning**: "copo **sobre** a mesa **dentro da** cozinha".
+- **Scene graphs**: representação grafo de objetos + relações; úteis para planejamento TAMP.
+- **Vision-Language Models (VLMs)**: CLIP, SigLIP, PaLI — conectam imagem a texto; base de robôs que seguem instrução natural.
+- **Open-vocabulary segmentation**: SAM + CLIP, Grounding DINO — identifica objetos não vistos em treinamento por nome.
+- **Functional categorization**: "serve para beber" vs "azul e cilíndrico".
+
+Essa camada habilita robôs que entendem "traga o copo **vazio**" vs "traga **qualquer** copo".
+
 ## Localização, Mapeamento e SLAM
 
 Três problemas relacionados:
@@ -252,6 +286,19 @@ Três problemas relacionados:
 - **Odometria**: estimativa de movimento entre frames (wheel odom, VO, LO).
 - **Loop closure**: detectar que se está visitando local antes visitado; reduz drift acumulado.
 - **Relocalization**: recuperar pose após "kidnapped robot" (robô pego e colocado em outro lugar).
+
+### Mapeamento Semântico
+
+Mapas geométricos (nuvens de pontos, occupancy grids) dizem **onde** há obstáculo. Mapas semânticos dizem **o que** é: parede, porta, mesa, pessoa, obstáculo dinâmico vs estático.
+
+- **Labels por célula / voxel**: grid semântico (cada célula tem classe + ocupação). SemanticKitti, nuScenes como datasets.
+- **Object-centric maps**: armazenar objetos detectados com pose, classe, tamanho — não cada pixel.
+- **Scene graphs hierárquicos** (Kimera, Hydra): edifícios → cômodos → objetos. Habilita queries "vá para a cozinha".
+- **Dynamic-aware SLAM**: distinguir pontos estáticos (úteis para localização) de dinâmicos (pessoas, carros — descartáveis). DynaSLAM, DS-SLAM.
+- **OctoMap semântico**: octree com rótulos.
+- **Open-vocabulary mapping**: LangSplat, OpenScene, CLIP-Fields — embed features linguísticas em voxels; queryable por texto em runtime.
+
+Aplicações diretas: navegação socialmente consciente (abaixo), TAMP, natural-language commands, long-term autonomy (mapa estável apesar de mudança em objetos móveis).
 
 ## Planejamento
 
@@ -284,6 +331,21 @@ Reação em tempo real a obstáculos não previstos.
 - **TEB (Timed Elastic Band)**: otimiza trajetória localmente como "elástico" deformável.
 - **Potential fields**: atração ao alvo, repulsão de obstáculos. Clássico, sofre com mínimos locais.
 - **MPC local**: previsão curta + restrições, muito usado em carros autônomos.
+
+### Navegação Socialmente Consciente
+
+Em ambientes com pessoas, trajetórias "ótimas" em distância são frequentemente **ruins socialmente** — cortar caminho entre duas pessoas, aproximar-se por trás, passar rápido demais em corredor estreito.
+
+- **Proxemics** (Hall, 1966): zonas sociais — íntima (<0.45m), pessoal (0.45-1.2m), social (1.2-3.6m), pública (>3.6m). Robô respeita.
+- **Social Force Model** (Helbing): pedestres como partículas com forças sociais; aplicável a robô.
+- **ORCA / RVO (Reciprocal Velocity Obstacles)**: cada agente assume parte da responsabilidade de evitar.
+- **Learning from demonstration**: IRL sobre trajetórias humanas para capturar convenções.
+- **RL social**: recompensa inclui distância a pessoas, velocidade em proximidade, explicabilidade.
+- **Legibilidade** (Dragan): trajetórias que **comunicam intenção**. Robô que vai à direita deve parecer ir à direita desde cedo, não em cima de decisão.
+- **Predição de trajetória humana**: modelos de pedestrian forecasting (Social-LSTM, Trajectron++, social transformers) alimentam planner.
+- **Contextos culturais**: convenções variam (pedestre na direita vs esquerda, contato visual, ceder passagem).
+
+Benchmarks: SocNavBench, CrowdNav, HuNavSim. Métricas: taxa de colisão, tempo, desconforto humano (subjetivo + proxy como "intrusões em zona pessoal").
 
 ## ROS / ROS2
 
@@ -411,13 +473,103 @@ Domain randomization, adaptive simulation, real-world fine-tuning. Meio-caminho 
 
 ## Interação Humano-Robô (HRI)
 
-Quando o robô compartilha espaço com pessoas, o problema extrapola a engenharia pura.
+Quando o robô compartilha espaço com pessoas, o problema extrapola a engenharia pura. Combina robótica, psicologia, design, e ergonomia. Complementa `SOCIAL_PSYCHOLOGY.md`, `NEUROSCIENCE_101.md`.
 
-1. **Segurança física**: controle de força, detecção de contato, parada rápida.
-2. **Legibilidade**: movimentos que comunicam intenção. Um braço que se move igual ao que vai pegar algo tira o humano de surpresa; um que comunica "vou à esquerda" permite co-trabalho.
-3. **Interfaces**: voz, gestos, teleoperação, BCI (brain-computer interfaces).
-4. **Modelo mental do usuário**: pessoas atribuem intenção, emoção e confiabilidade a robôs. Desenhar para isso (frequentemente chamado de "antropomorfismo calibrado").
-5. **Aceitação social**: robôs de serviço falham não por engenharia, mas por desconforto humano.
+### Segurança Física
+
+- **Controle de força / impedância**: robô cede a contato em vez de resistir (ver `Controle de Impedância e Admissão`).
+- **Collision detection** via momentum observer ou F/T sensors.
+- **Stop 0/1/2** conforme ISO 10218 / 15066 (ver `Segurança Funcional`).
+- **Limites biomecânicos** por região do corpo (cobot não pode bater no olho com mesma força aceitável em joelho).
+- **Zonas de proximidade**: robô reduz velocidade ao detectar humano próximo (safety laser scanners, 3D vision).
+
+### Legibilidade e Previsibilidade
+
+**Legibilidade** (Dragan, 2013): movimento que **comunica intenção ao observador**, às vezes ao custo de trajetória ótima.
+
+- Um braço que vai à esquerda deve iniciar movimento em direção esquerda cedo, mesmo que caminho reto exigisse desvio só no final.
+- **Predictability** (complementar): movimento consistente com expectativa dada intenção conhecida.
+- Em HRI, humanos inferem intenção continuamente — robôs "opacos" geram ansiedade.
+
+### Interfaces de Controle
+
+- **Voz**: reconhecimento + NLU. Robustez a ambientes ruidosos, sotaques, multi-idioma. LLMs como orquestradores (RT-2, PaLM-E).
+- **Gestos**: reconhecimento via câmera (MediaPipe, OpenPose), luvas com IMU, anéis, pulseiras EMG (Myo legado, CTRL-Labs).
+- **Teleoperação**: direta (mestre-escravo com feedback de posição) ou supervisionada (humano dá waypoints). Da Vinci em cirurgia, ROVs subaquáticos, Optimus em telepresença.
+- **Haptic feedback em teleoperação**: força/textura retornada ao humano. Dispositivos: Phantom, Sigma, Touch, exoesqueletos háptico. Essencial em cirurgia remota e manipulação destra.
+- **BCI (Brain-Computer Interfaces)**: EEG não-invasivo (Emotiv, NextMind, OpenBCI) — baixa largura de banda. Invasivo (Utah array, Neuralink, Synchron) — alto bitrate; usado em pacientes tetraplégicos para controle de braço robótico.
+- **AR/VR**: Hololens, Quest — interface espacial; robô mostra intenção em overlay.
+- **GUI clássica** ainda domina em fábrica.
+
+### Detecção de Intenção Humana
+
+Antes que usuário fale/gesticule, robô pode **antecipar**:
+
+- **Gaze estimation**: direção do olhar sinaliza alvo.
+- **Head pose, body orientation**: para onde a pessoa se dirige.
+- **Reach prediction**: durante approach, inferir objeto alvo e alinhar entrega.
+- **Action anticipation** via modelos sequência-a-sequência: dado vídeo dos últimos segundos, prever próxima ação.
+- **Estado afetivo**: expressão facial (AU via OpenFace), tom de voz, postura. Fundamento em `SOCIAL_PSYCHOLOGY.md`.
+
+Cuidado: falsos positivos em detecção de intenção geram comportamento robótico "paranoico" — calibrar limiares.
+
+### Kinesthetic Teaching e Programming by Demonstration
+
+Programa-se o robô **mostrando** a tarefa:
+
+- **Lead-through**: humano move fisicamente o braço compliant; robô grava. Requer back-drivability + gravity compensation + torque sensing.
+- **Teleop demonstration**: humano controla remotamente; robô aprende política via imitação (BC, DAgger, diffusion policies — ver `Aprendizado em Robótica`).
+- **Vídeo demonstration**: observar humano fazendo; transferir para morfologia robótica. Cross-embodiment learning.
+- **Trajectory shaping**: demonstrações múltiplas; DMP (Dynamic Movement Primitives) generalizam.
+
+Habilita operador sem skill de programação — essencial em cobots industriais.
+
+### Haptics
+
+Além de feedback em teleop, haptics é canal bidirecional em co-manipulação:
+
+- **Kinesthetic haptics**: força/torque em interface (joystick háptico).
+- **Cutaneous / tactile**: vibração, pressão, textura — luvas, braceletes.
+- **Virtual fixtures**: guias virtuais em teleop que restringem movimento a plano/eixo, reduzindo carga cognitiva.
+
+### Modelo Mental e Antropomorfização
+
+Pessoas atribuem intenção, emoção, confiabilidade a máquinas — **incluindo** quando sabem que é máquina (ELIZA effect, Reeves & Nass "The Media Equation").
+
+- **Antropomorfismo calibrado**: design sugere capacidades realistas, evita over-promise (robô com olhos muito humanos gera expectativa de entender emoção).
+- **Uncanny valley** (Mori, 1970): humanoides que são quase-humanos geram estranhamento; solução é ou simples-cartoon ou muito realista.
+- **Transparência**: robô comunica o que sabe/não sabe ("não tenho certeza se é você, Maria"). Aumenta confiança calibrada.
+- **Erro e recuperação**: robô que admite erro de forma competente mantém confiança melhor que robô silencioso.
+
+### Socialmente Consciente
+
+Ver também `Navegação Socialmente Consciente`. Em manipulação e co-trabalho:
+
+- **Handover**: dar/receber objeto — timing, localização, força de grip.
+- **Shared workspace**: alternância em bancada; robô percebe onde humano está trabalhando.
+- **Turn-taking em diálogo**: saber quando falar, interromper.
+- **Proxemics dinâmica**: robô adapta distância conforme tarefa, contexto cultural, estado emocional.
+
+### Aceitação e Ética
+
+- **Desconforto percebido**: robô "invasivo" mesmo sem tocar.
+- **Privacy**: robôs de serviço com câmera em casa = sensor distribuído.
+- **Substituição vs colaboração**: narrativa importa; robô "tira emprego" vs "alivia trabalho repetitivo".
+- **Vulnerabilidade**: idosos, crianças, pessoas com deficiência merecem design cuidadoso.
+- **Manipulação**: robô com vieses persuasivos ou UX "addictivos" é problema ético (cross-ref `PERSUASION`, `SOCIAL_ENGINEERING.md`).
+
+### Avaliação
+
+Métricas quantitativas + qualitativas:
+
+- **Tempo de tarefa, erros, intervenções**.
+- **NASA-TLX** (carga cognitiva).
+- **Godspeed questionnaire** (antropomorfismo, animacidade, simpatia, inteligência percebida, segurança).
+- **Trust scales** (Muir, Jian et al.).
+- **Fisiologia**: HRV, EDA, eye-tracking durante interação.
+- **Observação comportamental**: hesitação, distância mantida, engajamento.
+
+HRI é frequentemente **qualitativa** antes de quantitativa — entender experiência do usuário precede métrica.
 
 ## Segurança Funcional
 
@@ -462,15 +614,105 @@ Copiar princípios biológicos: locomoção de insetos, cauda de geckos, estrutu
 4. **GPU embarcada** (Jetson): inferência deep learning em tempo real.
 5. **Time-sensitive networking (TSN) / EtherCAT / CAN**: barramentos determinísticos para comunicação motor-controlador.
 
+## Sistemas Multi-Robô
+
+Quando múltiplos robôs operam juntos, emergem problemas que não existem em robô único.
+
+### Taxonomias
+
+- **Centralizado vs descentralizado**: servidor único coordena vs regras locais.
+- **Homogêneo vs heterogêneo**: idênticos vs especializados complementares.
+- **Cooperativo vs adversarial**: mesmo objetivo vs competindo (CIC, ver `GAME_THEORY.md`).
+- **Síncrono vs assíncrono**: relógio comum vs independente.
+
+### Problemas Centrais
+
+- **Task allocation**: quem faz o quê. Auction-based (market), hungarian, consensus. CBBA (Consensus-Based Bundle Algorithm) é clássico.
+- **Formation control**: manter geometria relativa. Leader-follower, virtual structure, behavior-based.
+- **Coverage**: cobrir área coletivamente (Voronoi coverage, Lloyd's algorithm).
+- **Rendezvous**: encontrar-se em ponto.
+- **Consensus**: concordar em valor (média, max/min) com comunicação limitada.
+- **Distributed SLAM**: cada robô mapeia parcialmente; fundem mapas periodicamente. CCM-SLAM, Kimera-Multi.
+- **Cooperative perception**: observações de múltiplas posições → cobertura + robustez. Crítico em veículos autônomos (V2X).
+
+### Comunicação
+
+- **Rede ad-hoc**: Wi-Fi mesh, DSRC, 5G URLLC, ZigBee, LoRa para longos alcances.
+- **ROS 2 + DDS** permite discovery sem broker central.
+- **Bandwidth limitada** muda design: compressão, summary estatística, prioritização.
+- **Latência e packet loss**: algoritmos devem tolerar.
+- **Sem comunicação** (comm-aware planning): robôs assumem o pior caso; retornam a rendezvous quando perdem contato.
+
+### Enxames (ver `Swarm Robotics` abaixo)
+
+Regime de muitos (dezenas+) com regras locais simples. Inspiração biológica.
+
+### Aplicações
+
+- **Armazéns** (Amazon Robotics, AutoStore): centenas de AGVs coordenados.
+- **Busca e resgate**: cobertura rápida de área.
+- **Agricultura de precisão**: tratores + drones cooperando.
+- **Militar**: enxames de drones.
+- **Exploração espacial / subaquática**: redundância em ambiente hostil.
+- **Formação aérea** (shows de drones: Intel, Skymagic) — demonstração pública.
+
+### Frameworks
+
+- **ROS 2 multi-robot**: namespaces, discovery.
+- **Multi-Agent PettingZoo / RLlib**: RL multi-agente.
+- **Gazebo / Isaac Sim multi-robot**: simulação.
+- **Buzz** (linguagem de swarm), **ARGoS** (simulador de enxame).
+
 ## Calibração
 
-Sem calibração, nenhuma precisão teórica é realizada.
+Sem calibração, nenhuma precisão teórica é realizada. É disciplina própria — muitos fracassos em robótica são "calibração ruim" disfarçados.
 
-- **Intrínseca de câmera**: matriz de câmera, distorção (Zhang's method, checkerboard).
-- **Extrínseca**: transformação entre câmera e base (hand-eye calibration). Tsai, Park, recentes métodos baseados em otimização.
-- **IMU**: viés, fator de escala, alinhamento.
-- **Cinemática**: parâmetros DH reais podem divergir dos projetados; calibração kinemática identifica.
-- **Força/torque**: compensação de peso do efetuador, viés.
+### Câmera
+
+- **Intrínseca**: matriz de câmera (foco, centro ótico), distorção radial/tangencial. **Zhang's method** com checkerboard ou ChArUco. Software: OpenCV `calibrateCamera`, Kalibr, Basalt.
+- **Estéreo**: baseline + rectification.
+- **Rolling shutter** em CMOS: linhas capturadas em tempos diferentes; distorção em movimento exige calibração temporal ou escolha de global shutter.
+- **Fisheye, wide-angle**: modelo de distorção específico (MEI, Scaramuzza).
+
+### Extrínseca
+
+- **Hand-eye calibration**: transformação entre câmera e base/flange do robô. Métodos Tsai-Lenz, Park-Martin, otimização não-linear. Setups eye-in-hand vs eye-to-hand.
+- **Sensor-to-sensor**: LIDAR ↔ câmera (LiDAR-Camera calibration toolkits), câmera ↔ IMU (Kalibr), radar ↔ câmera.
+- **Sensor ↔ robot base**: alvos conhecidos, múltiplas poses.
+
+### IMU
+
+- **Bias (viés)**: estimado em repouso; varia com temperatura.
+- **Fator de escala**.
+- **Desalinhamento entre eixos**.
+- **Allan variance**: caracterizar random walk, bias stability.
+- **Temperature compensation** em IMUs industriais.
+
+### Cinemática do robô
+
+Parâmetros DH reais divergem de projetados por tolerância de fabricação, flexão, desgaste. **Calibração cinemática** identifica parâmetros a partir de medições de pose do efetuador.
+
+- **Leica laser tracker, API Radian** como referência externa.
+- Ajuste mínimos quadrados sobre dezenas de poses.
+- Em braços de precisão (ABB IRC5, KUKA KSS), calibração de fábrica + opcional no cliente.
+
+### Força/torque
+
+- **Viés** (mudança de zero) deriva com temperatura e tempo.
+- **Gravity compensation do end-effector**: pesar tool, centro de massa, inércia. Importante para precisar forças externas reais.
+- **Tool Center Point (TCP)**: geometria do efetuador em relação ao flange.
+
+### Cronometragem (time sync)
+
+Sensores diferentes em tempos distintos → fusão errada. Soluções: PTP (Precision Time Protocol), hardware trigger sync, interpolação com timestamping de cada amostra.
+
+### Online / self-calibration
+
+Sistemas modernos re-calibram em operação:
+
+- **VINS** (Visual-Inertial) estima bias IMU em runtime.
+- **Hand-eye online** quando hardware permite.
+- **Drift correction** via loop closure (ver SLAM).
 
 Calibração é chata, ingrata e essencial. "Mede duas vezes, monte uma."
 
@@ -484,6 +726,57 @@ Calibração é chata, ingrata e essencial. "Mede duas vezes, monte uma."
 6. **EMI (interferência eletromagnética)**: motores de alto torque geram ruído que fritam sensores mal blindados.
 7. **Reprodutibilidade**: o robô "ontem funcionava". Ingrediente mudou: temperatura, atrito, bateria, tolerância mecânica.
 8. **Depuração**: robô é sistema distribuído de tempo real; breakpoint trava o mundo. Logs + visualização + simulação são as ferramentas reais.
+
+## Robustez em Ambiente Não-Estruturado
+
+"Funcionou na demo, quebrou em campo" é o clichê. Robô deploy real enfrenta o que laboratório esconde.
+
+### Iluminação e visão
+
+- **Luz direta do sol**: saturação, sombras duras, baixo contraste. Exposure adaptativa, HDR imaging, câmera de evento.
+- **Baixa luz, noite**: IR ativo (illuminator), LIDAR independente de luz, sensor fusion que tolera falta de uma modalidade.
+- **Reflexos (piscina, vidro, metal)**: LIDAR sofre, câmera vê fantasmas, objetos transparentes "somem" em depth sensor.
+- **Chuva, neve, neblina, poeira**: degrada visão e LIDAR; radar vê através. Fusão beneficia.
+
+### Terreno e contato
+
+- **Superfícies variadas**: grama alta, areia, lama, rocha, neve. Locomoção muda drasticamente.
+- **Obstáculos negativos**: buracos, penhascos — difíceis de detectar em LIDAR (ausência de retorno ≠ vazio seguro).
+- **Superfícies deformáveis**: pé afunda; odometria baseada em encoder erra.
+- **Vegetação**: galho flexível parece obstáculo ao LIDAR; empurrável vs não é questão semântica.
+
+### Ambiente dinâmico
+
+- **Pessoas imprevisíveis**: crianças, animais, multidão.
+- **Outros robôs / veículos**.
+- **Objetos móveis não-cooperativos**: vento movendo vegetação, folhas voando confundindo detecção.
+
+### Comunicação degradada
+
+- **Outdoor sem Wi-Fi confiável**: mesh, celular, offline operation.
+- **Subterrâneo, subaquático, espaço**: rádio restrito ou inexistente; acústico, cabo, atraso.
+- **Interferência industrial**: multipath em armazéns metálicos.
+
+### Resiliência de hardware
+
+- **IP rating adequado** (IP67 para imersão; IP54 para indoor sujo). Testado, não declarado.
+- **Vibração, choque**: testes conforme MIL-STD-810, IEC 60068.
+- **Faixa de temperatura**: -20°C a +60°C é comum para campo; armazenamento frio em carga inicial.
+- **Radiação** em nuclear, espacial, médico — rad-hardened electronics.
+
+### Manutenção e operação
+
+- **Manutenibilidade**: quem troca o motor no campo? Campo agrícola, mina subterrânea, alto-mar não têm bancada.
+- **Autonomia energética**: recarga sem humano (docking stations), troca automática de bateria.
+- **Failover e graceful degradation**: sensor morre → robô funciona em modo reduzido, não trava.
+- **OTA updates** (ver `IOT_FIRMWARE_SECURITY.md`) seguras e com rollback.
+- **Telemetria e monitoramento** (ver `CONDITION_MONITORING.md`): detectar degradação antes de falha catastrófica no campo.
+
+### Regulamentação
+
+- **Drones**: ANAC (BR), FAA (EUA), EASA (UE) — autorização por peso, altitude, BVLOS.
+- **AMRs**: certificação ANSI R15.08 (EUA), ISO 3691-4 (UE), normas locais.
+- **Autônomos em rua**: L1-L5 SAE, regulação variável por estado/país.
 
 ## Ética e Impacto Social
 
