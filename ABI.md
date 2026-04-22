@@ -4,8 +4,6 @@
 
 Se ABI quebra, binário velho para de linkar/rodar contra biblioteca nova — mesmo que a API fonte seja idêntica.
 
-Complementa `COMPUTER_ARCHITECTURE.md`, `OPERATING_SYSTEMS.md`, `BINARY_EXPLOITATION.md`, `REVERSE_ENGINEERING.md`, `CIRCUIT.md`.
-
 ## ISA vs ABI vs API
 
 Três camadas frequentemente confundidas:

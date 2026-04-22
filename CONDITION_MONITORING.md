@@ -4,8 +4,6 @@
 
 Análogo mecânico de `OBSERVABILITY.md` — mesma filosofia (medir, correlacionar, alertar em desvio), aplicada a metal em rotação.
 
-Complementa `MECHANICS.md`, `ROBOTICS.md`, `OBSERVABILITY.md`, `MLOPS.md`, `CIRCUIT.md`, `AI.md`.
-
 ## Filosofias de Manutenção
 
 Evolução histórica, todas coexistindo hoje:

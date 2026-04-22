@@ -2,8 +2,6 @@
 
 Áudio é **sinal temporal 1D** que, quando decodificado corretamente, carrega informação rica: voz, música, sons ambientais, falhas mecânicas, comunicação animal. Análise de áudio abrange captura, representação, extração de features, classificação, separação, síntese. Evolução recente de pipelines "feature + classificador" (MFCC + SVM) para **redes neurais profundas end-to-end** (Whisper, Wav2Vec) não eliminou os fundamentos — DSP clássico ainda é base para pré-processar, inspecionar, e entender o que o modelo faz.
 
-Complementa `AI.md`, `NEUROSCIENCE_101.md` (sistema auditivo), `DEEPFAKES.md` (voice clone), `MLOPS.md`, `CIRCUIT.md` (microfones, ADC/DAC), `CONDITION_MONITORING.md` (análise acústica industrial), `MECHANICS.md` (acústica).
-
 ## Fundamentos
 
 ### Som
