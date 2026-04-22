@@ -2,8 +2,6 @@
 
 Mecânica é o ramo da física e da engenharia que estuda **corpos, forças e movimento**. É a disciplina-mãe da engenharia — pontes, motores, aviões, robôs, prédios, implantes ortopédicos, todos se apoiam nela. Enquanto `CIRCUIT.md` cobre o mundo elétrico, aqui está o mundo mecânico: estática (corpos em equilíbrio), dinâmica (corpos em movimento), resistência (como materiais falham), fluidos, vibrações, e os elementos de máquina que a engenharia usa para transformar teoria em objeto.
 
-Complementa `CIRCUIT.md`, `ROBOTICS.md`, `COMPUTER_THEORY.md`, `LINEARITY.md`.
-
 ## Grandezas Fundamentais
 
 | Grandeza | Símbolo | Unidade SI | Intuição |

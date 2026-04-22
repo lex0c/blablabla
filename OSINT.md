@@ -2,8 +2,6 @@
 
 **OSINT** é a coleta e análise de informação a partir de fontes **publicamente acessíveis** — sem exploração técnica, sem acesso privilegiado. Em segurança ofensiva, é a primeira fase de reconhecimento (ver `PENTESTING.md`). Em defensiva, threat intel (ver `THREAT_INTEL.md`) e caça a exposição própria. Também é ferramenta jornalística (Bellingcat é a referência pública) e investigativa.
 
-Complementa `G_DORKS.md` (técnicas Google), `WEB_BEACONS.md` (tracking), `SOCIAL_ENGINEERING.md` (o uso frequente de OSINT).
-
 ## Disciplinas
 
 OSINT se divide em múltiplas disciplinas, cada uma com fontes e técnicas:

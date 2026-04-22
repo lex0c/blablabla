@@ -2,8 +2,6 @@
 
 O cérebro é o órgão mais complexo conhecido: ~86 bilhões de neurônios, ~100-500 trilhões de sinapses, consumindo ~20% da energia do corpo. Entender seus princípios básicos — como neurônios comunicam, como circuitos emergem, como sono e neurotransmissores moldam cognição — não é apenas curiosidade. É fundamento para raciocinar sobre motivação, aprendizado, decisão, saúde mental e mesmo para calibrar expectativas sobre o que IA faz ou não reproduz.
 
-Complementa `AI.md` (redes neurais artificiais), `SOCIAL_PSYCHOLOGY.md`, `MEDITATION.md`, `CONTINUOUS_LEARNING.md`, `CHAOS_CREATIVITY.md`.
-
 ## Níveis de Análise
 
 Neurociência opera em escalas:
