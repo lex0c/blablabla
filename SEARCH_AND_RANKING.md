@@ -2,8 +2,6 @@
 
 Busca é, em essência, **ordenar documentos por relevância a uma intenção**. O problema tem 50+ anos de maturidade — inverted index, BM25 — e uma revolução recente (embeddings, vector search, LLMs). Sistemas de busca modernos (Google, Amazon, Elastic, Algolia, RAG em LLMs) combinam o clássico (léxico) com o novo (semântico). Este arquivo organiza os conceitos que você precisa para construir busca, avaliar ranking, ou entender RAG.
 
-Complementa `AI.md`, `MLOPS.md`, `DATABASE_INTERNALS.md` (se existir), `CACHING.md`, `DATA_ENGINEERING.md`.
-
 ## Fundamentos
 
 ### Duas tarefas

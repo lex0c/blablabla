@@ -2,8 +2,6 @@
 
 Todo sistema não-trivial depende de recursos que podem falhar: bancos, APIs externas, filas, redes. A engenharia de confiabilidade não elimina falhas — ela garante que falhas **localizadas** não virem falhas **globais**. Os padrões abaixo são o vocabulário prático para isso.
 
-> Não confundir com `CIRCUIT.md`, que é sobre circuitos elétricos. O *circuit breaker* de software abaixo é um empréstimo metafórico do conceito elétrico.
-
 ## Timeout
 
 O padrão mais elementar e mais negligenciado. Toda chamada a um recurso externo precisa de timeout. Sem timeout, uma dependência lenta vira uma cascata: threads bloqueadas → pool exaurido → o serviço inteiro cai porque um único parceiro ficou 30 segundos sem responder.

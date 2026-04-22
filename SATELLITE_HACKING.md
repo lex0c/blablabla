@@ -2,8 +2,6 @@
 
 Satélites são **computadores em órbita** — com todas as vulnerabilidades de software, acopladas a limitações físicas extremas (radiação, hostile environment, unreachable hardware) e hoje parte de infra crítica global (comunicações, GPS, observação, militar). Com o **boom LEO** (Starlink, OneWeb, Kuiper, Globalstar, Planet) e custos de lançamento caindo uma ordem de magnitude, a superfície explodiu. Segurança de satélites saiu do nicho estatal para pesquisa aberta.
 
-Complementa `CYBER_CONFLICT.md`, `NETWORK_ATTACKS.md`, `IOT_FIRMWARE_SECURITY.md`, `HARDWARE_ATTACKS.md`, `GEOPOLITICS.md`.
-
 ## Arquitetura de Sistemas Espaciais
 
 Três segmentos, cada um com superfície:
