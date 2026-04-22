@@ -2,8 +2,6 @@
 
 **Threat Intelligence** (TI), ou **Cyber Threat Intelligence** (CTI), é informação sobre adversários, suas capacidades, intenções e operações, processada e contextualizada para decisão. É diferente de **dados** soltos (IOCs em listas) — é **inteligência** quando responde a uma pergunta e direciona ação.
 
-Complementa `DETECTION_ENGINEERING.md` (como TI vira detecção), `INCIDENT_RESPONSE.md` (alimenta IR), `MALWARE_ANALYSIS.md` (fonte) e `OSINT.md` (técnica de coleta).
-
 ## Definição — quatro níveis
 
 1. **Strategic**: para executivos. Quem são os atacantes de alto nível que ameaçam nosso setor? Em que direção evoluem? Relatórios trimestrais.

@@ -1,6 +1,6 @@
 # Engenharia Reversa
 
-*Reverse engineering* (RE) é o processo de extrair compreensão de um artefato a partir do seu produto final — binário, firmware, protocolo — sem código-fonte. Em segurança, RE viabiliza análise de malware, descoberta de vulnerabilidades, bypass de proteções, interoperabilidade. Complementa `CODE_OBFUSCATION.md` (o outro lado): ofuscação tenta frustrar RE; RE aprende a vencer ofuscação.
+*Reverse engineering* (RE) é o processo de extrair compreensão de um artefato a partir do seu produto final — binário, firmware, protocolo — sem código-fonte. Em segurança, RE viabiliza análise de malware, descoberta de vulnerabilidades, bypass de proteções, interoperabilidade.
 
 ## Objetivos Comuns
 
