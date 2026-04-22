@@ -1,6 +1,6 @@
 # Criptografia Avançada
 
-Complementa `CRYPTOGRAPHY.md` (fundamentos). Este arquivo trata de protocolos modernos, misuse patterns, side channels e o horizonte pós-quântico — temas onde grande parte das vulnerabilidades criptográficas reais acontece hoje.
+Este arquivo trata de protocolos modernos, misuse patterns, side channels e o horizonte pós-quântico — temas onde grande parte das vulnerabilidades criptográficas reais acontece hoje.
 
 > Regra zero: **nunca implemente primitivas criptográficas do zero**. Use libs maduras (libsodium, BoringSSL, OpenSSL, Tink, age, `ring`). Crypto implementada "para aprender" é insegura em 100% dos casos não-acadêmicos.
 

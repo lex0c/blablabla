@@ -2,8 +2,6 @@
 
 **Incident Response (IR)** é o processo disciplinado que uma organização aplica quando detecta um evento de segurança — intrusão, ransomware, exfiltração, DDoS, insider. Não é apenas "apagar o fogo"; é conter o dano, recuperar capacidade, aprender, e preservar evidências para análise e, quando aplicável, processo jurídico.
 
-Complementa `PROD_PROBLEM.md` (operacional) e `FORENSICS.md` (técnico profundo).
-
 ## O Ciclo PICERL
 
 Formalização clássica (NIST SP 800-61, SANS):

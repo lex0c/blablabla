@@ -2,8 +2,6 @@
 
 GPUs (Graphics Processing Units) evoluíram de aceleradores gráficos fixos (1990s) para **máquinas massivamente paralelas de propósito geral**, hoje núcleo de graphics, HPC, e — em escala sem precedentes — treinamento e inferência de IA. Este arquivo foca em **arquitetura**; `GPGPU.md` cobre programação (CUDA, OpenCL, ROCm, etc.).
 
-Complementa `COMPUTER_ARCHITECTURE.md`, `GPGPU.md`, `AI.md`, `EGPU.md`, `FPGA.md`.
-
 ## Filosofia de Design: CPU × GPU
 
 **CPU**: poucos cores complexos otimizados para latência de tarefa serial — branch prediction, OoO, grandes caches, tudo para que **um thread** vá rápido.
