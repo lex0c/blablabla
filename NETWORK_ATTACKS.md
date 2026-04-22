@@ -2,8 +2,6 @@
 
 Redes TCP/IP foram desenhadas em ambiente colaborativo acadêmico, décadas antes de se transformar em Internet global. Muitos protocolos carregam premissas de confiança que já não são razoáveis. Ataques de rede exploram essas lacunas — em L2 (link), L3 (network), L4 (transport), L7 (app). Este arquivo cataloga os clássicos e os principais mitigantes.
 
-Complementa `DNS.md`, `TUNNELING.md`, `NETWORK_MONITORING.md`, `NETWORK_DIAGNOSTIC.md`.
-
 ## L2 — Camada de Enlace
 
 ### ARP Spoofing / ARP Poisoning

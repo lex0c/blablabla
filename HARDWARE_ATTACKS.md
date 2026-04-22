@@ -2,8 +2,6 @@
 
 Ataques em nível de hardware exploram o **mundo físico** que as abstrações de software tentam ignorar. Enquanto software assume "1 + 1 = 2 sempre", hardware vive em um universo de ruído, tensão, tempo e radiação. Quando atacante tem acesso físico (ou quase), abstrações de isolamento caem.
 
-Este arquivo catalogamente os tipos principais. Complementa `IOT_FIRMWARE_SECURITY.md` e `CRYPTO_ADVANCED.md` (side channels).
-
 ## Modelo de Ameaça
 
 - **Acesso físico**: atacante com o dispositivo em mãos. Pior caso: smartcards, HSMs, wallets de cripto, pacemakers.

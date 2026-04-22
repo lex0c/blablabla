@@ -2,8 +2,6 @@
 
 **Teoria dos jogos** estuda decisões em que o resultado de cada agente depende das escolhas dos outros. É base formal de economia, ciência política, biologia evolutiva, design de protocolos, cripto-economia e, crescentemente, de segurança de IA. Saber o vocabulário — equilíbrio, dominância, estratégia mista, mechanism design — afia pensamento sobre incentivos em qualquer sistema com múltiplos agentes.
 
-Complementa `PROSPECT_THEORY.md`, `GROUPTHINK_BIAS.md`, `PARADOX_ANALYSIS.md`, `CRITICAL_THINKING.md`.
-
 ## Elementos de um Jogo
 
 1. **Jogadores**: N agentes (pessoas, firmas, estados, algoritmos).
