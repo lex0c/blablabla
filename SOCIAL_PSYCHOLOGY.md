@@ -2,8 +2,6 @@
 
 **Psicologia social** estuda como pensamento, sentimento e comportamento de indivíduos são moldados pela **presença real ou imaginada de outras pessoas**. É o campo que documenta — sistematicamente — como somos menos autônomos do que gostamos de acreditar: conformismo, obediência, persuasão, vieses grupais, dinâmica de ingroup/outgroup. Útil para entender sistemas humanos (equipes, mercados, política), e essencial para se proteger de manipulação.
 
-Complementa `GROUPTHINK_BIAS.md`, `PROSPECT_THEORY.md`, `SOCIAL_ENGINEERING.md`, `PARADOX_ANALYSIS.md`, `CRITICAL_THINKING.md`.
-
 ## Fundamentos
 
 ### Duas vias de pensamento
