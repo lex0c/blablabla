@@ -410,6 +410,146 @@ Isolar energia antes de manutenção. Cadeado + etiqueta identificando responsá
 - **Desligar circuito primeiro**; se impossível, afastar vítima com material não-condutor (madeira seca, borracha).
 - **Parada cardiorrespiratória** exige RCP imediato. DEA onde disponível.
 - Queimaduras elétricas frequentemente são piores internamente que aparentam superficialmente.
+- **Vítima pode estar "colada"**: contração muscular tetânica impede soltar — falso contato do observador pode ser fatal.
+- **Fibrilação tardia**: paciente consciente pós-choque pode entrar em FV horas depois. Hospital obrigatório mesmo se "parece bem".
+
+### Arc flash
+
+Curto em equipamento energizado libera energia em arco elétrico: plasma a 19.000 °C (quatro vezes superfície do sol), onda de choque, estilhaços, luz UV intensa. Causa a maior parte dos óbitos e queimaduras graves em trabalho elétrico industrial — não choque direto.
+
+- **Incident energy**: cal/cm² entregues a distância do arco. Calculado por **IEEE 1584** ou NFPA 70E.
+- **Boundary distances**:
+  - **Flash protection boundary**: onde energia atinge 1.2 cal/cm² (queimadura de 2º grau).
+  - **Restricted approach** e **prohibited approach**: zonas mais próximas; só qualificado com EPI adequado.
+- **PPE Category (NFPA 70E)**: 1 (4 cal/cm²) até 4 (40 cal/cm²). ATPV do traje deve cobrir.
+- **Arc rated clothing**: tecido não derrete nem propaga chama (Nomex, CarbonX, aramidas). Algodão comum pega fogo e gruda na pele.
+- **Mitigação**: trabalhar **desenergizado** (sempre preferível), redução de corrente de curto via impedância, manutenção de relés (tempo de atuação), barriers, arc-resistant switchgear (IEC 62271-200).
+
+### Capacitores e energia armazenada
+
+Equipamento "desligado" pode estar letal. Verifique **sempre** antes de tocar.
+
+- **Inversores de frequência, fontes chaveadas, drives EV**: barramento DC com capacitores de alta tensão. Sangram em minutos via resistor de descarga, mas **assuma cheio até medir**.
+- **Fornos de microondas**: capacitor de 2 kV, energia suficiente pra fatalidade. Aterrar com hastes antes de abrir.
+- **TVs CRT antigas**: tubo carregado ~25 kV via flyback. Descarregar pra chassi via resistor + fio com alicate isolado.
+- **Flash de câmera**: capacitor de ~300 V; queima mas raramente mata.
+- **UPS, no-breaks**: bancos de bateria + capacitores. LOTO + descarga.
+- **Placas PV**: ver seção abaixo — não têm capacitor, mas são fonte.
+
+**Procedimento**: desenergizar → aguardar tempo especificado → testar tensão → aterrar temporariamente → testar de novo → trabalhar.
+
+### DC vs AC — perigos distintos
+
+AC foi "vitorioso" em transmissão; DC tem propriedades únicas que mudam a análise de risco.
+
+- **AC 50/60 Hz**: ressonância com sistema de condução cardíaca → **fibrilação ventricular** em faixa estreita (limiar ~50-100 mA).
+- **DC**: limiar de fibrilação é 3-5× maior (~300 mA), mas causa contração muscular sustentada. Menos fatal por fibrilação, mais por queimadura interna e impossibilidade de soltar.
+- **AC tem zero-crossing** 100/120× por segundo → arco AC se auto-extingue facilmente em disjuntor.
+- **DC não tem zero-crossing** → arco sustentado, se auto-alimenta. **Disjuntores DC** são dramaticamente mais robustos; misturar é receita de falha catastrófica.
+- **Alta tensão DC** (fotovoltaico, EV, HVDC): arco pode sustentar em centímetros de distância. Manutenção exige procedimentos próprios.
+- **Capacitância dos circuitos DC**: mesmo desligado, tensão persiste (ver capacitores).
+
+### Sistemas fotovoltaicos (FV)
+
+Riscos específicos que não aparecem em instalação AC convencional.
+
+- **Sempre energizado sob luz**: string de 20 módulos × 40 V = 800 V DC open-circuit. **Não há "desligar módulo"** — cobri-los ou trabalhar à noite.
+- **Rapid shutdown**: exigência em NEC 690.12 (EUA) e incorporada a muitas normas: botão que leva strings a <30 V em <30s. Crucial pra bombeiro em incêndio de telhado.
+- **Arco DC FV**: sustentado, difícil extinguir. Conectores MC4 mal crimpados são causa comum de incêndio.
+- **Falha de terra**: corrente de fuga em módulo defeituoso não é detectada como em AC. GFDI (Ground-Fault Detection/Interruption) específico.
+- **Potential-induced degradation (PID)**: em módulos com V alto vs terra, íons migram no vidro — perda de potência. Mitigação: aterramento do negativo, módulos PID-free.
+- **Quedas de telhado**: a maior causa de morte em instaladores FV não é choque; é NR-35 (altura). Harness + ancoragem + procedimento.
+- **Animais e instalação**: cabos DC em telhado atraem roedores; isolação comprometida → arco → incêndio.
+
+### Baterias de lítio — thermal runaway
+
+Densidade de energia alta + eletrólito inflamável + química que se auto-sustenta quando aquecida.
+
+- **Thermal runaway**: aumento de temperatura libera O₂ do cátodo → reage com eletrólito → mais calor → cascata. Pode atingir 800+ °C, incêndio ou explosão.
+- **Gatilhos**: sobrecarga, sobrecorrente, curto interno (dendritos), dano mecânico (furo), superaquecimento externo.
+- **Química e risco**:
+  - **NMC, NCA**: alta densidade, maior risco térmico.
+  - **LFP**: muito mais estável termicamente (por isso predomina em grid storage e EV entry).
+  - **Lítio-metal, sólida**: P&D; promessas de segurança ainda não validadas.
+- **Venting**: célula com BMS bom expele gás inflamável antes de pegar fogo. Ambiente precisa ventilação.
+- **Extinção**: água em grande volume resfria, mas célula reignita. **F500, Lith-Ex, Avertex** — agentes especializados. CO₂ e pó químico são inúteis; secam, não resfriam.
+- **BMS (Battery Management System)**: vigiar temperatura por célula, balanceamento, corte em falha. BMS ruim = bomba-relógio.
+- **Pack EV em acidente**: assumir energizado + potencialmente danificado. Bombeiro moderno tem protocolo (Tesla, Rivian, BYD publicam emergency response guides — EV-FRG).
+- **Hobby/DIY**: célula 18650/21700 exposta, em bolso com chaves, pode shortar e explodir. Guarde em caixa não-condutora.
+
+### Eletricidade estática (ESD)
+
+Descarga de corpo humano carregado: tensão 2-15 kV, corrente microampère, energia mínima para humano — mas **destroi eletrônicos** e **ignita vapores**.
+
+- **Hardware**: CMOS modernos vulneráveis desde 500 V (sensível); usar pulseira ESD aterrada, piso/mesa ESD, sapatos condutores, embalagem antiestática (saco preto/prateado).
+- **Ambientes ATEX**: descarga em atmosfera com vapor/poeira inflamável é fonte de ignição. Calçado antiestático + piso condutor + controle de umidade obrigatórios.
+- **Postos de combustível**: "não entre/saia do carro enquanto abastece" → separação de carga em tecido + bico metálico + combustível = estática suficiente pra arco.
+
+### RF / alta frequência
+
+Não fibrila (frequência muito alta pra excitar tecido cardíaco) mas queima profundamente.
+
+- **RF burns**: aquecimento dielétrico em tecido — cozinha por dentro antes de superfície responder. Sem sensação de choque até dano consumado.
+- **Fontes**: transmissores, antenas, aquecimento indutivo industrial, plasma, radar, diatermia médica.
+- **Campos próximos**: acopla com estruturas metálicas (joias, piercings, implantes). Marcapassos podem ser interferidos.
+- **Exposição**: ICNIRP e FCC definem limites SAR (Specific Absorption Rate, W/kg). Celular OK; dipolo de 1kW ligado pode queimar mão em minutos.
+- **Lockout específico**: RF não sente no fasímetro comum. Usar detector de RF próprio.
+
+### Step e touch voltage (subestação, linha caída)
+
+Falta a terra em subestação ou cabo aéreo caído energiza a terra ao redor. Tensão decresce em forma de gradiente radial.
+
+- **Step voltage (tensão de passo)**: diferença entre os dois pés. Pessoa caminhando normalmente leva choque entre pernas; corrente atravessa pelve. Morte por fibrilação ou tetania.
+- **Touch voltage (tensão de toque)**: entre mão e pés. Tocar cerca metálica energizada por linha caída.
+- **Mitigação**: **malha de aterramento** em subestações equaliza potencial. Em campo com cabo caído: **saltar em pés juntos** (não caminhar), manter mínimo 10 m de distância, não tocar no cabo nem em veículo afetado.
+- **Animais de pazinho longo** (bovinos, cavalos) morrem em campo eletrificado por step voltage mesmo sem tocar nada.
+
+### Atmosferas explosivas (ATEX / IECEx / Classe-Divisão)
+
+Gases inflamáveis, vapores, poeira combustível em ambiente industrial (química, farma, moagem, combustíveis, minas).
+
+- **Classificação por zona (IEC/ATEX)**:
+  - **Zona 0**: atmosfera explosiva presente continuamente. Gasômetros, vasos fechados.
+  - **Zona 1**: provável em operação normal.
+  - **Zona 2**: improvável, só em falha.
+  - **Zonas 20/21/22**: análogos pra poeira (grãos, carvão, metais).
+- **EUA: Class/Division** (NEC 500) — taxonomia paralela, menos usada hoje.
+- **Equipamento "Ex"**: à prova de explosão (`Ex d`), segurança intrínseca (`Ex i` — baixa energia, não ignita nem em falha), aumentado (`Ex e`), pressurizado (`Ex p`), não-incendiado (`Ex n`).
+- **Ex i** é o único método seguro com circuitos vivos em atmosfera explosiva. Sensores, calibradores portáteis.
+- **Erro comum**: usar multímetro comum em zona Ex → fonte de ignição. Use intrinsicamente seguro (Fluke 28 II Ex, Metrix OX 9000 Ex).
+
+### Hazards residenciais e hobby
+
+Onde acidente doméstico acontece:
+
+- **Trabalho "com a chave ligada, rapidinho"**: quase toda fatalidade residencial. Desligue o disjuntor. Não presuma.
+- **Testar sem fasímetro**: "se não dói, não tem tensão". Pele seca + dedo rápido pode ocultar 220 V. Use detector de tensão sem contato antes.
+- **Aliança, relógio, piercing metálico**: curto em corrente alta = queimadura anelar profunda. Remova antes.
+- **Escada de alumínio perto de fios aéreos**: contato direto ou arco por proximidade. Fibra de vidro ou madeira.
+- **Ferramenta elétrica em umidade**: sem DR, choque é provável. Use DR portátil entre tomada e ferramenta.
+- **Gambiarra com fita isolante**: emenda sem luva termo ou conector adequado = curto a médio prazo, incêndio a longo.
+- **Tomadas sobrecarregadas**: filtros/adaptadores triplos em aquecedor ou ar condicionado. Incêndio comum.
+- **Fios roídos por pet**: inspecione periferia.
+- **Piscina/banheira/aquário**: circuito GFCI obrigatório; pequeno vazamento em fonte de aquário pode matar em banho.
+- **Religação após queda de energia**: bombas, aquecedores, máquinas ligam sozinhas. Desligue na chave antes de inspecionar.
+
+### Geradores portáteis e backfeed
+
+Gerador ligado à casa sem chave de transferência: alimenta **também a rede pública**, matando lineman trabalhando a km de distância.
+
+- **Sempre** use chave de transferência (manual ou automática) ou interlock no quadro. Isolamento completo entre gerador e rede.
+- **Ventilação**: geradores a combustão emitem CO. Morte por CO em garagem fechada é rotineira pós-furacão. Use fora, longe de portas/janelas.
+- **Aterramento**: conforme fabricante. Muitos portáteis modernos são "separately derived system" e não precisam aterramento externo.
+- **Backup residencial sério** = gerador fixo + ATS + interlock certificado.
+
+### Trabalho em altura + elétrica
+
+Quase todo acidente grave em subestação elevada, poste, telhado FV é combinação.
+
+- **NR-35** (altura) e **NR-10** (elétrica) simultaneamente.
+- **Ancoragem dupla** (100% tie-off) — um mosquetão sempre preso.
+- **Queda após choque**: músculo contrai, pessoa cai mesmo se suspensa. Trauma de suspensão (suspension trauma) exige resgate em <15 min.
+- **Tempo máximo em harness pendurado**: 10-15 minutos antes de danos por isquemia. Equipe de resgate pré-posicionada.
 
 ## Medição Elétrica
 
