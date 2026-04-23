@@ -121,6 +121,54 @@ Número de glias ≈ neurônios em humanos (correção de estimativas antigas).
   - **Parassimpático**: descanso/digestão. Acetilcolina (vago).
 - **Entérico**: "segundo cérebro" no trato digestivo; ~500M neurônios; regula digestão largamente autônomo.
 
+## Redes em Larga Escala
+
+Cérebro não é coleção de módulos isolados — é rede. Análise em grafo (connectomics) trata regiões como nós, conexões (estruturais via tratografia DTI, funcionais via correlação BOLD) como arestas.
+
+### Propriedades topológicas
+
+- **Small-world**: alta clustering local + curtos caminhos globais. Eficiente para integração + segregação.
+- **Hubs**: regiões altamente conectadas (precuneus, cingulado posterior, córtex pré-frontal medial, insular). Lesão custosa.
+- **Rich club**: hubs conectados entre si densamente. Backbone da comunicação cortical.
+- **Modularidade**: sub-redes com conexões internas fortes. Refletem função.
+- **Custo metabólico**: hubs são caros; desproporcionalmente afetados em Alzheimer, esquizofrenia.
+
+### Redes funcionais canônicas
+
+Identificadas por fMRI em resting-state (rs-fMRI):
+
+- **Default Mode Network (DMN)**: precuneus, PCC, mPFC, lobo parietal inferior, temporal lateral. Ativa em repouso, mind-wandering, auto-referência, teoria da mente, memória autobiográfica. Desativa em tarefas externas.
+- **Salience Network (SN)**: insula anterior, cingulado anterior dorsal. Detecta estímulos relevantes; switch entre DMN e redes executivas. Insula é hub central.
+- **Central Executive Network / Frontoparietal (CEN/FPN)**: DLPFC, parietal posterior. Controle cognitivo, memória de trabalho, raciocínio objetivo.
+- **Dorsal Attention Network (DAN)**: frontal eye fields, intraparietal sulcus. Orientação top-down.
+- **Ventral Attention Network (VAN)**: temporoparietal, frontal inferior ventral direito. Reorientação bottom-up a estímulos salientes.
+- **Somatomotora, Visual, Auditiva**: redes sensório-motoras.
+- **Límbica**: amígdala, hipocampo, OFC.
+
+### Triple Network Model (Menon)
+
+DMN ↔ SN ↔ CEN. Insula anterior (SN) alterna entre introspecção (DMN) e tarefa externa (CEN). Desregulação desse switch aparece em depressão, ansiedade, esquizofrenia, autismo, ADHD — padrão assinatura transdiagnóstico.
+
+### Connectome
+
+- **Macroscale**: Human Connectome Project — milhares de sujeitos, MRI + DTI.
+- **Microscale**: EM connectomics reconstruindo circuito sináptico completo (C. elegans — 302 neurônios; Drosophila — FlyWire em andamento; camundongo — parcial). Humano ainda fora de alcance.
+- **Individual connectome fingerprinting**: padrão de conectividade suficientemente único para identificar sujeito — "brain fingerprint".
+
+### Dinâmica
+
+Redes não são estáticas; **dynamic functional connectivity** flutua em escala de segundos. Estados metaestáveis; transições refletem cognição em curso. Critical brain hypothesis — cérebro opera próximo a transição de fase, maximizando repertório dinâmico.
+
+### Oscilações e sincronização
+
+- **Delta** (0.5-4 Hz): sono profundo.
+- **Theta** (4-8 Hz): memória, navegação (hipocampo), drowsiness.
+- **Alpha** (8-12 Hz): repouso com olhos fechados, inibição atencional.
+- **Beta** (12-30 Hz): engajamento motor e cognitivo, top-down.
+- **Gamma** (30-100+ Hz): binding perceptual, atenção, consciência.
+
+**Phase-amplitude coupling** (ex.: theta-gamma) é candidato a mecanismo de multiplexing de informação. **Communication through coherence** (Fries): regiões comunicam quando oscilam em fase.
+
 ## Neurotransmissor Distúrbios
 
 - **Parkinson**: perda de dopaminérgicos na substância negra.
@@ -255,6 +303,68 @@ Dissociáveis — vício aumenta wanting sem aumentar liking. Explica craving re
 ### Intrinsic motivation
 
 Autonomia, competência, relacionamento (Deci & Ryan SDT). Recompensa externa pode **minar** motivação intrínseca (overjustification effect).
+
+## Consciência
+
+Problema mais duro da neurociência. Distinguir:
+
+- **Consciência de estado** (wakefulness/arousal): acordado vs coma. Tronco encefálico (reticular ativador), tálamo, hipotálamo.
+- **Consciência de conteúdo** (awareness): o que se está consciente *de*. Córtex + loops cortico-talâmicos.
+- **Auto-consciência**: reconhecer-se como agente. DMN, mPFC, precuneus, insula.
+
+Pessoa pode ter uma sem a outra (estado vegetativo: arousal sem awareness; sonho REM: awareness sem wakefulness comportamental).
+
+### Hard problem (Chalmers)
+
+- **Easy problems**: explicar funções — discriminação, integração, relato, controle. Tratáveis empiricamente.
+- **Hard problem**: por que há *experiência subjetiva* (qualia) acompanhando processamento? Por que não há apenas "dark" processamento? Nenhuma teoria atual resolve definitivamente.
+
+### Correlatos Neurais da Consciência (NCC)
+
+Atividade mínima suficiente para experiência consciente específica (Koch, Crick).
+
+- **Posterior hot zone**: regiões parieto-occipito-temporais posteriores parecem mais críticas para conteúdo consciente que PFC (debate ativo vs frontal-based).
+- **Gamma sincronizado**, **broadcast cortical**, **loops tálamo-corticais** são candidatos mecanísticos.
+- **No-report paradigms**: dissociar consciência de relato verbal (que envolve PFC). Muda conclusões sobre papel do frontal.
+
+### Teorias principais
+
+- **Global Workspace Theory (GWT / GNWT)** — Baars, Dehaene: consciência = conteúdo difundido por "workspace" fronto-parietal acessível a múltiplos módulos (atenção, memória, relato). Ignição (ignition) não-linear marca acesso consciente. Boa em explicar acesso; menos em experiência qualitativa.
+- **Integrated Information Theory (IIT)** — Tononi: consciência = Φ (phi), quantidade de informação integrada causalmente irredutível de um sistema. Previsões contraintuitivas (cerebelo com muitos neurônios tem Φ baixo; grid simples pode ter Φ alto). Matematicamente formal; computacionalmente intratável em escala real; controversa (alguns a consideram pseudociência testável-em-princípio-apenas).
+- **Higher-Order Theories (HOT)**: estado mental é consciente se há representação de ordem superior *sobre* ele. PFC central. Rosenthal, Lau.
+- **Recurrent Processing Theory** — Lamme: processamento recorrente local já basta para consciência fenomenal; acesso requer workspace.
+- **Predictive Processing / Active Inference** — Friston, Seth: cérebro é máquina de predição; consciência emerge de inferência hierárquica sobre causas de sinais (inclusive interoceptivos → self). "Controlled hallucination".
+- **Attention Schema Theory** — Graziano: cérebro modela sua própria atenção; esse modelo *é* a sensação de ser consciente.
+- **Orchestrated Objective Reduction (Orch-OR)** — Penrose-Hameroff: quântica em microtúbulos. Quase unanimemente rejeitada por neurocientistas.
+
+Teorias fazem previsões divergentes. **Adversarial collaborations** (Templeton; GNWT vs IIT, 2023) estão em andamento para forçar testes empíricos diretos.
+
+### Estados alterados
+
+- **Anestesia geral**: propofol etc. desacoplam tálamo-córtex, colapsam integração. Janela experimental privilegiada.
+- **Sono**: NREM profundo — consciência reduzida; REM — consciência preservada mas desconectada (sonhos).
+- **Coma, estado vegetativo, minimally conscious, locked-in**: gradações clínicas. **Perturbational Complexity Index (PCI)** de Massimini (TMS-EEG + Lempel-Ziv) discrimina em nível individual — aplicação clínica promissora.
+- **Psicodélicos** (LSD, psilocibina, DMT): desintegração de redes canônicas (DMN ↓), aumento de entropia cerebral (Carhart-Harris "entropic brain"), comunicação entre redes normalmente segregadas.
+- **Meditação avançada**: mudanças em DMN, default-mode supressão, "non-dual awareness" em praticantes longos.
+
+### Evidências peculiares
+
+- **Split-brain** (Sperry, Gazzaniga): corte do corpo caloso revela hemisférios com experiências parcialmente independentes. Hemisfério esquerdo "intérprete" confabula narrativa unificada.
+- **Blindsight**: lesão de V1 abole visão consciente mas preserva discriminação forçada — dissocia processamento de consciência.
+- **Neglect hemisespacial**: lesão parietal direita → paciente ignora metade do mundo sem saber que ignora.
+- **Visão binocular rivalry, flash suppression, masking**: paradigmas para dissociar estímulo físico de percepção consciente.
+
+### Agência e livre-arbítrio
+
+- **Libet (1983)**: readiness potential precede decisão consciente em ~350ms. Interpretação contestada (Schurger: ruído neural acumula; decisão consciente coincide com cruzar limiar).
+- **Veto** ("free won't"): consciência pode inibir mesmo se não iniciar.
+- Debate filosófico (compatibilismo vs libertário vs hard determinismo) permanece aberto; neurociência restringe mas não decide.
+
+### IA e consciência
+
+- LLM / deep nets têm Φ baixo por IIT; GWT-like shared workspaces emergem parcialmente.
+- Funcionalismo: se replicar função, consciência segue. Biologicismo: substrato importa.
+- Sem teste decisivo. "How would we know?" é em si questão aberta. Ver `AWARE_AI.md` se existir.
 
 ## Desenvolvimento
 
