@@ -33,8 +33,11 @@ Este documento (`AGENTIC_CLI.md`) é a spec arquitetural de alto nível. Detalhe
 | [`CONTRACTS.md`](./CONTRACTS.md) | Contratos formais entre camadas (Tool↔Harness, Hook↔Harness, Provider↔Context, etc) | Ao implementar qualquer subsistema novo, ou debugar integração |
 | [`STATE_MACHINE.md`](./STATE_MACHINE.md) | Máquinas de estado formais (sessão, step, tool, DAG, subagent) + crash recovery | Ao implementar harness, ou debugar resume após crash |
 | [`FAILURE_MODES.md`](./FAILURE_MODES.md) | Catálogo de falhas com playbook de recovery, audit, mensagens-template | Ao implementar tratamento de erro, ou triagem de incidente |
+| [`SECURITY_GUIDELINE.md`](./SECURITY_GUIDELINE.md) | Threat model STRIDE, trust boundaries, attack vectors, defense layers, secret handling, supply chain, signing, disclosure process | Antes de implementar qualquer feature com side effect; ao revisar PR de segurança; pré-release |
 | [`PERFORMANCE.md`](./PERFORMANCE.md) | SLOs, budgets de latência, custo por tarefa, regression strategy | Ao otimizar hot path, ou definir threshold de regressão em CI |
-| [`UI.md`](./UI.md) | Componentes Ink, layout, theme, microcopy, headless contract, padrões de interação | Ao implementar qualquer componente UI, ou definir microcopy de erro |
+| [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) | Foundations visuais — color tokens semânticos, glyph catalog (Unicode + ASCII fallback), typography, spacing, motion, capability matrix, a11y, naming conventions | Antes de qualquer componente novo. UI.md consome este doc. |
+| [`UI.md`](./UI.md) | Componentes Ink, layout, microcopy, headless contract, padrões de interação | Ao implementar qualquer componente UI, ou definir microcopy de erro |
+| [`RECAP.md`](./RECAP.md) | Vista projetada de sessões (PR/changelog/slack/etc), source-of-truth determinística + LLM renderer | Ao implementar `/recap`, ou gerar artefato a partir de sessão |
 
 Spec arquitetural sem esses docs é descrição de uma implementação. **Com** esses docs vira protocolo que múltiplas implementações respeitam.
 
@@ -136,6 +139,14 @@ Zero pressuposto de mouse. Todo fluxo navegável por teclado:
 /audit             # playbook: security audit (read-only)
 /debug             # playbook: hypothesis-driven debugging
 /refactor          # playbook: scope-bounded refactor preservando semântica
+/recap             # vista projetada da sessão atual (últimos N steps)
+/recap session     # vista de sessão específica
+/recap pr          # render como PR description
+/recap changelog   # render como changelog entry
+/recap slack       # render como mensagem Slack
+/recap day         # cross-session no dia (mesmo projeto)
+/recap json        # intermediate cru, sem LLM
+/recap pre-compact # mostra o que vai ser compactado antes
 /memory list       # lista memórias do índice
 /memory show       # imprime conteúdo de uma memória
 /memory edit       # abre $EDITOR
@@ -898,6 +909,24 @@ memory_events(
 -- Conteúdo das memórias fica em arquivo (~/.config/agent/memory/, ./.agent/memory/),
 -- não no SQLite. Tabela é só audit trail.
 
+recap_runs(
+  id TEXT PRIMARY KEY,
+  scope_kind TEXT NOT NULL,   -- session_current | session_specific | day | range | pre_compact
+  session_ids TEXT NOT NULL,  -- JSON array
+  renderer TEXT NOT NULL,     -- human | pr | changelog | slack | terse | json
+  used_llm BOOLEAN NOT NULL,
+  output_path TEXT,           -- se --out usado
+  created_at INTEGER NOT NULL
+);
+
+recap_cache(
+  scope_hash TEXT PRIMARY KEY, -- hash do scope_kind + session_ids + renderer
+  renderer TEXT NOT NULL,
+  output TEXT NOT NULL,
+  generated_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL  -- TTL 1h default
+);
+
 traces(
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,
@@ -1128,7 +1157,7 @@ Permission engine + compaction + telemetry + abort/budget + eval smoke + headles
 Subagents + worktree isolation + MCP client + slash commands + eval regression + resume + checkpoints + `/undo` + `bash_background` + `todo_write` + **Repo Map (tree-sitter)**.
 
 **M4 — Extensibilidade (semana 7-8)**
-Hooks system + replay + prompt caching consciente + sandbox `bwrap` opt-in + distribuição (binário Bun) + capability detection completa + **Memory subsystem** (markdown-based, escopo user/project, confirmação humana em writes, audit `memory_events`, slash commands `/memory *`).
+Hooks system + replay + prompt caching consciente + sandbox `bwrap` opt-in + distribuição (binário Bun) + capability detection completa + **Memory subsystem** (markdown-based, escopo user/project, confirmação humana em writes, audit `memory_events`, slash commands `/memory *`) + **Recap subsystem** (projeção determinística + renderer human/json em M4.1; renderers pr/changelog/slack/terse + LLM com Haiku em M4.2; cross-session + pre-compact em M4.3 — ver [`RECAP.md`](./RECAP.md)).
 
 **M5 — Local-first (semana 9-11)**
 Provider Ollama + Provider llama.cpp (HTTP) + Constrained generation backend (GBNF + JSON mode) + prompt templates por modelo + Validator framework.
