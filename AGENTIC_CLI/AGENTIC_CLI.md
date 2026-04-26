@@ -83,15 +83,32 @@ A maioria dos projetos coloca "CLI" no nome e entrega uma interface web mal port
 | **Headless** | `agent --json "prompt"` | scripts, CI, output NDJSON estruturado |
 | **Pipe** | `cmd \| agent "prompt"` | stdin vira contexto adicional |
 | **Plan** | `agent --plan "prompt"` | read-only; propõe plano sem aplicar |
-| **Resume** | `agent --resume <id>` | continua sessão anterior |
+| **Resume picker** | `agent --resume` (sem args) | listagem interativa de sessões com mini-recap inline |
+| **Resume** | `agent --resume <id>` ou `agent --resume last` | continua sessão específica (id ou alias `last`) |
+| **List sessions** | `agent --list-sessions [opções]` | lista sessões com filtros; JSON-friendly via `--json` |
 | **Replay** | `agent --replay <id>` | re-executa sessão (debug/eval) |
+| **Doctor** | `agent doctor` | diagnóstico do ambiente: runtime, providers, sandbox, capabilities, disk, configs, hooks, memory |
 
 ### 2.2 Composição (Unix philosophy)
 
 - `stdin` é input válido. `stdout` é output puro. `stderr` é log/progresso.
 - Em modo `--json`, **nada** vai pra `stdout` que não seja JSONL válido.
 - Exit codes significam algo: `0` sucesso, `1` erro de tarefa, `2` budget exausto, `3` denied por policy, `130` interrompido.
-- `agent --list-tools` imprime schema. `agent --version --json` imprime info estruturada. Tudo scriptável.
+- `agent --list-tools` imprime schema. `agent --version --json` imprime info estruturada. `agent --list-sessions --json` imprime sessões em NDJSON. Tudo scriptável.
+
+#### Flags de `--list-sessions`
+
+```
+--limit N            últimas N sessões (default: 20)
+--project PATH       filtra por cwd
+--since DATE         filtra por data (>= YYYY-MM-DD ou "7d", "yesterday")
+--status STATUS      done | exhausted | error | running | interrupted
+--search QUERY       busca fuzzy em goal / first prompt
+--with-recap         inclui mini-recap (1-line) por sessão (custo via Haiku, cacheado)
+--json               output NDJSON pra scripting
+```
+
+Detalhe da projeção de mini-recap em [`RECAP.md`](./RECAP.md) §3 (`recap_mini` schema).
 
 ### 2.3 Capability detection
 
@@ -142,6 +159,7 @@ Zero pressuposto de mouse. Todo fluxo navegável por teclado:
 /audit             # playbook: security audit (read-only)
 /debug             # playbook: hypothesis-driven debugging
 /refactor          # playbook: scope-bounded refactor preservando semântica
+/explain           # playbook: read-only explicação estruturada de código/sistema
 /recap             # vista projetada da sessão atual (últimos N steps)
 /recap session     # vista de sessão específica
 /recap pr          # render como PR description
@@ -150,6 +168,11 @@ Zero pressuposto de mouse. Todo fluxo navegável por teclado:
 /recap day         # cross-session no dia (mesmo projeto)
 /recap json        # intermediate cru, sem LLM
 /recap pre-compact # mostra o que vai ser compactado antes
+/recap list        # mini-recap por sessão (alimenta SessionPicker)
+/sessions list     # picker interativo de sessões com mini-recap inline
+/sessions show     # detalhe + recap completo de uma sessão
+/sessions switch   # interrompe atual, resume outra
+/sessions current  # info da sessão ativa (id, custo, steps)
 /memory list              # lista memórias do índice (scope: user|project|local|shared)
 /memory show              # imprime conteúdo de uma memória
 /memory edit              # abre $EDITOR
@@ -404,6 +427,73 @@ nodes:
 - Só vale quando custo importa muito
 
 DAGs ficam em `~/.config/agent/orchestrators/*.yaml`. Comunidade pode publicar/compartilhar. Eval acoplado por DAG.
+
+### 5.4 Self-critique pass (opt-in)
+
+Agente **principal** gera output → modelo **critic** revisa antes de mostrar ao user. Catches bugs próprios; instância retrospectiva imediata de "meça duas vezes".
+
+#### Configuração
+
+```toml
+# ~/.config/agent/config.toml ou .agent/config.toml
+[critique]
+mode = "off"                       # off | on_writes | always
+model = "anthropic/haiku-4-5"      # cheap; sem vendor lock-in
+prompt_version = "v1"
+threshold = 0.7                    # confidence mínimo pra apresentar warning
+max_overhead_ms = 3000             # se ultrapassa, skip critique (não bloqueia)
+```
+
+**Modes:**
+- `off` (default) — nunca roda. Sem custo, sem latência extra.
+- `on_writes` — roda apenas em steps com tool de escrita (`writes: true`). Sweet spot.
+- `always` — roda em todo step. 2x latência, 2x custo de raciocínio.
+
+#### Fluxo
+
+1. Step principal completa output (assistant message + tool calls)
+2. Se `mode` aplicável a este step:
+   a. Critic LLM recebe: input do step + output proposto + hint estrutural ("revise issues; declare confidence")
+   b. Output do critic em schema fixo:
+      ```yaml
+      critique:
+        issues:
+          - { severity: enum [info, warn, error]
+            , description: string
+            , confidence: float    # 0..1
+            , suggestion: string }
+        overall_confidence: float  # 0..1, sobre o output principal
+      ```
+3. Filtra issues com `confidence ≥ threshold`
+4. Se há issues filtradas:
+   - **Apresenta `<CritiqueOverlay>`** (UI.md §3.2) ao user **antes** de proceder
+   - User pode: `[i]gnore`, `[r]edo with hint`, `[a]bort step`, `[w]hy?`
+5. Audit: critique runs vão pra `failure_events` com `code: critique.warning_shown` ou `critique.skipped`
+
+#### Onde **NÃO** roda
+
+- Plan mode (já é validation; redundante)
+- Tools read-only (`read_file`, `glob`, `grep`) em modo `on_writes`
+- Compaction step (próprio compaction tem eval; redundante)
+- Critic step (não recursivo)
+
+#### Trade-offs honestos
+
+| Pro | Con |
+|---|---|
+| Catches bugs do agente antes do user ver | 2x latência em steps cobertos |
+| 2x custo só nos steps onde aplicável (mode=on_writes mitiga) | Custo extra mensurável |
+| Aligns com "meça duas vezes" | False positives podem irritar (threshold ajustável) |
+| Independente do modelo principal (pluggável) | Manutenção de prompt do critic |
+
+#### Eval do critic
+
+Eval específico em `evals/critique/`:
+- Fixtures com bugs conhecidos no output principal — critic deve detectar
+- Fixtures com output limpo — critic não pode inventar issues (false positive rate < 5%)
+- Threshold tuning baseado em ROC curve
+
+Sem eval, critic vira ruído (warnings constantes que user aprende a ignorar).
 
 ---
 
@@ -983,7 +1073,13 @@ artifacts(
 );
 ```
 
-Índices só onde dói: `(session_id, created_at)`, `(tool_name, status)`, `(session_id, event)` em hooks.
+Índices só onde dói:
+- `messages(session_id, created_at)`
+- `tool_calls(tool_name, status)`
+- `hook_runs(session_id, event)`
+- `sessions(started_at DESC)` — list-sessions ordenada por data
+- `sessions(cwd, started_at DESC)` — list-sessions filtrado por projeto
+- `sessions(status, started_at DESC)` — filter por status
 
 **Sem ORM.** SQL cru com tipos. ORM em projeto pequeno é imposto sem benefício.
 
@@ -1181,6 +1277,8 @@ Componentes:
 - `<ProfileBadge>` — `[autonomous]` / `[orchestrated]` / `[hybrid]` no header — usuário sempre sabe qual orquestrador está ativo
 - `<MemoryWritePrompt>` — modal de confirmação para `memory_write` proposto, com diff do body, fonte (`user_explicit`/`inferred`), e atalhos `[a]ccept [e]dit [r]eject [w]hy?`
 - `<MemoryBadge>` — indicador discreto no rodapé: `mem: 12u 4p` (12 user, 4 project carregadas)
+- `<SessionPicker>` — listagem virtualizada de sessões com mini-recap expansível inline, filtro fuzzy por `/`, navegação `↑↓`, atalho `r` pra expandir mini-recap; renderizado em `agent --resume` sem args ou via `/sessions list`
+- `<CritiqueOverlay>` — modal opt-in (config `critique.mode`) que mostra warnings do self-critique pass antes de proceder; lista issues por severidade + confidence; atalhos `[i]gnore [r]edo [a]bort [w]hy?`
 - `<Interrupt>` — Ctrl+C com confirmação dupla se tool em execução
 
 Sem TUI "modal" complicado. Linha simples > Vim mode mal feito.
@@ -1199,7 +1297,7 @@ Permission engine + compaction + telemetry + abort/budget + eval smoke + headles
 Subagents + worktree isolation + MCP client + slash commands + eval regression + resume + checkpoints + `/undo` + `bash_background` + `todo_write` + **Repo Map (tree-sitter)**.
 
 **M4 — Extensibilidade (semana 7-8)**
-Hooks system + replay + prompt caching consciente + sandbox `bwrap` opt-in + distribuição (binário Bun) + capability detection completa + **Memory subsystem** (markdown-based, escopo user/project, confirmação humana em writes, audit `memory_events`, slash commands `/memory *`) + **Recap subsystem** (projeção determinística + renderer human/json em M4.1; renderers pr/changelog/slack/terse + LLM com Haiku em M4.2; cross-session + pre-compact em M4.3 — ver [`RECAP.md`](./RECAP.md)).
+Hooks system + replay + prompt caching consciente + sandbox `bwrap` opt-in + distribuição (binário Bun) + capability detection completa + **Memory subsystem** (markdown-based, escopo user/project, confirmação humana em writes, audit `memory_events`, slash commands `/memory *`) + **Recap subsystem** (projeção determinística + renderer human/json em M4.1; renderers pr/changelog/slack/terse + LLM com Haiku em M4.2; cross-session + pre-compact em M4.3 — ver [`RECAP.md`](./RECAP.md)) + **`/explain` playbook** (read-only, ver `PLAYBOOKS.md` §6) + **`agent doctor`** (diagnóstico de ambiente) + **Self-critique pass** opt-in (config `critique.mode`, default `off`).
 
 **M5 — Local-first (semana 9-11)**
 Provider Ollama + Provider llama.cpp (HTTP) + Constrained generation backend (GBNF + JSON mode) + prompt templates por modelo + Validator framework.
@@ -1226,7 +1324,6 @@ Features que ficam pra depois, **com motivo claro de adiamento e sinal de quando
 | **Image input** | depende de protocolo de terminal | usuários colando screenshots em volume |
 | **Sandbox por default** | complexidade de empacotamento | incidente de bash escapando policy |
 | **`/init` bootstrap** | manual funciona | onboarding repetitivo |
-| **`agent doctor`** | erros são diagnosticáveis com `--json` | tickets "não funciona" |
 | **OAuth providers** | API key cobre 95% | demanda enterprise |
 | **Vector DB / RAG semântico** | repo map + grep resolvem em código | tarefas que ultrapassam codebase pequeno |
 | **Workspace multi-repo** | resolver bem 1 repo antes | demanda real de monorepo federado |

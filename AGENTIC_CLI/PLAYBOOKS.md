@@ -629,7 +629,121 @@ assumptions:
 
 ---
 
-## 6. Como adicionar um playbook novo
+## 6. Playbook: `explain`
+
+Slash command: `/explain`. **Read-only**, educacional. Distinto de `/debug` (fix-oriented) e modo normal (open-ended). Mapeia código + memory + refs pra responder perguntas estruturadas sem risco de side effect.
+
+```yaml
+---
+name: explain
+description: Explica código/sistema/decisão em estrutura fixa. Read-only.
+tools: [read_file, grep, glob, memory_read, memory_search, web_fetch]
+tool_restrictions:
+  web_fetch:
+    allow_hosts: []           # config do projeto pode adicionar docs hosts
+budget:
+  max_steps: 20
+  max_cost_usd: 0.30
+references:
+  - SOFTWARE_ARCHITECTURE.md
+  - CONCEPTUAL_INTEGRITY.md
+  - HOLISTIC_VIEW.md
+slash: explain
+output_schema:
+  topic: string                      # o que foi explicado (echo do prompt)
+  overview: string                   # 2-4 linhas, resumo executivo
+  files_touched:                     # arquivos lidos pra montar resposta
+    - { path: string, why: string }
+  dependencies:                      # módulos/sistemas relacionados
+    - { name: string, role: string, file?: string }
+  flow:                              # sequência (se aplicável; ex: request flow)
+    - { step: int, what: string, where: string }
+  gotchas:                           # armadilhas / não-óbvios
+    - { issue: string, evidence: string }
+  references:                        # ponteiros pra mais
+    - { kind: enum [memory, repo_file, external_doc], ref: string }
+  not_explained:                     # honestidade epistêmica
+    - { area: string, reason: string }
+  confidence: enum [high, medium, low, speculation]
+---
+```
+
+```markdown
+# Explain
+
+Você explica algo sobre o código/sistema/decisão. **Não conserta. Não opina.
+Não modifica.** Sua saída é um relatório estruturado.
+
+## NÃO faça
+- NÃO sugira refactor, fix, ou melhoria. Se tem opinião, suprime.
+- NÃO fale sobre o que **deveria** existir. Apenas o que **existe**.
+- NÃO especule sobre intenção do autor sem evidência (`git blame`, comentário, etc).
+- NÃO termine sem `not_explained` populado se algum aspecto ficou fora.
+- NÃO use `web_fetch` salvo se docs externos estão configurados em `allow_hosts`.
+- NÃO assuma conhecimento prévio do leitor — explique acrônimos/conceitos não-óbvios uma vez.
+
+## Faça
+- Comece com `overview` em 2-4 linhas.
+- Cite `file:line` em `files_touched` e `flow`.
+- Distinga: **mecanismo** (como funciona), **propósito** (por que existe), **gotcha** (o que surpreende).
+- Em `confidence`, seja honesto: `speculation` se parte da explicação é inferida sem ler código direto.
+- Se a pergunta tem múltiplas interpretações válidas, liste em `not_explained` qual foi escolhida e por quê.
+
+## Tipos de pergunta cobertos
+
+| Pergunta | Foco do output |
+|---|---|
+| "Como funciona X?" | overview + flow + dependencies |
+| "Por que Y existe?" | overview + memória/git history + references |
+| "O que acontece quando Z?" | flow detalhado |
+| "Qual a relação entre A e B?" | dependencies + flow |
+| "Onde mora a lógica de C?" | files_touched + dependencies |
+
+## Quando NÃO conseguir explicar
+
+Estado válido:
+- Código ofuscado / minified → reporte; sugira inspecionar source original
+- Sistema externo (3rd party closed) → `confidence: speculation`; cite docs ou reverse engineering
+- Lógica gerada por código (build artifact) → diga claramente
+
+## Output
+
+Schema completo, mesmo se parcial. Vazio é informação válida; ausência viola schema.
+
+## Exemplo de output mínimo
+
+```yaml
+topic: "como funciona o retry em src/queue.ts"
+overview: |
+  src/queue.ts implementa fila de jobs com retry exponencial.
+  computeBackoff calcula intervalo (max 30s); JobQueue.dequeue
+  aplica backoff antes de re-fila.
+files_touched:
+  - { path: "src/queue.ts", why: "implementa JobQueue + computeBackoff" }
+  - { path: "src/queue.test.ts", why: "validar comportamento esperado" }
+dependencies:
+  - { name: "EventEmitter (node)", role: "emits 'job_failed' eventos", file: "src/queue.ts:88" }
+  - { name: "logger", role: "registra retries", file: "src/queue.ts:142" }
+flow:
+  - { step: 1, what: "job entra via JobQueue.enqueue", where: "src/queue.ts:45" }
+  - { step: 2, what: "se job falha, computeBackoff(retry_count)", where: "src/queue.ts:142" }
+  - { step: 3, what: "setTimeout reagenda; retry_count++", where: "src/queue.ts:158" }
+  - { step: 4, what: "após max_retries (5), emite 'permanently_failed'", where: "src/queue.ts:172" }
+gotchas:
+  - { issue: "max 30s é hardcoded", evidence: "src/queue.ts:148" }
+  - { issue: "retry_count zera se enqueue novamente — pode re-tentar infinito", evidence: "src/queue.ts:50 — não checa estado anterior" }
+references:
+  - { kind: memory, ref: "feedback_no_console_log" }
+  - { kind: repo_file, ref: "tests/queue/backoff.test.ts" }
+not_explained:
+  - { area: "queue-consumer.ts", reason: "fora do escopo da pergunta; consume é separado" }
+confidence: high
+```
+```
+
+---
+
+## 7. Como adicionar um playbook novo
 
 1. Criar `~/.config/agent/playbooks/<name>.md` com frontmatter completo.
 2. Definir output schema com `summary` + `assumptions` + `not_checked` (mínimo).
@@ -643,7 +757,7 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 7. Anti-patterns comuns (não cometa)
+## 8. Anti-patterns comuns (não cometa)
 
 | Anti-pattern | Por que é ruim |
 |---|---|
@@ -659,11 +773,11 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 8. Playbooks futuros (candidatos)
+## 9. Playbooks futuros (candidatos)
 
 Ordem de retorno esperado. Teto recomendado: **6 playbooks total**. Mais que isso o modelo confunde a seleção.
 
-Atual (4): `code-review`, `security-audit`, `debug`, `refactor`.
+Atual (5): `code-review`, `security-audit`, `debug`, `refactor`, `explain`.
 
 | Candidato | Quando fazer | Por quê |
 |---|---|---|
@@ -680,7 +794,7 @@ Princípio: cada playbook novo só entra se **eval mostra que modo normal falha*
 
 ---
 
-## 9. Insight final
+## 10. Insight final
 
 Playbook bem feito não ensina o modelo a pensar — **restringe** o que ele pode fazer e **estrutura** o que ele deve devolver. O resto é o modelo já fazendo o trabalho dele.
 

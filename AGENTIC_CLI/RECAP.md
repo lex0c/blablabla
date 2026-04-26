@@ -34,7 +34,11 @@ Recap é instância direta da premissa raiz: *meça duas vezes, corte uma*. Aqui
 /recap slack                   # markdown Slack-compatible
 /recap pre-compact             # mostra o que vai ser compactado ANTES
 /recap json                    # intermediate cru (sem LLM)
+/recap list [filtros]          # mini-recap por sessão (alimenta SessionPicker e --list-sessions --with-recap)
 ```
+
+Filtros de `/recap list` (mesmos de `agent --list-sessions`):
+- `--limit N`, `--project PATH`, `--since DATE`, `--status STATUS`, `--search QUERY`, `--no-llm-render`, `--json`
 
 Flags universais:
 - `--out <path>` — escreve em arquivo (default: stdout)
@@ -131,6 +135,37 @@ recap_intermediate:
 ```
 
 Campos **sempre presentes** mesmo se vazios (array `[]`, string `""`). Ausência viola schema.
+
+### 3.1 Schema `recap_mini` (subset pra listagens)
+
+Pra `agent --list-sessions --with-recap`, `/recap list`, e `<SessionPicker>`, projeção menor + barata:
+
+```yaml
+recap_mini:
+  schema_version: "v1"
+  session_id: string
+  goal: string                       # primeira linha do user prompt
+  status: enum [done, exhausted, error, interrupted, running]
+  started_at: int                    # unix timestamp
+  ended_at: int                      # null se status=running
+  duration_ms: int
+  steps: int
+  cost_usd: float
+  cwd: string                        # path do projeto
+  cwd_label: string                  # label legível (ex: "blablabla", último dir)
+  one_line_summary: string           # ≤ 120 chars; LLM-rendered (ou fallback determinístico se --no-llm-render)
+  files_changed: int                 # contagem agregada
+  has_errors: bool                   # true se sessão tem failure_events visíveis
+  incomplete: bool                   # true se status não-terminal (running/awaiting_user)
+```
+
+**Geração:**
+- Determinística pra todos os campos exceto `one_line_summary`
+- `one_line_summary`:
+  - LLM-rendered (Haiku, ~$0.001 por sessão); cacheado em `recap_cache` (TTL 1h)
+  - Fallback determinístico (`--no-llm-render`): `"<status>: {N} steps, {M} files, {goal_truncated}"`
+
+**Pré-render:** hook `Stop` (não-bloqueável) gera `recap_mini` no fim da sessão e popula `recap_cache`. Picker exibe cached em < 50ms.
 
 ---
 

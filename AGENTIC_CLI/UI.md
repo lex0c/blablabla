@@ -499,6 +499,104 @@ interface MemoryBadgeProps {
 
 Render: `mem 12u 4p`. Click/hover não disponível em terminal; `/memory list` pra detalhes.
 
+#### `<SessionPicker>`
+
+Listagem virtualizada de sessões com mini-recap expansível inline. Renderizado em modo full-screen (não modal) quando user invoca `agent --resume` (sem args) ou `/sessions list`.
+
+```ts
+interface SessionPickerProps {
+  sessions: SessionSummary[]              // ordenado desc por started_at
+  initialFilter?: SessionFilter
+  onResume: (sessionId: string) => void
+  onShow: (sessionId: string) => void     // expand mini-recap inline
+  onCancel: () => void
+}
+
+interface SessionSummary {
+  id: string
+  goal: string                            // primeira linha do user prompt
+  status: SessionStatus
+  startedAt: number
+  endedAt?: number
+  durationMs: number
+  steps: number
+  costUsd: number
+  cwd: string
+  cwdLabel: string                        // ex: "blablabla"
+  hasErrors: boolean
+  incomplete: boolean                     // status não-terminal
+  miniRecap?: string                      // pré-renderizado; carregado lazy se ausente
+}
+
+interface SessionFilter {
+  project?: string
+  since?: Date
+  status?: SessionStatus
+  search?: string
+}
+```
+
+**Layout:**
+
+```
+┌─ Resumir sessão ──────────────────────────────────────────────────┐
+│  [/] filtrar  [s] status  [p] projeto  [d] data                   │
+│                                                                    │
+│  ▶ sess_8a3f2b · 2 days ago · blablabla                           │
+│    ✓ done · $0.04 · 15 steps                                      │
+│    "refactor queue retry logic"                                    │
+│                                                                    │
+│    sess_7c1d09 · 3 days ago · blablabla                           │
+│    ⚠ exhausted · $4.92 · 50 steps                                 │
+│    "audit auth flow for OWASP top 10"                             │
+│                                                                    │
+│    sess_6b2e44 · 5 days ago · other-proj                          │
+│    ✓ done · $0.18 · 8 steps                                       │
+│    "/debug failing test in auth.test.ts"                          │
+│                                                                    │
+│  [↑↓] navegar  [↵] resume  [r] mini-recap  [Esc] sair              │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**Comportamento:**
+
+- `↑↓`: navegação; cursor `▶`
+- `↵` (Enter): resume selecionada
+- `r`: expande mini-recap **inline** sob a sessão selecionada (não muda de tela)
+- `s`/`p`/`d`: filtros via picker secundário
+- `/`: fuzzy search em `goal` + `cwdLabel`
+- `Esc`: cancela; volta pro shell
+- Lista virtualizada (renderiza só visíveis); paginação automática em `↑↓`
+
+**Mini-recap expandido (inline):**
+
+```
+│    ▶ sess_8a3f2b · 2 days ago · blablabla                          │
+│      ✓ done · $0.04 · 15 steps                                     │
+│      "refactor queue retry logic"                                  │
+│      ┌──────────────────────────────────────────────────────────┐  │
+│      │ Resumo:                                                  │  │
+│      │ Extraiu computeBackoff em src/queue/backoff.ts; adicionou│  │
+│      │ 5 testes; removeu código morto. 4 etapas, todas verdes.  │  │
+│      │                                                          │  │
+│      │ Files: src/queue.ts, src/queue/backoff.ts, queue.test.ts │  │
+│      │ Decisões: extrair pra função pura (testabilidade)        │  │
+│      │ Não feito: src/queue-consumer.ts (fora do escopo)        │  │
+│      └──────────────────────────────────────────────────────────┘  │
+```
+
+**Performance:**
+
+- Lista de 100 sessões pré-cached: render < 50ms
+- Mini-recap pré-renderizado em hook `Stop` (cacheado em `recap_cache`); carregamento lazy se ausente (~500ms-1s pra LLM render)
+- Sem mini-recap pré-renderizado: fallback determinístico (`<status>: {steps} steps, {files} files, {goal}`)
+
+**Estados visuais:**
+
+- Sessão `incomplete: true` → indicador `⚠ interrupted by crash` (visualmente distinto)
+- Sessão `running` (in another instance, raro) → cinza + label `(active in PID N)`
+- Sessão `hasErrors: true` mas `done` → ícone secundário discreto
+
 #### `<Interrupt>`
 State machine do Ctrl+C.
 

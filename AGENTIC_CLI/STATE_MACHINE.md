@@ -403,6 +403,18 @@ Custo: ~5ms por step. Ganho: power-loss não corrompe.
 - Subagent worktree pendurado — `worktree gc` no SessionStart limpa
 - Stream parcial de tokens — descartado; modelo re-gera
 
+### 7.5 Visibilidade em listagem (`agent --list-sessions`, `<SessionPicker>`)
+
+Sessões em estados não-terminais (`running`, `tool_exec`, `compacting`, `awaiting_user`) que não foram resumidas aparecem em listagem com **flag visual** distinto:
+
+- `incomplete: true` no `recap_mini` schema (ver `RECAP.md` §3.1)
+- Label visual: `⚠ interrupted by crash` ou `⚠ awaiting decision (stale)`
+- Diferenciado de status terminais (`done`/`exhausted`/`error_fatal`) em cor + ícone
+
+Permite ao user ver: "essa sessão crashou — vale resumir e recovery, ou descartar?". Sem essa flag, sessão crashada parece igual a `done` em listagem casual e user pode perder trabalho.
+
+**Sessão duplicada em outra instância:** se outro processo `agent` está ativo no mesmo `cwd` (lockfile detecta), sua sessão aparece com label `(active in PID N)` em listings de outras instâncias — evita race de duplo-resume.
+
 ---
 
 ## 8. Estado de pending decisions
