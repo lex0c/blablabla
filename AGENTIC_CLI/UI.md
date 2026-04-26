@@ -499,6 +499,93 @@ interface MemoryBadgeProps {
 
 Render: `mem 12u 4p`. Click/hover não disponível em terminal; `/memory list` pra detalhes.
 
+#### `<LoopStatusLine>`
+
+Rodapé granular durante step ativo. Substitui o rodapé default quando loop está em estado não-trivial (não-idle, com info útil pra mostrar).
+
+```ts
+interface LoopStatusLineProps {
+  step: { current: number; max: number }
+  elapsedMs: number
+  state: enum [generating, tool_exec, compacting, validating, retrying, awaiting_user]
+  detail?: string                          // ex: "tool: bash", "validator: JSONSchema"
+  retryCount?: number
+  upcomingCompaction?: number              // steps até compaction trigger
+}
+```
+
+**Renders por estado:**
+
+```
+[step 7/50 · 2m31s · generating · 1.2k tokens]
+[step 7/50 · 2m31s · tool: bash (npm test)]
+[step 7/50 · 2m31s · validating: JSONSchema · retry 1/2]
+[step 7/50 · 2m31s · compacting context (~70%)]
+[step 7/50 · 2m31s · ↻ provider retry 1/3 (5xx)]
+[step 7/50 · 2m31s · idle · compaction in 3 steps]
+```
+
+Substitui temporariamente `<BudgetBar>` no rodapé; volta ao normal em `idle`.
+
+#### `<PlanReview>`
+
+Modal renderizado ao sair de plan mode (§5.1 do AGENTIC_CLI.md).
+
+```ts
+interface PlanReviewProps {
+  plan: PlanSchema
+  onAccept: () => void
+  onEdit: () => void                       // abre $EDITOR no plan YAML
+  onReject: () => void
+}
+```
+
+Render:
+
+```
+┌─ Plan ────────────────────────────────────────────────────┐
+│                                                            │
+│  Goal: extract validateToken to pure function             │
+│                                                            │
+│  Scope:                                                    │
+│    in: src/auth.ts, src/auth/validate.ts (new),           │
+│        tests/auth/validate.test.ts (new)                  │
+│    out: src/auth-middleware.ts (callers, not in scope)    │
+│                                                            │
+│  Steps:                                                    │
+│    1. Extract `validateToken` to src/auth/validate.ts     │
+│       (semantic-preserving; runs tests after)             │
+│    2. Add tests/auth/validate.test.ts (5 cases)           │
+│       (semantic-preserving; runs tests)                   │
+│    3. Update src/auth.ts to import (1-line change)        │
+│       (semantic-preserving; runs tests)                   │
+│                                                            │
+│  Risks:                                                    │
+│    - validateToken tem side effect (logs); preservar      │
+│                                                            │
+│  Estimated cost: ~$0.15 · 8-12 steps                      │
+│                                                            │
+│  [a]ccept  [e]dit  [r]eject  [w]hy?                       │
+└────────────────────────────────────────────────────────────┘
+```
+
+#### `<ThinkingIndicator>`
+
+Indicador discreto durante eventos `thinking_delta` (extended thinking em Anthropic Opus 4.x ou OpenAI o1/o3).
+
+```ts
+interface ThinkingIndicatorProps {
+  active: boolean
+  elapsedMs: number
+}
+```
+
+Render: `🧠 thinking... (12s)` no rodapé direito (próximo ao `<BudgetBar>`).
+
+Some quando primeiro `text_delta` ou `tool_use_start` chega.
+
+Não mostra conteúdo do thinking por default (toggle via `--show-thinking` ou `/thinking on`).
+
 #### `<SessionPicker>`
 
 Listagem virtualizada de sessões com mini-recap expansível inline. Renderizado em modo full-screen (não modal) quando user invoca `agent --resume` (sem args) ou `/sessions list`.
@@ -718,12 +805,12 @@ Ink `useFocus` hook + `<FocusManager>` wrapper.
 
 | Tecla | Comportamento |
 |---|---|
-| `Ctrl+C` | Interrupt (state machine acima) |
+| `Ctrl+C` | Interrupt cascading (ver tabela abaixo por estado) |
 | `Ctrl+D` | Exit (em idle) ou cancela input (digitando) |
 | `Ctrl+L` | Limpa tela (não contexto) |
 | `Ctrl+Z` | `/undo` shortcut |
 | `Ctrl+R` | Search no histórico de prompts |
-| `Esc Esc` | Interrompe modelo (mantém input atual) |
+| `Esc Esc` | Interrupt suave (ver tabela abaixo por estado) |
 | `Tab` | Completion (slash commands, paths) |
 | `↑/↓` | Histórico de prompts |
 | `Alt+Enter` | Newline em input |
@@ -732,6 +819,25 @@ Ink `useFocus` hook + `<FocusManager>` wrapper.
 | `/` | Abre slash command picker |
 
 Conflitos com terminal/shell (ex: `Ctrl+S` em alguns terminais): documentar e oferecer alternativa.
+
+#### Esc Esc vs Ctrl+C por estado da loop
+
+Diferença chave: **Esc Esc é suave** (preserva texto visível, recupera input editável); **Ctrl+C é cancel total** (cascading, limpa tela).
+
+| Atalho | Estado loop | Ação |
+|---|---|---|
+| `Esc Esc` | streaming | interrompe stream; tokens parciais permanecem com label `[interrupted at token N]`; input editável com prompt original carregado |
+| `Esc Esc` | tool_exec | interrompe tool (graceful 5s + SIGKILL); tool_result sintético `{ status: 'interrupted' }`; volta a `idle` |
+| `Esc Esc` | compacting | **ignorado** (compaction é atomic, ≤ 3s; aguarda) |
+| `Esc Esc` | awaiting_user | fecha modal sem decidir; volta a `idle` |
+| `Ctrl+C` 1× | streaming | full interrupt cascading; tokens parciais somem da tela; cost dos parciais em `failed_attempts.cost_usd` |
+| `Ctrl+C` 1× | tool_exec | mostra prompt "tool em execução; press de novo pra forçar"; 5s timeout volta ao normal |
+| `Ctrl+C` 1× | running (sem tool) | cancela geração; volta a `idle` |
+| `Ctrl+C` 1× | idle | cancela input atual, mantém sessão |
+| `Ctrl+C` 2× rápido | qualquer | force SIGKILL imediato (skip 5s graceful) |
+| `Ctrl+C` 3× | qualquer | exit do agent (mata bg processes incluso) |
+
+Detalhe formal em [`ORCHESTRATION.md`](./ORCHESTRATION.md) §7.5.
 
 ### 5.4 Slash command picker
 

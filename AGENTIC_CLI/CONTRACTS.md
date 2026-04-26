@@ -76,7 +76,18 @@ Direção: A → B (A invoca tool)
   - `write_file`/`edit_file`: declara `writes: true` em metadata → harness cria checkpoint **antes**
   - `bash`: declara `writes: true` (pessimista) salvo `bash:read_only` flag
   - `web_fetch`: network access; respeita `deny_hosts`
-- Erros são **estruturados**: `{ error: { code, message, retryable: bool, hint?: string } }`, não exception bare
+- Erros são **estruturados** seguindo schema canônico (não exception bare):
+  ```ts
+  interface ToolError {
+    is_error: true                     // discriminator
+    error_code: string                 // e.g., "tool.timeout", "tool.exception", "tool.schema_violation"
+    error_message: string              // human-readable
+    retryable: boolean                 // modelo pode tentar de novo?
+    hint?: string                      // sugestão pro modelo
+    details?: object                   // debug info estruturado, opcional
+  }
+  ```
+  Tool result com `is_error: true` vai pro contexto do modelo no formato esperado pelo provider; modelo decide próxima ação. Erro de tool **nunca é exception** propagada pro harness.
 - **Não escreve em SQLite** diretamente — só via output que harness persiste
 
 ### Failure semantics:

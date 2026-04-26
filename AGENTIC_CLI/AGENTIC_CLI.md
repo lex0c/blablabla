@@ -32,6 +32,7 @@ Este documento (`AGENTIC_CLI.md`) é a spec arquitetural de alto nível. Detalhe
 | [`MEMORY.md`](./MEMORY.md) | Subsistema de memória cross-session (4 tipos, escopo, anti-injection) | Ao implementar memory tools, ou avaliar segurança |
 | [`CONTRACTS.md`](./CONTRACTS.md) | Contratos formais entre camadas (Tool↔Harness, Hook↔Harness, Provider↔Context, etc) | Ao implementar qualquer subsistema novo, ou debugar integração |
 | [`STATE_MACHINE.md`](./STATE_MACHINE.md) | Máquinas de estado formais (sessão, step, tool, DAG, subagent) + crash recovery | Ao implementar harness, ou debugar resume após crash |
+| [`ORCHESTRATION.md`](./ORCHESTRATION.md) | Coordenação de timing: master loop, DAG, subagent semantics, compaction, hooks, critique placement, cancellation, budget cascading, hybrid routing | Ao implementar qualquer coordenação entre subsistemas; pra resolver "quando X roda relativo a Y" |
 | [`FAILURE_MODES.md`](./FAILURE_MODES.md) | Catálogo de falhas com playbook de recovery, audit, mensagens-template | Ao implementar tratamento de erro, ou triagem de incidente |
 | [`SECURITY_GUIDELINE.md`](./SECURITY_GUIDELINE.md) | Threat model STRIDE, trust boundaries, attack vectors, defense layers, secret handling, supply chain, signing, disclosure process | Antes de implementar qualquer feature com side effect; ao revisar PR de segurança; pré-release |
 | [`PROVIDERS.md`](./PROVIDERS.md) | Catálogo de providers, capabilities matrix, quirks documentados, recomendações por workflow, eval multi-model strategy | Ao adicionar provider novo, ou ao escolher provider pra workflow específico |
@@ -315,10 +316,11 @@ interface Step {
 }
 
 interface RunBudget {
-  maxSteps: number         // default 50
-  maxCostUsd: number       // default 5
-  maxWallClockMs: number   // default 600_000
-  maxToolErrors: number    // default 5 consecutivos
+  maxSteps: number              // default 50
+  maxCostUsd: number            // default 5
+  maxWallClockMs: number        // default 600_000 (10min)
+  maxToolErrors: number         // default 5 consecutivos
+  maxRepeatedToolHash: number   // default 3 (mesma tool+input em 5 steps)
 }
 ```
 
@@ -328,7 +330,29 @@ Loop com **três tipos de saída**:
 - `interrupted` — usuário cancelou (AbortSignal propaga)
 - `exhausted` — budget estourou (estado, não erro)
 
-Erros de tool **não param o loop por padrão** — viram tool result e o modelo decide. Só param em N erros consecutivos (loop degenerado).
+#### Matriz de interação dos limites
+
+Cada limite tem warning threshold (soft) e cap (hard). Hit qualquer hard cap = `exhausted`.
+
+| Limite | Soft warning | Hard cap action | Observação |
+|---|---|---|---|
+| `maxSteps` | 80% (40/50) — UI mostra `⚠ 40/50` | hit → step atual termina, sessão `exhausted` | step em andamento sempre conclui |
+| `maxCostUsd` | 80% — UI mostra `$4.00/$5.00` em amarelo; 90% em vermelho | hit → step atual recebe sinal pra finalizar; novos spawns rejeitados; eventual `exhausted` | provider call em curso conclui (cost extra contado) |
+| `maxWallClockMs` | 80% — UI mostra clock no rodapé | hit → `interrupt_signal` paralelo (ORCHESTRATION §7); cleanup; sessão `interrupted` (não `exhausted`) | distinto: time-based é interrupt, não exhausted |
+| `maxToolErrors` | 4 erros consecutivos — warning no rodapé | 5 erros consecutivos → `exhausted_errors`; sessão `error` (recoverable via resume) | reset em step bem-sucedido |
+| `maxRepeatedToolHash` | 2× hash idêntico → warning | 3× hash idêntico em 5 steps → `degenerate_loop`; sessão `error` | hash = SHA256 de `JSON.stringify(args, sortedKeys)` |
+
+#### Loop degenerado detection (detalhado)
+
+Erros de tool **não param o loop por padrão** — viram tool result e o modelo decide. Detection de **degenerate state**:
+
+1. **Erros consecutivos** (`maxToolErrors`): contador de erros em sequência (qualquer tool). Reset em primeiro sucesso. Hit cap = aborta loop com `exhausted_errors`.
+
+2. **Tool repetition hash** (`maxRepeatedToolHash`): para cada step com tool_use, computa `input_hash` = SHA256 dos args. Persistido em `tool_calls.input_hash`. Janela deslizante de 5 steps; se ≥ 3 hashes idênticos pra mesma tool, abort com `degenerate_loop`.
+
+3. **Wall-clock per step** (não default): step individual > 5min sem progresso (sem tool_use, sem stop) — abort com `step_stalled`. Configurável em `maxStepStallMs`.
+
+Action em qualquer detection: aborta loop, marca sessão `error`, mensagem clara ao user com qual detection disparou e como proceder. Resume limpa contador (próxima sessão começa fresh).
 
 Cada step é uma transação SQLite. Crash mid-step → estado consistente no resume.
 
@@ -340,9 +364,47 @@ Três modos selecionáveis por flag/slash command:
 - **`plan`** — read-only. Tools que escrevem (`write_file`, `edit_file`, `bash` com efeito) ficam **bloqueadas no nível do harness**, não na policy. Modelo explora, propõe plano. Saída do plan = texto, não diff aplicado.
 - **`acceptEdits`** — auto-aprova edits dentro de `allow_paths`. Útil em sessão longa de refactor.
 
-Transição: `/plan` entra em plan mode; ao final, harness apresenta o plano e pergunta `executar? [y/N/edit]`. Resposta `y` → reentra em `run` com o plano injetado como goal.
+Transição: `/plan` entra em plan mode; ao final, harness apresenta o plano e pergunta `executar? [a]ccept · [e]dit · [r]eject`. Resposta `a` → reentra em `run` com o plano injetado como goal estruturado.
 
 Plan mode **não é o mesmo que "planner explícito"**. Não há decomposição forçada — só uma trava de escrita. O modelo decide quanto explorar.
+
+#### Plan output schema (formal)
+
+Plan mode tem **output estruturado**, não prosa livre:
+
+```yaml
+plan:
+  goal: string                        # ecoa user prompt original
+  scope:
+    files: [string]                   # in-scope, paths concretos
+    not_in_scope: [{ area, reason }]  # explicitamente fora
+  steps:
+    - id: int
+      description: string
+      files_affected: [string]
+      semantic_preserving: bool
+      requires_test_run: bool
+      estimated_cost_usd: float        # opcional, hint do modelo
+  risks: [string]                     # o que pode dar errado
+  not_planned:
+    - { area, reason }
+  assumptions: [string]
+```
+
+Schema é **subset do `refactor` playbook** (§5 PLAYBOOKS.md) — reutiliza convenções.
+
+#### Fluxo plan → execute
+
+1. User entra em plan mode (`/plan` ou `agent --plan "..."`)
+2. Modelo explora (read-only) e produz `plan` no schema acima
+3. Harness apresenta como markdown estruturado em `<PlanReview>` UI
+4. User decide:
+   - `[a]ccept` — sai de plan mode; reentra em `run` com plan injetado como goal estruturado; harness executa **etapa por etapa** (cada step do plan vira sub-goal), com checkpoint entre etapas
+   - `[e]dit` — abre `$EDITOR` no plan YAML; user modifica; volta pra escolha
+   - `[r]eject` — descarta plan; sessão volta a `idle`
+5. Em modo `run` pós-accept: harness usa **mesma mecânica do refactor playbook** (etapas com test-gate)
+
+UI: novo componente `<PlanReview>` (extensão de `<DiffView>` com schema YAML).
 
 ### 5.2 Execution Profiles
 
@@ -1279,6 +1341,9 @@ Componentes:
 - `<MemoryBadge>` — indicador discreto no rodapé: `mem: 12u 4p` (12 user, 4 project carregadas)
 - `<SessionPicker>` — listagem virtualizada de sessões com mini-recap expansível inline, filtro fuzzy por `/`, navegação `↑↓`, atalho `r` pra expandir mini-recap; renderizado em `agent --resume` sem args ou via `/sessions list`
 - `<CritiqueOverlay>` — modal opt-in (config `critique.mode`) que mostra warnings do self-critique pass antes de proceder; lista issues por severidade + confidence; atalhos `[i]gnore [r]edo [a]bort [w]hy?`
+- `<PlanReview>` — modal renderizado ao sair de plan mode; mostra plan YAML estruturado + risks + assumptions; atalhos `[a]ccept [e]dit [r]eject`
+- `<LoopStatusLine>` — rodapé granular durante step ativo: `[step 7/50 · 2m31s · validating output · compaction in 3 steps]`; substitui rodapé default quando loop em estado não-trivial
+- `<ThinkingIndicator>` — indicador discreto durante eventos `thinking_delta` (extended thinking): `🧠 thinking... (12s)`; some quando output começa
 - `<Interrupt>` — Ctrl+C com confirmação dupla se tool em execução
 
 Sem TUI "modal" complicado. Linha simples > Vim mode mal feito.

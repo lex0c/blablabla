@@ -244,31 +244,89 @@ Estado transiente — usuário cancelou e agente está em cleanup (matando subpr
 Cada step (uma iteração do loop) tem máquina própria.
 
 ```
-[pending] → [generating] → [tool_use_proposed] → [tool_executed] → [observing] → [done*]
-                                  ↓                      ↓
-                              [denied]              [tool_failed]
-                                  ↓                      ↓
-                              [done*]              [observing] (retry)
+              [pending]
+                  ↓ provider_request_started
+              [generating]
+                  ↓ stop_reason
+        ┌─────────┴──────────┐
+        ↓                    ↓
+   [tool_use_proposed]   [no_tool_use]
+        ↓ permission           ↓ critique_optional
+   ┌────┴────┐             [persist]
+   ↓         ↓                 ↓
+[denied]  [allowed]          [done*]
+   ↓         ↓
+[done*]   [executing]
+            ↓ tool_complete
+        [observing]
+            ↓ post_tool_hook (fire-and-forget)
+        [done*]
 ```
 
-### Estados
+### 3.1 Estados (referência canônica)
 
-| Estado | Persistência | Significado |
+| Estado | Persistência | Significado | Pode interromper? |
+|---|---|---|---|
+| `pending` | row em `messages` com role='assistant', sem content | step alocado, nada gerado ainda | sim (descarta row) |
+| `generating` | content acumulando via stream em buffer | modelo emitindo tokens | sim (Ctrl+C: descarta; Esc Esc: preserva visual) |
+| `tool_use_proposed` | tool_use parseado em buffer; entry em `tool_calls` ainda não persistida | aguarda permission/hook | sim |
+| `denied` | `approvals` row com decision='deny'; tool_result sintético | permission negou; modelo recebe erro estruturado | n/a (já terminal logical) |
+| `allowed` | `approvals` row com decision='allow'; checkpoint criado se `writes:true` | aguarda execute | sim (graceful) |
+| `executing` | `tool_calls.status='running'` | tool em runtime (com AbortSignal) | sim (graceful 5s + SIGKILL) |
+| `tool_complete` | `tool_calls.status='done'` | tool retornou (sucesso ou erro estruturado) | n/a (rapidíssimo) |
+| `observing` | tool result na content do step | tool_result no contexto; loop volta a generating se necessário (multi-tool) | sim |
+| `no_tool_use` | output completo sem tool_use; aguarda critique opt-in | step quase terminal | sim |
+| `critique_running` | critique LLM call ativa (opt-in `critique.mode`) | critic revisando output | sim (cancel critique; persist sem revisão) |
+| `persist` | output buffer indo pra `messages` | commit de transação SQLite | não (atomic; ≤ms) |
+| `done` * | step completo; row em `messages` final | terminal | n/a |
+
+### 3.2 Transições nomeadas
+
+| Trigger | De → Para | Quem dispara |
 |---|---|---|
-| `pending` | row em `messages` com role='assistant', sem content | step alocado, nada gerado ainda |
-| `generating` | content acumulando via stream | modelo emitindo tokens |
-| `tool_use_proposed` | tool_use no content; entry em `tool_calls` com status='pending' | tool_use parseado, awaiting permission |
-| `denied` | `approvals` row com decision='deny' | permission negou; tool result = error |
-| `tool_executed` | `tool_calls.status='done'` ou `error` | tool retornou resultado |
-| `observing` | tool result anexado ao próximo `messages` row | aguardando próxima geração |
-| `done` | step completo, contribuiu para sessão | terminal |
+| `provider_request_started` | pending → generating | Provider Layer |
+| `stop_reason` (= 'tool_use') | generating → tool_use_proposed | Stream parser |
+| `stop_reason` (= 'end_turn') | generating → no_tool_use | Stream parser |
+| `permission_allow` | tool_use_proposed → allowed | Permission Engine |
+| `permission_deny` | tool_use_proposed → denied | Permission Engine |
+| `pre_tool_hook_block` | tool_use_proposed → denied | Hooks Dispatcher |
+| `tool_invoke` | allowed → executing | Tool Registry |
+| `tool_complete` | executing → tool_complete | Tool runtime |
+| `tool_observed` | tool_complete → observing | Harness |
+| `post_tool_hook` | observing → done (fire-and-forget) | Harness |
+| `multi_tool_continue` | observing → tool_use_proposed (next tool in same step) | Harness |
+| `critique_start` | no_tool_use → critique_running (se opt-in) | Harness |
+| `critique_complete` | critique_running → persist (se OK) ou re-generating (se redo) | Critic |
+| `commit` | persist → done | SQLite |
+| `interrupt` | qualquer → step_interrupted | Ctrl+C / Esc Esc |
+| `error_persistent` | qualquer → step_error | Failure handler |
 
-### Invariantes globais
+### 3.3 Multi-tool-use loop interno
 
-1. Cada step tem **exatamente um** assistant message
+Step pode ter **múltiplos** tool_use blocks. Comportamento:
+
+```
+generating (1ª stop_reason='tool_use')
+  → tool_use_proposed (tool A)
+  → allowed → executing → observing
+  → tool_use_proposed (tool B)              ← se ainda há tool_use blocks
+  → allowed → executing → observing
+  → ...
+  → done (após último tool_result observado)
+```
+
+Sequencial por default; paralelo opt-in via `parallel_safe: true` em tool definition (ver `ORCHESTRATION.md` §1.3).
+
+**Invariante:** todos os tool_use+tool_result do step ficam na **mesma transação SQLite**. Crash mid-multi-tool: rollback do step inteiro; resume re-gera.
+
+### 3.4 Invariantes globais
+
+1. Cada step tem **exatamente um** assistant message persistido (em `done`)
 2. Toda tool_use tem **exatamente uma** tool_result correspondente (mesmo se erro)
 3. `tokens_in/tokens_out` são finalizados em `done`
-4. Custo é finalizado em `done`
+4. Custo é finalizado em `done`; thinking + critique cost em spans separados
+5. Step em `executing` que crasha vira `tool_call.status='error'` no resume com `details: 'interrupted by crash'`
+6. Multi-tool em mesmo step: ordem em `tool_calls` table = ordem em `messages.content`
 
 ---
 
