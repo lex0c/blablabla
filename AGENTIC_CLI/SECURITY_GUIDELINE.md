@@ -391,6 +391,8 @@ Nada mais sai do agente sem user override.
 
 ## 10. Audit & forensics
 
+> **Autoridade detalhada:** [`AUDIT.md`](./AUDIT.md) — schema canônico, timeline unificada, hash chain, forensics bundle format, query CLI, GDPR hooks. Esta seção é overview.
+
 ### 10.1 O que é gravado
 
 ```sql

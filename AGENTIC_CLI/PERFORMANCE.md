@@ -308,9 +308,329 @@ Antes de enviar request, hard cap em `context_window - 2000` (reserva pra output
 
 Em DAG executor: nodes sem dependência entre si **rodam em paralelo** (até `max_concurrent_llm_calls=5`).
 
+### 11.4 Provider-specific deep dive
+
+Cada provider tem otimizações específicas além de §11.1-3.
+
+#### Anthropic
+
+- **Cache breakpoints declarados** — sempre 3 (system + tools + project_ctx); hit ≥ 3 turns
+- **Extended cache**: usar `extended_cache: true` em sessões com gaps > 5min entre turns (TTL 1h; preço diferente, vale se sessão > 30min)
+- **Reasoning tokens** (extended thinking): não persistem em messages; cobrados separados em `reasoning.cost_usd`
+- **Tool_use streaming parser**: incremental — `content_block_start (tool_use)` → N× `input_json_delta` → `content_block_stop`; harness reconstrói args antes de invoke
+- **529 (overloaded)**: backoff agressivo; não tratar como 5xx tradicional
+
+#### OpenAI
+
+- **Prefix-cache automático**: layout estável early no prompt maximiza hit (não controlable, é probabilístico)
+- **Structured outputs**: ~100-200ms overhead; usar quando schema é crítico, evitar quando opcional
+- **Reasoning models (o1/o3)**: reasoning tokens ocultos mas cobrados; UI mostra `🧠 reasoning... (Xs)`
+- **Function calling fragmented stream**: reconstruir tool_calls a partir de deltas antes de validate
+- **Tier rate limit**: tier 1 vs tier 5 muda 100×; backoff agressivo em tier baixo
+
+#### Ollama
+
+- **`keep_alive` parameter**: default 5min; em sessão ativa, considerar `keep_alive: -1` (modelo persiste em GPU/RAM)
+- **Context shift**: modelos com window pequeno fazem shift automático perdendo contexto inicial — compaction agressivo (50% trigger)
+- **JSON mode retry**: validate + ≤ 2 retries com hint específico em malformed
+- **Prompts model-specific**: detection via model name prefix (llama-3 ≠ qwen ≠ deepseek-coder)
+
+#### llama.cpp
+
+- **GBNF compilation cache**: compilar grammar uma vez por session, cachear em RAM
+- **Batch size**: tunable; default 512 mas hardware-dependent (Q4 vs Q8 muda)
+- **Quantization sweet spot**: Q4_K_M para qualidade aceitável + speed; FP16 quando precisão importa
+- **`mlock`**: pin model em RAM evita swap em low-RAM systems
+
 ---
 
-## 12. UI responsiveness
+## 12. SQLite tuning
+
+PRAGMAs canônicas aplicadas em boot da conexão.
+
+### 12.1 PRAGMAs canônicas
+
+```toml
+# config aplicado pelo agent em SessionStart
+[storage.sqlite.pragmas]
+journal_mode = "WAL"             # Write-Ahead Log; concurrency reads
+synchronous = "FULL"             # prod (FULL); dev/CI (NORMAL — 10× faster, risk em power loss)
+busy_timeout = 5000              # 5s wait em lock contention (multi-instance)
+cache_size = -65536              # negativo = kB; -65536 = 64MB cache
+mmap_size = 268435456            # 256MB mmap pra reads
+temp_store = "MEMORY"            # temp tables em RAM
+foreign_keys = "ON"              # integridade referencial
+auto_vacuum = "INCREMENTAL"      # libera espaço pós-DELETE sem full vacuum
+page_size = 4096                 # default; 8192 em datasets > 1GB
+```
+
+### 12.2 Modes (por contexto)
+
+| Mode | synchronous | auto_vacuum | cache_size | Quando usar |
+|---|---|---|---|---|
+| `prod` (default interactive) | FULL | INCREMENTAL | 64MB | dev local, prod |
+| `dev` | NORMAL | INCREMENTAL | 32MB | speedup em testes; risk power loss |
+| `ci` | NORMAL | NONE | 16MB | espaço volta após retention global |
+| `forensics` (read-only) | n/a (read) | n/a | 256MB | inspeção de bundle grande |
+
+Override via `~/.config/agent/config.toml [storage.sqlite] mode = "dev"`.
+
+### 12.3 VACUUM strategy
+
+- `auto_vacuum = INCREMENTAL` roda automatic ao deletar
+- Manual: `agent audit vacuum` (recomendado semanal em sessões grandes)
+- Custo: pode levar minutos em DB > 1GB; CI agenda noturno
+- WAL checkpoint: automatic; manual `PRAGMA wal_checkpoint(TRUNCATE)` em retention cleanup grande
+
+### 12.4 Indexes
+
+Já listados em `AUDIT.md §10.1`. Verificação periódica via `EXPLAIN QUERY PLAN` em queries de hot path em CI.
+
+---
+
+## 13. Caching strategy consolidada
+
+Múltiplas camadas com TTL + invalidation + hit rate target explícitos.
+
+| Cache | Layer | TTL | Hit rate target | Invalidation |
+|---|---|---|---|---|
+| Prompt cache (Anthropic) | provider server-side | 5min (extended: 1h) | > 70% em sessão > 3 turns | layout change; gap > TTL |
+| Prefix cache (OpenAI) | provider server-side | opaco (probabilístico) | varies | indeterminate; layout estável ajuda |
+| `recap_cache` table | local SQLite | 1h | > 80% em re-listings | sessão `ended_at` change; manual `/recap regenerate` |
+| Memory index | RAM (per process) | enquanto sessão ativa | 100% | `memory_event` action ∈ {create,edit,delete} |
+| File content cache | RAM (per session) | enquanto sessão ativa | > 60% em refactor | `write_file`/`edit_file` em path; FS mtime change |
+| Schema validators | RAM (per process) | enquanto processo vivo | 100% | reload em config change |
+| GBNF grammars (llama.cpp) | RAM (per process) | enquanto processo vivo | 100% | nunca (recompila apenas em version bump) |
+| Repo map | SQLite + RAM | até FS change | > 90% | `PostToolUse` em write tools dispara incremental update |
+| DNS resolution | OS-level | TTL do registro | varies | TTL expire |
+| HTTP keepalive | per-provider connection pool | 60s idle | depends on traffic | connection close ou recycle |
+
+### 13.1 Invalidation rules formalizadas
+
+Sem TTL implícito. Cada cache documenta:
+- **Quando invalida** (event-based ou time-based)
+- **Granularidade** (per file, per session, global)
+- **Cost de miss** (em ms ou $)
+
+### 13.2 Cache observability
+
+`agent stats --cache`:
+
+```
+Cache             Hit rate   Size      Misses (last 1h)
+prompt (anthropic)   78%       n/a       12
+recap_cache          82%       4.2 MB    8
+memory_index        100%       12 KB     0
+file_content         63%       18 MB     45
+repo_map             94%       2.1 MB    3
+```
+
+Hit rate < target sustained = warning em `agent doctor`.
+
+---
+
+## 14. Network optimizations
+
+```toml
+[network]
+http_keepalive = true                    # reaproveita TCP entre requests
+keepalive_idle_ms = 60000                # 60s default; SSH high-latency: 300000 (5min)
+connection_pool_size = 10                # por provider
+connection_pool_recycle_ms = 600000      # 10min; previne connection rot
+compression = "gzip"                     # request body > 1KB
+dns_cache_ttl_ms = 300000                # 5min override de OS
+streaming_chunk_size_bytes = 4096
+provider_request_timeout_ms = 60000      # default 60s; configurável
+```
+
+### 14.1 Por provider
+
+| Provider | Keepalive | Compression | Notes |
+|---|---|---|---|
+| Anthropic | crítico (sessão longa = N reqs ao mesmo host) | sim em prompts grandes | TLS handshake é caro; reuse essencial |
+| OpenAI | sim | sim | tier 1 tem rate limit baixo; pool > 3 quase nunca usado |
+| Ollama (localhost) | irrelevante (loopback) | desnecessário | keep_alive do model importa mais |
+| llama.cpp HTTP server | sim | opcional | localhost típico |
+| MCP servers (stdio) | n/a | n/a | comunicação via pipe |
+
+### 14.2 Em SSH com alta latência
+
+```toml
+[network.ssh_high_latency]
+keepalive_idle_ms = 300000               # 5min
+connection_pool_size = 5                 # menos é melhor (cada socket caro)
+streaming_chunk_size_bytes = 16384       # chunks maiores reduzem round-trips
+```
+
+Detection: heuristic via medir RTT do primeiro request; se > 200ms → aplica preset.
+
+---
+
+## 15. Memory optimization techniques
+
+Pra cumprir RSS hard cap (600MB em sessão longa de 100+ turns).
+
+### 15.1 Técnicas
+
+1. **Stream parser sem buffer completo** — consome `text_delta` chunk-by-chunk; descarta após persist
+2. **Tool result truncation antes de buffer** — output > 100KB salvo em arquivo + pointer; só pointer vai pro contexto
+3. **Object pool pra Step/Message** — reuso após persist; reduz GC pressure
+4. **Compaction agressivo em RSS warning** — se RSS > 80% do hard cap, força compaction antes do trigger normal de tokens
+5. **Bun `--smol` flag** em subagents (less memory mode)
+6. **Lazy require** de tool implementations (carrega em first invoke)
+7. **Repo map compression** — symbols deduplicados, paths shared via interning
+
+### 15.2 Memory leak detection
+
+```
+bench/perf/leak/
+  long_session_1000_turns.test.ts        # roda 1000 turns sintéticos; RSS deve estabilizar < 400MB
+  parallel_subagents_stress.test.ts      # 8 subagents em rotação; RSS < 800MB total
+```
+
+CI roda noturno; regressão de + 50MB em RSS pico = bloqueia merge.
+
+### 15.3 Heap snapshot em diagnostics
+
+`agent doctor --heap-snapshot=/tmp/heap.heapsnapshot`:
+- Gera snapshot Bun/V8
+- Inspecionável em Chrome DevTools
+- Útil em sessão com RSS anormal pra debug
+
+---
+
+## 16. Lazy loading rules
+
+**Default: lazy.** Carrega apenas em first use.
+
+### 16.1 Eager (sempre carregado)
+
+| O quê | Por quê |
+|---|---|
+| Memory index (`MEMORY.md` + frontmatters) | Modelo precisa ver pra decidir relevance; ~2k tokens, cheap |
+| `CLAUDE.md` (project context) | Modelo precisa pra orientar comportamento |
+| Tool schemas | Modelo precisa pra decidir invocação |
+| Permission policy | Cada tool call consulta |
+| System prompt | Sempre |
+| Hooks declarações | Listadas eager (comandos executam lazy) |
+
+### 16.2 Lazy (load em first use)
+
+| O quê | Trigger |
+|---|---|
+| Memory content (body do `.md`) | `memory_read` tool invoke |
+| Tool implementations | first invoke do tool |
+| Playbook prompts | first slash command ou `task(playbook=...)` |
+| Subagent definitions | first `task_async`/`task_sync` |
+| Compaction prompt | first compaction trigger |
+| Critique prompt | first critique pass (se opt-in) |
+| Repo map | first `repo_map` tool ou first `grep`/`glob` em sessão `orchestrated` |
+| Slash command custom (`.md` file) | first invocação |
+
+### 16.3 Pré-warming opt-in
+
+Hook `SessionStart` pode pré-carregar artefatos:
+
+```toml
+[[hooks]]
+event = "SessionStart"
+command = "agent prewarm --tools edit_file,grep --playbooks code-review"
+```
+
+Útil em workflows que sempre usam mesmas tools (cold start ~0).
+
+---
+
+## 17. Workload-specific tuning
+
+Diferentes workloads têm perfis distintos. Tunings recomendados:
+
+### 17.1 Tabela
+
+| Workload | Tunings |
+|---|---|
+| **Read-heavy** (review, audit, explain) | tool palette restrita; SQLite `cache_size = -32768`; sem checkpoints; compaction trigger 80% |
+| **Write-heavy** (refactor, fix-bug) | checkpoint reflink onde possível; FS cache aggressive (`mmap_size` 512MB); compaction trigger 60%; `auto_vacuum INCREMENTAL` |
+| **Long-context** (sessão > 30 turns) | compaction trigger 50%; goal re-injection a cada 10 steps; max_steps 100; trace sampling 50% |
+| **CI / batch** | `audit.mode=minimal`; trace sampling 10%; storage budget 50GB; sessions retention 7d; sandbox obrigatório |
+| **Local-first orchestrated** | `keep_alive=-1` (modelo pinned em GPU); memory index pré-warmed; tool palette mínima por DAG node; per-node max_retries 1 |
+| **Hybrid** | planner cache muito quente (extended TTL); aggressive prompt caching no frontier; rotation pra fallback frequente |
+
+### 17.2 Aplicação via flag
+
+```bash
+agent --workload read-heavy "..."
+agent --workload long-context --resume <id>
+agent --workload ci --json "..."
+```
+
+Aplica preset; user pode override individual setting via flag adicional.
+
+---
+
+## 18. Distribution optimizations
+
+### 18.1 Build
+
+```toml
+[build]
+runtime = "bun"                          # bun build --compile
+tree_shaking = true
+minify = true                            # em release
+sourcemap = "external"                   # .map separado
+target = "bun"                           # AOT pra cada plataforma
+```
+
+### 18.2 Binary size targets
+
+| Plataforma | Target |
+|---|---|
+| Linux x86_64 (glibc) | < 50 MB |
+| Linux x86_64 (musl) | < 50 MB |
+| Linux ARM64 | < 50 MB |
+| macOS x86_64 | < 50 MB |
+| macOS ARM64 | < 45 MB |
+| Windows x86_64 | < 60 MB |
+
+Hit do target = warning; +20% = bloqueia release.
+
+### 18.3 Compression opcional
+
+```bash
+agent build --compress              # UPX-compressed; -40% size, +30ms startup
+agent build                         # default; perf > size
+```
+
+Default release: descompactado.
+
+### 18.4 Native deps
+
+Não bundlados (disponíveis via PATH):
+- `bwrap` (sandbox Linux)
+- `ripgrep` (rg)
+- `git`
+- `tree-sitter` (compilado uma vez)
+
+`agent doctor` checa disponibilidade.
+
+### 18.5 Cross-platform CI
+
+```yaml
+# .github/workflows/build.yaml
+strategy:
+  matrix:
+    target: [linux-x64, linux-arm64, darwin-x64, darwin-arm64, windows-x64]
+```
+
+Cada release:
+- SBOM por target
+- SHA256 publicado
+- Cosign signature
+- Reproducible build (mesmo source = mesmo binary)
+
+---
+
+## 19. UI responsiveness
 
 ### 12.1 Frame budget
 
@@ -326,7 +646,7 @@ Stream de modelo + input concorrente: input lag não pode degradar (input loop s
 
 ---
 
-## 13. Cost-per-task como métrica primária
+## 20. Cost-per-task como métrica primária
 
 Em CI, eval registra `$/task` por suite:
 
@@ -342,7 +662,7 @@ Aumento > 15% em qualquer suite: **PR bloqueado** mesmo com testes passando. Cos
 
 ---
 
-## 14. O que não medimos (intencionalmente)
+## 21. O que não medimos (intencionalmente)
 
 - LLM "qualidade" via métricas auto — qualidade é avaliada por eval funcional, não por metric proxy
 - Tempo do humano em modal de confirmação — fora de escopo
@@ -351,7 +671,7 @@ Aumento > 15% em qualquer suite: **PR bloqueado** mesmo com testes passando. Cos
 
 ---
 
-## 15. Hardware mínimo declarado
+## 22. Hardware mínimo declarado
 
 Pra cumprir SLOs:
 
@@ -366,7 +686,7 @@ Abaixo do mínimo: agente avisa em SessionStart; SLOs não garantidos.
 
 ---
 
-## 16. Como mudar um SLO
+## 23. Como mudar um SLO
 
 Mudança em SLO é breaking change de contrato com usuário. Procedimento:
 
@@ -379,7 +699,7 @@ Reduzir SLO (ficar mais rápido) é livre. Aumentar (degradar) requer aprovaçã
 
 ---
 
-## 17. Insight final
+## 24. Insight final
 
 Performance não é otimização — é **decisão de design**. Cada subsistema tem orçamento porque o orçamento total é fixo, e o orçamento total vem do tempo de atenção do humano.
 
