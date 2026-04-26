@@ -42,6 +42,8 @@ Análise sistemática por categoria, com mitigação primária.
 |---|---|
 | Tool retorna output adulterado pra prompt-injetar modelo | Output sanitization; ANSI strip; injection heurística com flag visível |
 | Memória adulterada entre sessões | `memory_events` audit log; hash do source da inferência; `trust: untrusted` flag |
+| **PR malicioso adiciona memória shared** que prompt-injeta agentes futuros | **PR review humano** (gate primário); scanner adicional em `/memory promote shared` (path traversal, secrets, injection patterns); trust prompt re-fires em mudança de hash de `.agent/memory/shared/` |
+| **PR malicioso adiciona playbook/orchestrator/hook shared** | Mesma defesa: PR review + hash check de `.agent/playbooks/`, `.agent/orchestrators/`, `.agent/hooks.toml` em trust prompt agregado |
 | Permission policy adulterada | Hierarquia enterprise → user → project com `locked`; load-fail closed |
 | SQLite corruption por adversário com FS access | `PRAGMA integrity_check` em SessionStart; sessão refusa resume se corrompido |
 | Hook script trocado entre sessões | Hash do script gravado; warning se mudou; re-trust opcional |
@@ -96,25 +98,29 @@ Mapa explícito.
 ### 2.1 Níveis de confiança
 
 ```
-[Enterprise config]    ← maior confiança (locked rules)
+[Enterprise config]              ← maior confiança (locked rules)
         ↓
-[User config]          ← confiável (override permitido salvo locked)
+[User config]                    ← confiável (override permitido salvo locked)
         ↓
-[Project config]       ← confiável após trust prompt
+[Project config (.agent/, committed)]  ← confiável após trust prompt + hash check agregado
         ↓
-[Session flags]        ← confiável (user explícito)
+[Session flags]                  ← confiável (user explícito)
         ↓
-[CLAUDE.md / .agent/]  ← NÃO-confiável até trust prompt + hash check
+[CLAUDE.md]                      ← NÃO-confiável até trust prompt
         ↓
-[Tool output]          ← NÃO-confiável; sanitize + injection scan
+[.agent/memory/shared/ (committed)]  ← NÃO-confiável até trust prompt; PR review é gate; scanner em promoção
         ↓
-[MCP server response]  ← NÃO-confiável; hash check + sanitize
+[.agent/memory/local/ (per-user)] ← confiável (escrito pelo próprio user, com confirmation prompts)
         ↓
-[Web fetch result]     ← NÃO-confiável; sanitize; deny_hosts
+[Tool output]                    ← NÃO-confiável; sanitize + injection scan
         ↓
-[Memory body (inferred)] ← suspeito; require user confirmation
+[MCP server response]            ← NÃO-confiável; hash check + sanitize
         ↓
-[Memory body (untrusted dir)] ← marcado; não carrega no contexto base
+[Web fetch result]               ← NÃO-confiável; sanitize; deny_hosts
+        ↓
+[Memory body (inferred)]         ← suspeito; require user confirmation
+        ↓
+[Memory body (untrusted dir)]    ← marcado; não carrega no contexto base
 ```
 
 ### 2.2 Direção de confiança (não simétrica)

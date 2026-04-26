@@ -34,6 +34,7 @@ Este documento (`AGENTIC_CLI.md`) é a spec arquitetural de alto nível. Detalhe
 | [`STATE_MACHINE.md`](./STATE_MACHINE.md) | Máquinas de estado formais (sessão, step, tool, DAG, subagent) + crash recovery | Ao implementar harness, ou debugar resume após crash |
 | [`FAILURE_MODES.md`](./FAILURE_MODES.md) | Catálogo de falhas com playbook de recovery, audit, mensagens-template | Ao implementar tratamento de erro, ou triagem de incidente |
 | [`SECURITY_GUIDELINE.md`](./SECURITY_GUIDELINE.md) | Threat model STRIDE, trust boundaries, attack vectors, defense layers, secret handling, supply chain, signing, disclosure process | Antes de implementar qualquer feature com side effect; ao revisar PR de segurança; pré-release |
+| [`PROVIDERS.md`](./PROVIDERS.md) | Catálogo de providers, capabilities matrix, quirks documentados, recomendações por workflow, eval multi-model strategy | Ao adicionar provider novo, ou ao escolher provider pra workflow específico |
 | [`PERFORMANCE.md`](./PERFORMANCE.md) | SLOs, budgets de latência, custo por tarefa, regression strategy | Ao otimizar hot path, ou definir threshold de regressão em CI |
 | [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) | Foundations visuais — color tokens semânticos, glyph catalog (Unicode + ASCII fallback), typography, spacing, motion, capability matrix, a11y, naming conventions | Antes de qualquer componente novo. UI.md consome este doc. |
 | [`UI.md`](./UI.md) | Componentes Ink, layout, microcopy, headless contract, padrões de interação | Ao implementar qualquer componente UI, ou definir microcopy de erro |
@@ -64,6 +65,8 @@ Spec arquitetural sem esses docs é descrição de uma implementação. **Com** 
 11. **Confiança explícita, nunca implícita.** Diretório novo = pergunta. `CLAUDE.md` é input não-confiável até prova em contrário.
 12. **Sem cargo cult.** Sem vector DB no v1. Sem multi-model router *por task*. Adicionar quando dor existir, não quando blog post existir.
     *Asterisco honesto:* "sem planner explícito" vale para profile `autonomous` (frontier orquestra). Para profile `orchestrated` (modelo local), planner DAG-based **é necessário** — modelo pequeno não decompõe sozinho de forma confiável. A regra geral vira: *sem cargo cult, mas com escolhas conscientes por capability do modelo.*
+
+13. **Provider-pluggable, não provider-parity.** Adapters de provider são intercambiáveis no nível da API; qualidade, custo, e features são heterogêneos e ficam **declarados**, não escondidos. Sem vendor primary hardcoded; defaults vêm da config do usuário. Recomendações por workflow vêm de eval empírico, não de marketing. Pretender paridade entrega lowest-common-denominator; declarar heterogeneidade entrega decisão informada. Detalhe em [`PROVIDERS.md`](./PROVIDERS.md).
 
 ---
 
@@ -147,13 +150,15 @@ Zero pressuposto de mouse. Todo fluxo navegável por teclado:
 /recap day         # cross-session no dia (mesmo projeto)
 /recap json        # intermediate cru, sem LLM
 /recap pre-compact # mostra o que vai ser compactado antes
-/memory list       # lista memórias do índice
-/memory show       # imprime conteúdo de uma memória
-/memory edit       # abre $EDITOR
-/memory delete     # remove memória (com confirmação)
-/memory save       # propõe salvar baseado em sessão atual
-/memory promote    # project → user (com confirmação dupla)
-/memory audit      # tabela memory_events da sessão
+/memory list              # lista memórias do índice (scope: user|project|local|shared)
+/memory show              # imprime conteúdo de uma memória
+/memory edit              # abre $EDITOR
+/memory delete            # remove memória (com confirmação)
+/memory save              # propõe salvar baseado em sessão atual (default: local)
+/memory promote shared    # project local → project shared (cria mudança git, sem auto-commit)
+/memory demote local      # project shared → project local
+/memory promote user      # project → user global (com confirmação dupla)
+/memory audit             # tabela memory_events da sessão
 ```
 
 Slash commands são **dados**: arquivos `.md` em `~/.config/agent/commands/`. Frontmatter declara nome/desc, corpo é o prompt. Usuário cria os seus.
@@ -173,27 +178,46 @@ Slash commands são **dados**: arquivos `.md` em `~/.config/agent/commands/`. Fr
 Tudo em arquivo. Nada de GUI de config.
 
 ```
-~/.config/agent/
-  config.toml           # global
-  permissions.yaml      # política de tools
-  hooks.toml            # eventos → comandos
-  commands/             # slash commands custom
-  agents/               # subagent definitions
-  playbooks/            # playbooks especializados (review, audit, debug)
-  orchestrators/        # DAGs de profile orchestrated
-  memory/               # USER scope memory (markdown + MEMORY.md index)
-  trusted_dirs          # workspaces confiados
-~/.local/share/agent/
-  sessions.db           # SQLite
-  traces/               # NDJSON por sessão
-  checkpoints/          # snapshots fora-do-git (fallback)
-./.agent/
-  config.toml           # override por projeto
-  memory/               # PROJECT scope memory
-  CLAUDE.md             # contexto do projeto (não-confiável!)
+~/.config/agent/                 # PER-USER (global)
+  config.toml                    # config global
+  permissions.yaml               # policy global
+  hooks.toml                     # hooks global
+  commands/                      # slash commands custom
+  agents/                        # subagent definitions
+  playbooks/                     # playbooks especializados
+  orchestrators/                 # DAGs
+  memory/                        # USER scope memory
+  trusted_dirs                   # workspaces confiados
+
+~/.local/share/agent/            # PER-USER state (gitignored se aplicável)
+  sessions.db                    # SQLite
+  traces/                        # NDJSON por sessão
+  checkpoints/                   # snapshots fora-do-git (fallback)
+
+./.agent/                        # PROJECT-LEVEL (parcialmente versionado)
+  config.toml                    # ✓ committed (config team-wide)
+  permissions.yaml               # ✓ committed (policy team)
+  hooks.toml                     # ✓ committed (hooks team; opt-in)
+  playbooks/                     # ✓ committed (workflows do projeto)
+  agents/                        # ✓ committed (subagents do projeto)
+  commands/                      # ✓ committed (slash commands custom)
+  orchestrators/                 # ✓ committed (DAGs)
+  memory/
+    shared/                      # ✓ committed (team-wide memory; PR-reviewed)
+    local/                       # ✗ gitignored (per-user no projeto)
+  sessions.db                    # ✗ gitignored (PII, grande)
+  traces/                        # ✗ gitignored
+  checkpoints/                   # ✗ gitignored (refs locais)
+  .gitignore                     # auto-gerado pela primeira vez
+
+./CLAUDE.md                      # ✓ committed (contexto do projeto, não-confiável!)
 ```
 
 XDG Base Dir respeitado. Override por env var (`AGENT_CONFIG_DIR`).
+
+**Team-shared vs per-user:** tudo em `~/.config/agent/` é per-user (per developer). Tudo em `.agent/` é projeto-level: parte versionada (config team-wide, playbooks, memory shared), parte gitignored (sessions.db, traces, memory local). Outro colaborador clona o repo, abre o agente, e **imediatamente** tem acesso ao knowledge curado do time (memory shared + playbooks + permissions). Inferred memories ficam locais; promoção pra shared é ato explícito do user que cria mudança em `git status` — sem auto-commit. Detalhe em [`MEMORY.md`](./MEMORY.md) §2.2 e §5.4.
+
+`.agent/.gitignore` é gerado automaticamente na primeira invocação se ausente. Conteúdo seguro por default; user pode editar livremente.
 
 ---
 
@@ -205,7 +229,7 @@ XDG Base Dir respeitado. Override por env var (`AGENT_CONFIG_DIR`).
 | Runtime | **Bun** | Single-binary compile, fast startup, fetch nativo, SQLite embutido |
 | Storage | **SQLite (`bun:sqlite`)** | Zero-setup, transacional, suficiente até 100M linhas |
 | TUI | **Ink** (React no terminal) | Streaming + componentização real; readline puro envelhece mal |
-| Provider | **Anthropic SDK** primary | Melhor suporte a tools, cache, streaming |
+| Provider | **Pluggable adapters** | Cada provider em módulo isolado conforme `Provider` interface. v1 inclui: Anthropic, OpenAI, Ollama, llama.cpp. Ver [`PROVIDERS.md`](./PROVIDERS.md). |
 | Local backend | **Ollama** + **llama.cpp** (via HTTP) | Mais maduro pra modelos locais; GBNF grammar nativo no llama.cpp |
 | Constrained gen | **GBNF** (llama.cpp) / **JSON mode** (Ollama) / **tools** (Anthropic) | Force schema adherence em modelo pequeno |
 | Repo map | **tree-sitter** | Símbolos compactados sem grep storm; essencial em profile orchestrated |
@@ -410,7 +434,7 @@ Estratégia em camadas:
 4. **Goal re-injection** — objetivo original sempre presente literal, nunca resumido.
 5. **Hint manual** — `/compact <foco>` permite usuário dirigir o que preservar.
 
-Compaction é uma chamada LLM separada (Haiku), prompt versionado, **testada por eval**. Sem isso degrada silenciosamente.
+Compaction é uma chamada LLM separada — modelo configurado em `compaction.model`, **não vendor-locked**. Default por profile: `autonomous` usa modelo cheap-but-capable do mesmo provider (Haiku se Anthropic, gpt-4o-mini se OpenAI, etc); `orchestrated` usa o backend local; `hybrid` é declarado em config. Prompt versionado, **testada por eval**. Sem isso degrada silenciosamente.
 
 Em profile `orchestrated`, compaction usa modelo do próprio backend (não Haiku) com prompt mais agressivo e schema fixo (`goal`, `decisions`, `files_touched`, `errors`).
 
@@ -615,14 +639,26 @@ Primeira vez que o agente abre num diretório novo:
 ⚠ Diretório não-confiável detectado: /path/to/repo
 
 Este é seu primeiro acesso. O agente vai ler:
-  - CLAUDE.md
-  - .agent/config.toml
-  - permissions.yaml local
+  - CLAUDE.md                    (12 KB)
+  - .agent/config.toml           (não existe)
+  - .agent/permissions.yaml      (8 KB)
+  - .agent/playbooks/            (3 arquivos)
+  - .agent/memory/shared/        (5 entradas)
 
 Continuar? [y/N/inspecionar]
 ```
 
-Diretórios confiados ficam em `~/.config/agent/trusted_dirs` com hash do conteúdo crítico. **Re-prompt** se `CLAUDE.md` ou `.agent/config.toml` mudar — clone de repo malicioso não passa silenciosamente.
+Diretórios confiados ficam em `~/.config/agent/trusted_dirs` com **hash agregado** do conteúdo crítico:
+- `CLAUDE.md`
+- `.agent/config.toml`
+- `.agent/permissions.yaml`
+- `.agent/hooks.toml`
+- `.agent/memory/shared/**` (todos arquivos)
+- `.agent/playbooks/**`
+- `.agent/agents/**`
+- `.agent/orchestrators/**`
+
+**Re-prompt** se hash agregado mudar — clone, pull, ou modificação local em qualquer artefato versionado dispara nova confirmação. Mudança em `.agent/memory/local/` (per-user) **não** dispara re-trust.
 
 Em modo `--json` non-interactive, sem trust prompt: erro fatal se diretório não confiado, exit 3.
 
@@ -974,9 +1010,11 @@ interface ProviderCapabilities {
 }
 ```
 
-**Anthropic é primary** em profile `autonomous`, não "um dos N". Multi-provider real custa: cada um tem quirks de tool calling, streaming, cache. Tratar como iguais é mentira que custa caro — o `Provider` interface é honesto sobre o que cada um faz, não finge paridade.
+**Provider-pluggable, não provider-parity.** Adapters são intercambiáveis no nível da API; qualidade, custo, e features são heterogêneos e ficam **declarados**, não escondidos. Sem vendor primary hardcoded — defaults vêm da config do usuário, recomendações por workflow vêm de evidência empírica em eval (ver [`PROVIDERS.md`](./PROVIDERS.md) §4 e §7).
 
-Em profile `orchestrated`, providers locais (Ollama, llama.cpp) são **first-class**: eles é que justificam o profile.
+Cada provider tem quirks reais (formatos de tool calling diferentes, semantics de cache distintas, streaming protocols variados, context windows ordens de magnitude diferentes). O `Provider` interface é **honesto sobre o que cada um faz**, não finge paridade. Lowest-common-denominator entrega mediocre; declarar heterogeneidade entrega decisão informada.
+
+Em profile `orchestrated`, providers locais (Ollama, llama.cpp) são first-class por design — eles justificam o profile. Em `autonomous`, qualquer provider com `tools: 'native'` e `context_window` adequado serve; defaults dependem da config do usuário.
 
 ### 14.1 Constrained generation backend
 
@@ -1113,11 +1151,15 @@ Datasets em 3 níveis:
 - **regression** (~100 casos, < 10min) — todo PR
 - **bench** (~500 casos) — semanal
 
+Eval **multi-model é first-class**. Roda em 3 tier representatives canônicos (frontier + mid-tier + local), com threshold por tier e matriz de resultados publicada. Falha em qualquer tier bloqueia release. Sem isso, "provider-pluggable" é declaração sem prova. Detalhe em [`PROVIDERS.md`](./PROVIDERS.md) §7.
+
 Eval específicos pra:
-- Compaction (preserva goal? cita decisões corretas?)
+- Compaction (preserva goal? cita decisões corretas? funciona em modelo cheap?)
 - Plan mode (não escreve? cobre os arquivos certos?)
 - Hook flow (PreToolUse bloqueando funciona?)
 - Checkpoint/undo (reverte limpo?)
+- Provider adapters (cada um cumpre `Provider` interface? capabilities batem com declarado?)
+- Constrained generation (schema enforced em cada provider que declara support?)
 
 ---
 

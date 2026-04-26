@@ -137,29 +137,77 @@ Sugerir buscar lá antes de palpitar.
 
 Carregado em **toda sessão**, independente do diretório. Cuidado: cada entrada nesse scope custa contexto em todas as sessões pra sempre.
 
-### 2.2 Project scope (por repo)
+### 2.2 Project scope (por repo) — split em **shared** + **local**
+
+Project scope é dividido em duas sub-pastas com semântica distinta:
 
 ```
 ./.agent/memory/
-  MEMORY.md
-  project_q3_milestone.md
-  feedback_no_console_log.md
+  shared/                    # VERSIONADO em git (team-wide)
+    MEMORY.md                # índice shared
+    project_q3_milestone.md
+    feedback_team_conventions.md
+    reference_linear_ingest.md
+  local/                     # GITIGNORED (per-user dentro do projeto)
+    MEMORY.md                # índice local
+    feedback_my_quirks.md
+    project_in_progress.md
 ```
 
-Carregado só quando `cwd` é dentro do repo. Não vaza pra outros projetos. Versionável via git se o time quiser compartilhar — mas frontmatter + audit deve manter source rastreável.
+#### `.agent/memory/shared/` — versionado
+
+- Decisões/convenções/refs **do time**
+- Curadas via PR (humano revisa antes de merge)
+- Onboarding instantâneo: clone do repo já traz contexto
+- Auditoria via `git blame` (quem adicionou, quando, em que PR)
+
+#### `.agent/memory/local/` — per-user
+
+- Inferred memories vão **sempre** pra cá por default
+- Working notes individuais
+- Observações pessoais (preferências dentro deste projeto)
+- Nunca commitadas; cada dev tem o seu
+
+#### Por que split
+
+Sem split: ou todo mundo compartilha tudo (atrito social, vetor de injection ampliado, lock-in de inferência ruim) ou ninguém compartilha (knowledge não compõe). Split entrega:
+
+- Default seguro (inferred = local)
+- Promoção explícita pra shared via slash command (§5.4)
+- PR review como gate de qualidade/segurança
+- Onboarding via clone
 
 ### 2.3 Reference é tipo, não scope
 
-Reference vive em qualquer scope. Faz sentido tanto user-global ("uso Linear pra X") quanto project ("docs deste repo em Notion Y").
+Reference vive em qualquer scope/sub-pasta. Faz sentido tanto user-global ("uso Linear pra X") quanto project shared ("docs deste repo em Notion Y") quanto local ("eu uso este endpoint quando debugando").
 
 ### 2.4 Resolução & merge
 
-Quando agente consulta, ordem:
-1. Project memory (mais específico)
-2. User memory (genérico)
-3. Reference de qualquer scope
+Quando agente consulta, ordem (mais específico → mais genérico):
 
-Conflito: project sobrepõe user. Logado em `memory_events`.
+1. Session flags (volátil, mais específico)
+2. **Project local** (`.agent/memory/local/`)
+3. **Project shared** (`.agent/memory/shared/`)
+4. User (`~/.config/agent/memory/`)
+5. Reference de qualquer scope
+
+Conflito: scope mais específico sobrepõe genérico (local > shared > user). Toda decisão logada em `memory_events` com `resolved_from` indicando origem.
+
+### 2.5 Default `.gitignore` (auto-gerado)
+
+Em `agent init` ou primeira invocação num repo sem `.agent/.gitignore`, agente gera:
+
+```gitignore
+# .agent/.gitignore (auto-generated; safe to edit)
+sessions.db
+sessions.db-*
+traces/
+checkpoints/
+memory/local/
+*.log
+```
+
+User pode editar livremente. Agente **nunca sobrescreve** após geração inicial.
 
 ---
 
@@ -262,13 +310,15 @@ Configuração via `triggers:` no frontmatter — opcional, opt-in.
 
 1. Modelo decide salvar (ou usuário pede via `/memory save`)
 2. Agente chama `memory_write(...)` com proposta
-3. **TUI mostra prompt de confirmação:**
+3. **Default destino: project `local/`** ou user scope (baseado em escopo da proposta). **Nunca direto pra `shared/`** — promoção é ato explícito separado (§5.4).
+4. **TUI mostra prompt de confirmação:**
 
 ```
-📝 Propor nova memória [feedback / project_scope]
+📝 Propor nova memória [feedback / project · local]
 
   name: no-console-log
   description: Em src/, console.log proibido — usar logger.debug
+  destino: ./.agent/memory/local/feedback_no-console-log.md
   body:
     Em arquivos `src/**/*.ts`, console.log/warn/error proibidos.
     **Why:** logs estruturados são exportados pra Datadog;
@@ -277,10 +327,13 @@ Configuração via `triggers:` no frontmatter — opcional, opt-in.
     `import { logger } from "@/lib/logger"` e `logger.debug(...)`.
 
 [a]ccept  [e]dit  [r]eject  [w]hy?
+
+(memória vai pra local; compartilhar depois via:
+ /memory promote shared no-console-log)
 ```
 
-4. User decide. Decisão vai pra `memory_events`.
-5. Em modo headless `--json`: write **sempre rejeitado**, retornado como warning. Sessão pode persistir intent em sessão local; user revê depois.
+5. User decide. Decisão vai pra `memory_events`.
+6. Em modo headless `--json`: write **sempre rejeitado**, retornado como warning. Sessão pode persistir intent em sessão local; user revê depois.
 
 ### 5.2 Source tracking
 
@@ -299,18 +352,64 @@ UI distingue. `inferred` requer confirmação extra — é o vetor de injection 
 ```sql
 memory_events(
   id TEXT PRIMARY KEY,
-  scope TEXT NOT NULL,          -- user | project
-  action TEXT NOT NULL,         -- proposed | created | edited | deleted | read | refused
+  scope TEXT NOT NULL,          -- user | project_local | project_shared
+  action TEXT NOT NULL,         -- proposed | created | edited | deleted | read | refused | promoted | demoted
   memory_name TEXT NOT NULL,
   source TEXT NOT NULL,
   session_id TEXT,
   cwd TEXT,
   created_at INTEGER NOT NULL,
-  details JSONB                 -- diff, motivo de refuse, etc
+  details JSONB                 -- diff, motivo de refuse, hash do source, ref do PR, etc
 );
 ```
 
 Conteúdo das memórias **não vai pro SQLite** — fica em arquivo. SQLite só rastreia eventos.
+
+### 5.4 Promoção (local → shared)
+
+Inferred memories nascem **sempre** em `local/`. Promoção pra `shared/` é ato **explícito** do usuário, respeitando "no auto-commit":
+
+```
+/memory promote shared <name>
+```
+
+Fluxo:
+
+1. Agente lê `./.agent/memory/local/<name>.md`
+2. Mostra preview do conteúdo + diff que vai aparecer em `git status`
+3. Roda **scanner adicional** específico de promoção:
+   - Path traversal check
+   - Secret pattern detection (rejeita se encontra)
+   - Injection heuristic (rejeita se forte; warning se fraco)
+   - Content fica < 200 lines (limite hard)
+4. User confirma com `[p]romote  [c]ancel  [d]iff  [w]hy?`
+5. Em accept:
+   - Move arquivo: `local/<name>.md` → `shared/<name>.md`
+   - Atualiza `shared/MEMORY.md` (índice)
+   - Remove entry de `local/MEMORY.md`
+   - **Não roda `git add` ou `git commit`** — fica como mudança modificada/staged-able
+   - User commita manualmente quando quiser; PR review é gate final
+6. `memory_events` registra `action: 'promoted'` com `details.from_scope=local, to_scope=shared`
+
+### 5.5 Demoção (shared → local)
+
+Inverso de promoção, útil quando memória shared não vale mais pro time mas user quer manter localmente:
+
+```
+/memory demote local <name>
+```
+
+Mesmo fluxo, sem scanner adicional (going to less-trusted scope). Cria mudança em `git status` (deletion em shared, novo em local). User commita.
+
+### 5.6 Headless mode
+
+Em `agent --json` non-interactive:
+- `memory_write` em local: rejeitado (ver §5.1.6)
+- `memory_write` em shared: **sempre** rejeitado (segurança)
+- `memory promote/demote`: rejeitados
+- Flag `--allow-memory-write=local` opt-in pra CI específicas
+
+Default fail-closed.
 
 ---
 
@@ -337,16 +436,20 @@ Project memory sem `expires` ganha default **+90 dias** se for `inferred` (não 
 ### 6.3 Slash commands
 
 ```
-/memory list [scope]               # lista do índice
+/memory list [scope]               # lista do índice (scope: user|project|local|shared)
 /memory show <name>                # imprime conteúdo
 /memory edit <name>                # abre $EDITOR
 /memory delete <name>              # com confirmação
 /memory diff                       # mudanças não-confirmadas
-/memory save                       # propõe salvar baseado em sessão atual
-/memory promote <name>             # project → user (com confirmação)
+/memory save                       # propõe salvar baseado em sessão atual (default: local)
+/memory promote shared <name>      # project local → project shared (cria mudança git, sem auto-commit)
+/memory demote local <name>        # project shared → project local (idem)
+/memory promote user <name>        # project (qualquer) → user global (com confirmação dupla)
 /memory expire <name> <date>       # set/update expires
 /memory audit                      # tabela memory_events da sessão
 ```
+
+Promoção entre scopes nunca é silenciosa. Cada uma cria mudança que aparece em `git status` (quando relevante) — usuário decide o commit.
 
 ### 6.4 Hook `PreCompact`
 
@@ -390,6 +493,12 @@ command = "~/.config/agent/hooks/memory_audit.sh"
 6. **Sandbox de paths:** memória escrita só em `~/.config/agent/memory/` e `./.agent/memory/`. Tentativa de path traversal = erro fatal + audit.
 
 7. **Read inspeção:** UI mostra `[memory: untrusted]` em qualquer memória `untrusted` carregada — user vê o que tá no contexto.
+
+8. **Hash check em `.agent/memory/shared/`:** trust prompt re-fires quando hash do conjunto de arquivos shared muda. Mesma lógica que `CLAUDE.md` (§9.1 do AGENTIC_CLI). Pull do repo com mudança em shared = re-trust obrigatório.
+
+9. **Promoção tem scanner adicional** (§5.4): path traversal, secret patterns, injection heuristic, size limit. Promoção bloqueada se falha qualquer check.
+
+10. **PR review é gate primário pra shared:** memória shared só entra no repo via commit; commit passa por code review do time. Defesa social, não automática — mas eficaz.
 
 ### 7.3 Detecção heurística de injection
 
