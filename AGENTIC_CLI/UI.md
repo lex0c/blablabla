@@ -68,24 +68,30 @@ UI ruim mata adoção mais rápido que arquitetura ruim. Arquitetura ruim você 
 Tela dividida em **5 regiões fixas**, ordem top-to-bottom:
 
 ```
-┌─ Header (1 linha, opcional) ─────────────────────┐
-│ [profile] · [project] · [model]                   │
-├─ History pane (Static, append-only) ─────────────┤
-│ user: ...                                         │
-│ ─                                                 │
-│ ▶ tool call                                       │
-│   output                                          │
-│ ─                                                 │
-│ assistant: ...                                    │
-│ ─                                                 │
-├─ Live region (dinâmica, opcional) ───────────────┤
-│ Plan / TodoList / DAG progress                    │
-├─ Input pane (1-3 linhas) ────────────────────────┤
-│ > _                                               │
-├─ Footer (1 linha, sempre presente) ──────────────┤
-│ steps · cost · model · mem · bg                   │
-└──────────────────────────────────────────────────┘
+┌─ Header (1 linha, opcional) ─────────────────────────────────────┐
+│ [profile] [strict?] [plan?] · [project] · [model]                 │
+├─ History pane (Static, append-only) ─────────────────────────────┤
+│ user: ...                                                         │
+│ ─                                                                 │
+│ ▶ tool call                            [fmt ✓ lint ⚠ test ✓]      │
+│   output                                                          │
+│ ─                                                                 │
+│ assistant: ...                                                    │
+│ ─                                                                 │
+├─ Live region (dinâmica, opcional) ───────────────────────────────┤
+│ Plan / TodoList / DAG progress                                    │
+├─ Input pane (1-3 linhas) ────────────────────────────────────────┤
+│ > _                                                               │
+├─ Footer (1 linha, sempre presente) ──────────────────────────────┤
+│ steps · cost · model · mem · bg · mcp · idx?                      │
+└──────────────────────────────────────────────────────────────────┘
 ```
+
+**Header components (left to right):** `<ProfileBadge>` + `<ModeBadges>` (vazio em default mode) · project label · model label.
+
+**Tool card components:** `<ToolCallCard>` + `<PipelineBadges>` inline (apenas em tools de write quando pipeline rodou).
+
+**Footer components (left to right):** `<BudgetBar>` (steps/cost) · model · `<MemoryBadge>` · `<BackgroundProcessTray>` · `<MCPTray>` · `<IndexStatus>` (silencioso em ready). `<LoopStatusLine>` substitui temporariamente em estados não-idle.
 
 ### 2.1 Breakpoints de largura
 
@@ -127,7 +133,7 @@ Modais (permission/trust/memory write/plan approval) **sobrepõem o Input pane**
 
 ---
 
-## 3. Catálogo de componentes (15 + primitivas)
+## 3. Catálogo de componentes (26 + 5 primitivas)
 
 Para cada: **props**, **estados**, **comportamento**, **fallbacks**.
 
@@ -156,12 +162,26 @@ interface ModalProps {
   title: string
   variant: 'info' | 'warn' | 'danger' | 'success'
   shortcuts: { key: string; label: string; action: () => void }[]
+  queuePosition?: { current: number; total: number }   // ex: { 1, 3 }
   children: ReactNode
   onCancel?: () => void   // Esc
+  onCancelAll?: () => void   // Esc Esc — cancela todos os modais enfileirados
 }
 ```
 
 Cores por variant: info azul, warn amarelo, danger vermelho, success verde. NO_COLOR: prefixo `[!]`/`[?]`/`[X]`.
+
+**Queue indicator:** quando `queuePosition.total > 1`, título do modal mostra `(N de M)`:
+
+```
+┌─ Tool requires confirmation (1 de 3) ───────────────┐
+```
+
+Esc cancela só o atual (próximo modal vira ativo). Esc Esc oferece "cancelar todos os 3?" com confirmação inline. Razão: 3 permission prompts em fila viram fadiga; usuário precisa de saída clara sem decidir 3 vezes.
+
+Atalhos extras quando em queue:
+- `n` (next): adia atual sem decisão; vai pro fim da fila (cap 1× re-ordenação por modal).
+- `?` mostra contagem + tipos pendentes ("2 permission, 1 trust").
 
 #### `<Bar>`
 Barra horizontal de progresso (steps, budget, etc).
@@ -228,45 +248,114 @@ interface StreamingMessageProps {
 **Performance:** batching de tokens — re-render no máximo 30fps mesmo se stream emite 200 tokens/s. Buffer interno descarrega a cada 33ms.
 
 #### `<ToolCallCard>`
-Card colapsável com tool call + output.
+Card colapsável com tool call + output. Inclui `<PipelineBadges>` inline quando aplicável.
 
 ```ts
 interface ToolCallCardProps {
-  toolCall: ToolCall
-  collapsed: boolean   // default: true se output > 10 linhas
+  toolCall: ToolCall                 // inclui pipeline_result se write_file/edit_file
+  collapsed: boolean                 // default: true se output > 10 linhas
   onToggle?: () => void
 }
 ```
 
-Render condensado:
+Render condensado (read tool):
 ```
 ▶ glob "src/**/*.ts"
   ✓ 14 files (collapsed; press ↵ to expand)
 ```
 
-Render expandido:
+Render condensado (write tool com pipeline):
 ```
-▶ glob "src/**/*.ts"
-  ✓ 14 files
-    src/auth.ts
-    src/queue.ts
-    ...
+▶ edit_file src/auth.ts                 [fmt ✓ lint ⚠ 2  test ✓ 8/8]
+  ✓ 3 changes (collapsed; press ↵ to expand)
 ```
 
-Status icons + progressive disclosure.
+Render expandido:
+```
+▶ edit_file src/auth.ts                 [fmt ✓ lint ⚠ 2  test ✓ 8/8]
+  ✓ 3 changes
+    src/auth.ts:42-47 (3 lines)
+  pipeline:
+    fmt:  prettier 145ms · 3 lines reformatted
+    lint: eslint 480ms · 0 errors, 2 warnings (no-unused-vars × 2)
+    test: jest 2.3s · 8 passed, 0 failed
+```
+
+Status icons + progressive disclosure. PipelineBadges aparece **só** em tools com `pipeline_result` populado (`CODE_GENERATION.md §4.1`).
+
+#### `<PipelineBadges>`
+Badges inline com resultado do pipeline de geração (`CODE_GENERATION.md §1`). Renderizado por `<ToolCallCard>` em tools de write; pode ser usado standalone em recap.
+
+```ts
+interface PipelineBadgesProps {
+  result: PipelineResult              // pipeline_result schema, CODE_GENERATION §4.1
+  variant?: 'inline' | 'expanded'     // default: 'inline'
+}
+
+type StageStatus = 'ok' | 'warn' | 'failed' | 'skipped' | 'disabled' | 'crashed' | 'timeout'
+
+interface PipelineResult {
+  format?: { status: StageStatus; duration_ms?: number; diff_lines?: number }
+  lint?:   { status: StageStatus; duration_ms?: number; errors?: number; warnings?: number }
+  test?:   { status: StageStatus; duration_ms?: number; passed?: number; failed?: number }
+}
+```
+
+Render inline (compact):
+```
+[fmt ✓  lint ⚠ 2  test ✓ 8/8]
+[fmt ✓  lint ✗ 3  test ⏭]               # 3 errors em strict bloqueia accept
+[fmt ⊘  lint ⊘  test ⊘]                  # --no-pipeline
+[fmt ⏭  lint ⏭  test ⏭]                  # disabled per language (sem config)
+```
+
+Render expandido (em tool card aberto):
+```
+pipeline:
+  fmt:  prettier 145ms · 3 lines reformatted
+  lint: eslint 480ms · 0 errors, 2 warnings
+  test: jest 2.3s · 8 passed, 0 failed
+```
+
+**Status icons (status do estágio):**
+| Status | Unicode | ASCII | Cor |
+|---|---|---|---|
+| `ok` | `✓` | `[ok]` | verde |
+| `warn` | `⚠` | `[!]` | amarelo |
+| `failed` | `✗` | `[x]` | vermelho |
+| `skipped` | `⏭` | `[/]` | cinza |
+| `disabled` | `⊘` | `[-]` | cinza fraco |
+| `crashed` / `timeout` | `⚡` | `[?]` | vermelho |
+
+**Comportamento:**
+- Inline: sempre presente em tools com `writes: true` quando pipeline rodou.
+- Click/Enter no card expande para variante `expanded`.
+- Em strict mode com `failed`: badge **pisca** 1×; padrão de cor reforçado em vermelho profundo.
+- `disabled` vs `skipped`: `skipped` é "estágio rodou mas pulou esse arquivo" (ex: lint sem mapping); `disabled` é "estágio off no config".
+
+Cross-ref: integração com modo `--strict` em `CODE_GENERATION.md §2`.
 
 #### `<PermissionPrompt>` (modal)
 
 ```ts
 interface PermissionPromptProps {
   toolCall: ToolCall
-  preview: string         // tool.preview(args)
-  policy: 'confirm'       // só aparece em modo confirm
+  preview: string                    // tool.preview(args)
+  policy: 'confirm'                  // só aparece em modo confirm
+  nonReversible?: NonReversibleHint  // detected; nullable
   onResolve: (decision: 'allow' | 'deny' | 'edit') => void
+}
+
+interface NonReversibleHint {
+  reason: 'network_write'            // bash com push/deploy/curl POST/PUT/DELETE
+        | 'external_state'           // tool MCP que muda DB externa
+        | 'destructive'              // rm/drop/truncate/wipe
+        | 'shared_state'             // git push, git tag, npm publish
+  pattern_matched?: string           // regex/heurística que disparou
 }
 ```
 
-Microcopy:
+Microcopy normal:
 ```
 Tool requires confirmation
 
@@ -278,7 +367,38 @@ Tool requires confirmation
   [a]ccept  [r]eject  [e]dit  [w]hy?
 ```
 
-Atalhos: `a/y/Enter` accept, `r/n/Esc` reject, `e` edit args (abre input), `w` mostra detalhe da rule matched.
+Microcopy com `nonReversible` (badge vermelho-sangue no topo):
+```
+┌─ Tool requires confirmation ────────────────── [non-reversible] ─┐
+
+  bash
+  git push origin main
+
+  Why confirm? Matched rule: "git push *" → confirm
+  Why non-reversible? Pattern: "git push" → shared state mutation
+                      /undo NÃO cobre (alteração de remote)
+
+  [a]ccept  [r]eject  [e]dit  [w]hy?
+
+```
+
+**Detecção de `nonReversible`** (heurística em harness, não modelo):
+
+| Reason | Patterns típicos |
+|---|---|
+| `destructive` | `rm -rf /`, `dd of=`, `truncate`, `DROP TABLE`, `DELETE FROM` (sem WHERE) |
+| `network_write` | `curl -X (POST|PUT|DELETE)`, `wget --post`, `http POST/PUT/DELETE` |
+| `shared_state` | `git push`, `git tag`, `npm publish`, `cargo publish`, `docker push` |
+| `external_state` | tool MCP com `_meta.agentic_cli.writes:true` E `network:true` |
+
+Match → flag aparece **antes** do modal ser dismissed. Usuário tem chance extra de pensar.
+
+**Comportamento de `[a]ccept` em non-reversible:**
+- Modal **não fecha imediatamente** com `a`/`y`/Enter.
+- Pede segunda confirmação inline: "Tem certeza? `[y]es / [n]o`".
+- Esc cancela. `y` confirma. Sem opção de "remember decision" — não-reversível não vira allow rule.
+
+Atalhos: `a/y/Enter` accept (com double-confirm se non-reversible), `r/n/Esc` reject, `e` edit args (abre input), `w` mostra detalhe da rule matched + reason de non-reversibility se aplicável.
 
 #### `<TrustPrompt>` (modal)
 
@@ -349,14 +469,35 @@ Microcopy:
 Inferred writes em diretório não-confiável: **prompt extra** "este diretório não-confiável; aceitar mesmo assim? [y/N]".
 
 #### `<TodoListView>`
-Checklist live no live region.
+Checklist live no live region. **Lê de SQLite, não do stream cru** — fonte de verdade é a tabela `todos` (ver `AUDIT.md §1.4`); stream parser do harness escreve, UI lê. Garante consistência entre o que audit registra e o que o usuário vê.
 
 ```ts
 interface TodoListViewProps {
   items: TodoItem[]
-  // TodoItem: { content: string, status: 'pending' | 'in_progress' | 'done', activeForm: string }
+  parseConfidence?: number    // último parse_confidence; abaixo de 0.8 → indicador discreto
+}
+
+interface TodoItem {
+  content: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  activeForm?: string         // ex: "extracting function..."
+  parentTodoId?: number       // subtask
 }
 ```
+
+Data flow canônico:
+
+```
+modelo emite checklist em prosa
+    ↓
+harness stream parser extrai
+    ↓
+INSERT/UPDATE em todos table (AUDIT.md §1.4)
+    ↓
+React state SELECT'a; <TodoListView> renderiza
+```
+
+UI **não parse de novo** o stream cru — quem viu o stream foi o parser do harness. Falha de parse → `failure_event` (`AUDIT §1.4.3`); UI continua mostrando últimos itens válidos.
 
 Render:
 ```
@@ -366,9 +507,20 @@ Plan:
   ○ run tests src/auth/
 ```
 
-Item em `in_progress` mostra activeForm ("extracting function..." em itálico se suportado).
+Item em `in_progress` mostra `activeForm` ("extracting function..." em itálico se suportado).
+
+Render com low parse confidence (parser teve dificuldade no último update):
+```
+Plan:                                       (~ parse confidence 0.6)
+  ✓ map callers
+  ▶ extract function
+```
+
+Indicador `~` à direita do header sinaliza "modelo pode ter um plano ligeiramente diferente do mostrado". Sem confidence < 0.5 (item nem persiste; fail_event).
 
 Atualização **smooth** — adicionar/remover item anima por 1 frame; mudança de status sem scroll do histórico.
+
+**Cancelled items:** ficam visíveis com riscado (`s͟t͟r͟i͟k͟e`) ou prefixo `~~`; sumir silenciosamente engana.
 
 #### `<BudgetBar>`
 Footer left section.
@@ -416,6 +568,72 @@ bg: 2 (npm-dev ✓, pytest ⏳)
 ```
 
 Mouseable em terminais que suportam? Não. Atalho: `/bg` lista detalhada.
+
+#### `<MCPTray>`
+Footer right section, ao lado de `<BackgroundProcessTray>`. Mostra MCP servers ativos com estado agregado.
+
+```ts
+interface MCPTrayProps {
+  servers: MCPServerStatus[]
+}
+
+interface MCPServerStatus {
+  name: string
+  state: 'disconnected' | 'handshaking' | 'trust_pending'
+        | 'trusted' | 'active' | 'degraded' | 'denied' | 'error'
+  toolCount: number             // tools visíveis ao modelo (zero se não-trusted)
+  lastError?: string
+}
+```
+
+Render compacto (sessão sem servers):
+```
+                                                    # vazio (footer não mostra mcp:)
+```
+
+Render normal (1-3 servers):
+```
+mcp: 2 (postgres ✓, github ✓)
+```
+
+Render com warning (server `degraded`):
+```
+mcp: 3 (postgres ✓, github ⚠, slack ✓)
+```
+
+Render com `trust_pending` (manifest mudou ou novo server):
+```
+mcp: 2 (postgres ✓, github ⊕)              ⊕ = trust_pending; modal queue não-vazio
+```
+
+Render compacto (4+ servers):
+```
+mcp: 5 (3 ✓, 1 ⚠, 1 ⊕)
+```
+
+**Estado → ícone:**
+| Estado | Unicode | ASCII | Cor |
+|---|---|---|---|
+| `active` / `trusted` | `✓` | `[ok]` | verde |
+| `degraded` | `⚠` | `[!]` | amarelo |
+| `disconnected` | `↯` | `[/]` | cinza |
+| `trust_pending` | `⊕` | `[?]` | azul (chama atenção) |
+| `denied` / `error` | `✗` | `[x]` | vermelho |
+
+**Comportamento:**
+- Servers em `disconnected` lazy (estado normal pré-primeiro-call) **não aparecem** no tray. Aparecem só após primeiro `tools/call` na sessão (mesma lazy semantic do contrato `MCP.md §1.3`).
+- Server em `denied` ou `error` aparece persistente — sinaliza configuração quebrada visível.
+- `trust_pending` é gatilho de atenção: ícone `⊕` em azul; modal de trust prompt está enfileirado (ver `<Modal>` queue).
+- Atalho: `/mcp list` lista detalhada; `/mcp show <name>` foco em um server.
+
+**Truncação por largura:**
+| Largura | Render |
+|---|---|
+| ≥ 100 cols | `mcp: N (server1 ✓, server2 ⚠, server3 ✓)` |
+| 80-99 cols | `mcp: N (≤2 servers + ...)` |
+| < 80 cols | `mcp: N (3✓ 1⚠)` (só counts) |
+
+Cross-ref: data source em `AUDIT.md §1.5` (`mcp_servers.state`); state machine em `STATE_MACHINE.md §6.5`.
 
 #### `<CheckpointBar>`
 Indicador de checkpoints disponíveis pra undo.
@@ -486,6 +704,56 @@ interface ProfileBadgeProps {
 
 Render: `[autonomous]` (azul) / `[orchestrated]` (verde) / `[hybrid]` (roxo).
 
+#### `<ModeBadges>`
+Header indicator sequencial à direita do `<ProfileBadge>`. Renderiza badges adicionais para flags de execução **não-default** que mudam comportamento materialmente. Default mode → vazio (silencioso).
+
+```ts
+interface ModeBadgesProps {
+  strict?: boolean              // --strict: format/lint/test bloqueiam accept
+  plan?: boolean                // --plan: read-only; nada escreve
+  noPipeline?: boolean          // --no-pipeline: format/lint/test desativados
+  autoApproveMcp?: string[]     // CI: lista de servers MCP pré-aprovados
+  budgetEnforce?: boolean       // --budget-enforce: violations viram exception
+  showThinking?: boolean        // /thinking on (extended thinking visível)
+}
+```
+
+Render padrão (default mode):
+```
+[orchestrated]                             # nada além do profile
+```
+
+Render com flags:
+```
+[orchestrated] [strict]                    # strict ativo
+[orchestrated] [plan]                      # plan mode (read-only)
+[autonomous] [strict] [thinking]
+[autonomous] [no-pipeline]                 # escape hatch óbvio
+[autonomous] [auto-mcp:postgres,github]    # CI; lista visível
+```
+
+**Cores e prioridades visuais:**
+| Badge | Cor | Razão |
+|---|---|---|
+| `[strict]` | amarelo bold | gates ativos; bom saber |
+| `[plan]` | azul | read-only safety |
+| `[no-pipeline]` | **vermelho** | escape hatch visivelmente perigoso |
+| `[auto-mcp:...]` | **vermelho** | CI bypass; gritar |
+| `[budget-enforce]` | amarelo | violations → exception |
+| `[thinking]` | cinza | informacional |
+
+Razão de cor para `[no-pipeline]` e `[auto-mcp]`: são escape hatches que silenciosamente removem segurança. Visualmente alarmantes para evitar uso inadvertido em PR / CI / prod-touching.
+
+**Comportamento:**
+- Render zero badges em default mode → header é mínimo.
+- Em < 80 cols: abreviam (`[strict]` → `[s]`, `[plan]` → `[p]`, etc.). Hover/help: `?` em footer mostra significados.
+- Mudança de mode mid-session (ex: `/strict on`): badge **anima** entrando (1 frame fade-in se truecolor); audit registra transição.
+
+**Decisão de design — por que não fundir com ProfileBadge:**
+- Profile é orientação **estável** (autonomous vs orchestrated muda raro).
+- Mode badges são **flags efêmeras** (toggle por sessão ou por slash command).
+- Separados: usuário lê profile → entende qual loop está ativo; lê modes → entende quais gates estão fora do default.
+
 #### `<MemoryBadge>`
 Footer right section discreto.
 
@@ -493,11 +761,77 @@ Footer right section discreto.
 interface MemoryBadgeProps {
   userCount: number
   projectCount: number
+  pendingCount?: number       // proposed memories sem decisão (não-zero → mostrar)
   loaded: boolean
 }
 ```
 
-Render: `mem 12u 4p`. Click/hover não disponível em terminal; `/memory list` pra detalhes.
+Render normal:
+```
+mem 12u 4p
+```
+
+Render com pending (memories propostas aguardando decisão):
+```
+mem 12u 4p (3 pending)         # cor amarela em "(3 pending)"
+```
+
+Click/hover não disponível em terminal; `/memory list` ou `/memory pending` pra detalhes. Pending count > 0 é affordance para o usuário lembrar de revisar memórias inferidas; senão somem na sessão e propostas viram lixo.
+
+Threshold visual: pending > 5 vira **bold amarelo** (sinal de backlog acumulando).
+
+#### `<IndexStatus>`
+Footer right section, ao lado de `<MemoryBadge>`. Mostra estado do code index — visível apenas quando **não-saudável** ou em warming.
+
+```ts
+interface IndexStatusProps {
+  state: 'unavailable' | 'warming' | 'ready' | 'stale' | 'error'
+  warmingProgress?: { indexed: number; total: number }
+  staleCount?: number
+  lastError?: string
+}
+```
+
+Render por estado:
+
+| Estado | Render | Cor |
+|---|---|---|
+| `ready` | (vazio — silencioso) | — |
+| `warming` | `idx 1.2k/3.4k` | cinza (informacional) |
+| `stale` | `idx ⚠ 12% stale` | amarelo |
+| `unavailable` | `idx ↯ unavail` | vermelho discreto |
+| `error` | `idx ✗ <code>` | vermelho |
+
+**Comportamento:**
+- `ready` é o estado normal; badge invisível para reduzir noise.
+- `warming` aparece durante initial scan; some quando 100%.
+- `stale` aparece se threshold de §16.4 atingido; sugere `agent code-index rebuild --since`.
+- `unavailable` é alerta persistente: tools simbólicas (`read_symbol`, `find_references`, etc) ficam off; modelo recai em `read_file`/`grep`.
+
+**Atalho:** `/code-index status` mostra detalhes; `agent code-index rebuild` força rebuild.
+
+Cross-ref: data source em `CODE_INDEX.md §4.1` (`index_status()`); failure modes em `FAILURE_MODES.md §16`.
+
+#### `<SymbolicToolsTip>`
+Tip discreta inline mostrada **uma vez por sessão** quando code index transita de `warming/unavailable` → `ready`. Sinaliza ao usuário que tools simbólicas ficaram disponíveis.
+
+```ts
+interface SymbolicToolsTipProps {
+  shown: boolean              // local state; persiste em sessions table como flag
+  onDismiss: () => void
+}
+```
+
+Render (rodapé dinâmico, abaixo do `<LoopStatusLine>`):
+```
+  ↳ tip: code index ready · tools simbólicas disponíveis
+        (read_symbol, find_references, outline_file, code_graph)
+        modelo escolhe automaticamente; veja /tools
+```
+
+Aparece por **um frame** depois do primeiro turn pós-`ready`, depois desaparece. Audit registra primeira aparição em `sessions.flags.symbolic_tools_tip_shown_at`.
+
+Razão de ser separado e não em `<IndexStatus>`: este é **affordance de descoberta** (modelo aprendeu), o outro é **affordance de health** (estado operacional). Separar evita noise quando index é always-ready em sessões subsequentes.
 
 #### `<LoopStatusLine>`
 
@@ -511,6 +845,14 @@ interface LoopStatusLineProps {
   detail?: string                          // ex: "tool: bash", "validator: JSONSchema"
   retryCount?: number
   upcomingCompaction?: number              // steps até compaction trigger
+  turnCost?: TurnCostInfo                  // cost-of-this-turn em comparação a histórico
+}
+
+interface TurnCostInfo {
+  currentUsd: number                       // custo acumulado do turn corrente
+  sessionUsd: number                       // custo total da sessão
+  percentile?: number                      // percentil do turn vs histórico do user (p50, p90, p99)
+                                            // computado contra últimos 30d de turns
 }
 ```
 
@@ -524,6 +866,18 @@ interface LoopStatusLineProps {
 [step 7/50 · 2m31s · ↻ provider retry 1/3 (5xx)]
 [step 7/50 · 2m31s · idle · compaction in 3 steps]
 ```
+
+**Cost spike warning** (turn no percentil ≥ 90 do histórico):
+
+```
+[step 7/50 · 2m31s · generating · 1.2k tokens · $0.42 turn ⚠ p95]
+```
+
+`$0.42 turn` em **amarelo** quando p90-p99; **vermelho** quando ≥ p99. Razão: dá ao usuário chance de interromper turn caro **antes** dele completar, em vez de descobrir post-hoc no `/cost`. Threshold p90 evita falsos positivos em sessões legitimamente caras (audit playbook, refactor grande).
+
+Sem histórico suficiente (< 50 turns gravados): comparação suprimida; só mostra em alerta absoluto (turn > $1).
+
+Cross-ref: dados de `tool_calls` agregados; query em `AUDIT.md`.
 
 Substitui temporariamente `<BudgetBar>` no rodapé; volta ao normal em `idle`.
 
