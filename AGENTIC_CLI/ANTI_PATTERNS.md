@@ -422,7 +422,75 @@ auth = { kind = "bearer", env = "GITHUB_MCP_TOKEN" }
 
 ---
 
-## 8. Quando este doc muda
+## 8. SQL e acesso a banco
+
+### 8.1 Tool SQL exposta ao modelo (`sql_query`, `db_exec`, ou similar)
+
+**O que é:** tool no catálogo §2.6 que aceita string SQL e executa contra alguma DB (`sessions.db`, `code_index.db`, etc).
+
+**Por que rejeita:**
+
+1. **Meta-cognição não é tool** (`CONTRACTS.md §2.6.8` princípio guia). Consultar audit do próprio modelo (`SELECT * FROM tool_calls WHERE session_id = ?`) é autoanálise — modelo decidindo sobre o modelo. Spec rejeita esse padrão consistentemente (`todo_write` rejeitado pelo mesmo motivo).
+2. **Replay quebra.** SQL com `now()`, `random()`, ou query plans dependentes de tamanho de DB não replay determinístico. Princípio 7 (`AGENTIC_CLI.md`, "trace tudo") exige reprodutibilidade.
+3. **Tool budget**. SQL é tool **genérica** — opõe princípio 3 ("10 bem desenhadas vencem 40 genéricas"). Cobriria várias capabilities mas com superfície enorme: schema de 23+ tabelas, dialects SQLite, error handling de cada classe.
+4. **PII e security.** Read-only não é suficiente: cross-session join (`SELECT * FROM messages WHERE session_id != ?`) expõe contexto de outras sessões. Redactor é antes-de-persistir (`AUDIT.md §3.1`) — SQL bruto bypassa output redaction operando sobre raw rows.
+5. **Audit recursivo.** `tool_call` executando SQL sobre `tool_calls` é recursão circular: query é uma tool call gravada em `tool_calls`, que pode ser questionada por outra query. Cleanup, retention, e replay ficam loop-prone.
+6. **Confiança explícita** (princípio 11 do `AGENTIC_CLI.md`). SQL é input não-confiável vindo do modelo: prompt injection via doc/tool output → modelo emite SQL malicioso → harness executa. Tools tipadas com schema fechado eliminam esse vetor inteiramente.
+
+**Substituição:** tools tipadas por domínio cobrem todos os casos de uso reais:
+- "ler código" → `read_symbol` / `find_references` / `outline_file` / `code_graph` (`CONTRACTS.md §2.6.5c`)
+- "lembrar fato" → `memory_search` (`§2.6.5`)
+- "investigar histórico" → `agent audit *` (CLI human-driven, **não** tool de modelo)
+- "ver inventários" → slash commands (`/mcp list`, `/memory list`, `/flags`, etc.)
+
+**Quando reconsiderar:**
+
+Caso emergente: eval-driven self-improvement do modelo (modelo roda métricas sobre suas próprias sessões pra ajustar comportamento). Se isso virar requisito real, adicionar `analytics_query` com:
+- Schema fixo declarativo (DSL com métricas e dimensões enumeradas), **não SQL livre**
+- Apenas tabelas de aggregate (counts, averages, percentiles) — nunca rows individuais
+- Output sempre agregado, nunca conteúdo de message/tool args
+- Cobertura por eval (corpus de queries esperadas)
+
+Esse caminho é paralelo a tools simbólicas (`§2.6.5c`): alta precisão, baixa superfície de ataque. **Hoje:** deferido. Eval continua human-driven (`agent eval --suite`); modelo não precisa rodar suas próprias regressões.
+
+### 8.2 SQL ad-hoc humano sem PII redaction no output
+
+**O que é:** `agent code-index query <sql>` (`CODE_INDEX.md §10`) ou similar, sem aplicar redactor no output.
+
+**Por que rejeita:**
+- Tabelas de audit contêm conteúdo de `tool_calls.args`, `messages.body`, `failure_events.payload` — todos `sensitivity: high` em `AUDIT.md §1`.
+- SQL ad-hoc é destinado a **troubleshooting humano**, não export — mas output via `--json` pode acabar em log, paste, screenshot, gist.
+- Sem redaction, ferramenta de debug vira vazamento de PII.
+
+**Substituição:** SQL ad-hoc passa pelo mesmo pipeline de redaction que `read_file` (`AUDIT.md §3.4`): paths → `~/...`, secrets → `[REDACTED]`, rows que matcham padrões PII flagged.
+
+**Quando reconsiderar:** nunca. Forensics raw exige bundle gerado por `agent forensics <session_id>` (`AUDIT.md §5`) — esse bundle é deliberadamente fechado, com checksum e trust prompt.
+
+### 8.3 SQL ad-hoc em headless/CI sem flag explícita
+
+**O que é:** `agent code-index query <sql>` rodando em CI sem opt-in declarado.
+
+**Por que rejeita:**
+- CI tem credenciais elevated (publish, deploy, push) — SQL ad-hoc nesse contexto é vetor de exfil escalado.
+- Output de CI vai pra logs públicos (GitHub Actions, etc) — mesmo redacted, expõe estrutura interna.
+- Sem flag, comportamento silencioso: PR malicioso adiciona `agent code-index query "SELECT ..."` em workflow → vaza schema interno sem warning.
+
+**Substituição:** flag `--allow-adhoc-sql` exigida em `--json` / non-TTY mode; ausente → comando recusa com erro claro. Em interactive: comando funciona normal (assume troubleshooting humano).
+
+### 8.4 ORM / query builder no modelo
+
+**O que é:** tool que aceita objeto JSON tipo `{ table: 'tool_calls', where: { session_id: '...' }, select: ['id', 'tool_name'] }` e roda como SQL internamente.
+
+**Por que rejeita:**
+- Mesmos motivos que §8.1, com "verniz" de schema fixo que não é fixo (selects arbitrários permitem bypass).
+- Cross-table join via `joins: [...]` reintroduz superfície completa.
+- Aparência de tipagem dá falsa segurança ao implementador.
+
+**Substituição:** se tipagem é o objetivo, faça **uma tool por intenção** (read_symbol, find_references, etc). Cobertura via 4 tools tipadas é mais simples que 1 tool query builder.
+
+---
+
+## 9. Quando este doc muda
 
 Este doc é deliberadamente **append-mostly**. Remover anti-pattern requer:
 1. PR com motivo (eval, mudança de premissa, ou bug do anti-pattern original).

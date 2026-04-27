@@ -574,16 +574,102 @@ PR bloqueado se:
 ```
 agent code-index status                        # estado: files indexed, last scan, db size
 agent code-index rebuild [--clean] [--since]   # full rebuild
-agent code-index query <sql>                   # SQL ad-hoc (read-only); cuidado!
 agent code-index symbol <name>                 # busca simbólica
 agent code-index refs <name>                   # find references
 agent code-index outline <path>                # outline de arquivo
 agent code-index imports <path> [--hops N]     # grafo
+agent code-index query <sql> [opts]            # SQL ad-hoc (read-only) — ver §10.1
 agent code-index check                         # valida consistência (FS vs index)
 agent code-index profile <op>                  # benchmark de uma operação
 ```
 
-`--json` flag em todos pra scripting.
+`--json` flag em todos pra scripting (com restrições para `query`, ver §10.1.5).
+
+### 10.1 `agent code-index query` — SQL ad-hoc humano
+
+Ferramenta de troubleshooting destinada **exclusivamente a humano em modo interactive**. Modelo não tem acesso (ver `ANTI_PATTERNS.md §8.1`). Cinco pontos de policy que a implementação **deve** cumprir:
+
+#### 10.1.1 Read-only enforcement (defesa em profundidade)
+
+Três camadas:
+
+1. **PRAGMA**: conexão abre com `PRAGMA query_only = ON;` antes do statement. Bloqueia INSERT/UPDATE/DELETE/CREATE/ALTER/DROP no nível do engine.
+2. **Parser pre-execution**: SQL passa por parser (`@databases/sqlite-parser` ou similar) antes do submit; statements DML/DDL → reject com erro estruturado, não execute.
+3. **Connection sandbox**: conexão dedicada por invocation; sem reuse; commit hooks vazios.
+
+Falha em qualquer camada → erro `index.query.write_attempted`; comando aborta sem tocar o DB.
+
+#### 10.1.2 Timeout obrigatório
+
+Default **5s**, cap **30s** (configurável via `--timeout-ms`). Excedeu → SQLite interrupt via `sqlite3_interrupt`; resultado vira erro `index.query.timeout`.
+
+Razão: query maliciosa (`SELECT * FROM symbols, references_, imports`) em DB médio pode rodar por minutos; bloqueia o terminal humano sem affordance de cancel além de Ctrl+C.
+
+#### 10.1.3 PII redaction no output
+
+Output passa pelo **mesmo redactor** que `read_file` (`AUDIT.md §3.4`):
+- Paths absolutos → `~/...`
+- Patterns de secret (`sk-`, `AKIA*`, JWT) → `[REDACTED]`
+- Conteúdo de message body / tool args (mesmo se vier de cross-DB join) → flag `[PII?]` e exigência de `--unsafe-raw` para revelar
+
+**`code_index.db` em si tem sensibilidade baixa** (só símbolos e estrutura) — redactor é mais paranóico do que necessário para o caso default. Razão: usuário pode passar `--db sessions.db` para query cross-DB, e aí redaction é load-bearing. Aplicar sempre é mais simples que detectar contexto.
+
+#### 10.1.4 Audit trail
+
+Toda invocação gera `failure_event` informacional (não-bloqueante):
+
+```sql
+INSERT INTO failure_events (
+  code = 'audit.adhoc_sql_executed',
+  classe = 'configuration',
+  severity = 'info',
+  payload = json_object(
+    'db', '<path>',
+    'sql_truncated', '<primeiros 200 chars>',
+    'sql_hash', '<sha256 dos primeiros 4KB>',
+    'rows_returned', N,
+    'duration_ms', M,
+    'invoked_by', 'cli'
+  )
+);
+```
+
+Hash do SQL permite correlação cross-session ("essa mesma query foi rodada N vezes"). Truncate evita gravar SELECT gigante completo em audit.
+
+#### 10.1.5 Bloqueado em headless / CI sem flag explícita
+
+| Modo | Comportamento default | Override |
+|---|---|---|
+| Interactive (TTY) | comando funciona normal | n/a |
+| `--json` ou non-TTY | recusa com erro claro: "ad-hoc SQL requires --allow-adhoc-sql in non-interactive mode" | `--allow-adhoc-sql` flag opt-in explícito |
+| CI (detectado via `CI=true` env) | recusa **mesmo com `--allow-adhoc-sql`** salvo se `--allow-adhoc-sql=ci` literal | `--allow-adhoc-sql=ci` (intencional, registrado) |
+
+Razão: ver `ANTI_PATTERNS.md §8.3`. Output de CI vira log público; SQL ad-hoc esquecido em workflow vira leak vector.
+
+#### 10.1.6 DB target
+
+```
+agent code-index query "SELECT * FROM symbols WHERE kind='function'"
+agent code-index query --db sessions "SELECT COUNT(*) FROM tool_calls WHERE session_id = ?"
+agent code-index query --db code_index "..."     # default; explicit
+```
+
+`--db` aceita: `code_index` (default), `sessions`, `traces`. Caminho arbitrário → recusa (evitar `--db /etc/shadow` confused-deputy).
+
+Cross-DB join: SQLite `ATTACH DATABASE` é permitido **apenas** para combinações canônicas declaradas (`code_index + sessions` para correlate "tool_calls → arquivos editados"). Fora disso → recusa.
+
+#### 10.1.7 Output
+
+Render via `<Table>` (`UI.md §3.1`) em modo interactive — paginação automática, navigable com cursor. `--json` retorna NDJSON com `{ row: {...}, meta: { redacted: true|false } }` por linha.
+
+Cap default: 1000 rows. Excedeu → `truncated: true` + `[N more rows]` em footer; usuário refina com `LIMIT`.
+
+#### 10.1.8 Anti-patterns
+
+Ver [`ANTI_PATTERNS.md §8.2`, `§8.3`](./ANTI_PATTERNS.md):
+- ❌ SQL ad-hoc sem PII redaction (§8.2)
+- ❌ SQL ad-hoc em headless/CI sem `--allow-adhoc-sql` explícito (§8.3)
+- ❌ Promover `query` a tool de modelo (§8.1) — tools simbólicas existem por essa razão
 
 ---
 
@@ -598,6 +684,9 @@ agent code-index profile <op>                  # benchmark de uma operação
 | `index.disk_full` | DB write falha | tools retornam `index_unavailable`; sessão prossegue degradada |
 | `index.lock_timeout` | reindex preso > 30s | abort; estado preservado; user roda `agent code-index check` |
 | `index.unavailable` | `code_index.db` não existe | tools simbólicas no-op; `repo_map` cai pra fallback grep-based |
+| `index.query.write_attempted` | SQL ad-hoc tentou DML/DDL (§10.1.1) | comando aborta; nenhuma mudança no DB; mensagem clara |
+| `index.query.timeout` | SQL ad-hoc excedeu `--timeout-ms` (§10.1.2) | interrupt via `sqlite3_interrupt`; resultado parcial não-retornado |
+| `index.query.headless_denied` | SQL ad-hoc em CI/`--json` sem `--allow-adhoc-sql` (§10.1.5) | comando recusa; sugestão de override flag |
 
 Detalhamento operacional em [`FAILURE_MODES.md §16`](./FAILURE_MODES.md) — playbook de recovery por code, mensagens-template, audit footprint, queries de aggregate.
 

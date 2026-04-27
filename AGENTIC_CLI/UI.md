@@ -1448,6 +1448,35 @@ Filtragem fuzzy (`Ctrl+R` style). Tab completa parcial. Esc fecha.
 
 Custom commands de `~/.config/agent/commands/` aparecem misturados, com indicador `[user]`.
 
+### 5.4.1 Render canônico de outputs de slash command
+
+Slash commands que retornam **dados estruturados** (listagens, agregados, queries) renderizam via [`<Table>`](#3.1) por default. Isso elimina drift entre comandos similares e dá ao usuário affordance consistente (cursor, filtro inline, paginação).
+
+| Slash command | Source | Render |
+|---|---|---|
+| `agent audit timeline <session>` | `audit_timeline` view (`AUDIT.md §2.1`) | `<Table>` colunas: ts, kind, payload (compact JSON) |
+| `agent audit failures` | `failure_events` | `<Table>` colunas: ts, code, classe, severity, recovery_action |
+| `agent audit prompts list` | `prompt_versions` | `<Table>` colunas: hash, name, created_at, sessions_using |
+| `agent audit mcp list` | `mcp_servers` | `<Table>` colunas: name, state, total_calls, last_error |
+| `agent audit mcp history <name>` | `mcp_manifest_history` | `<Table>` colunas: decided_at, decision, hash (curto), decided_by |
+| `agent code-index query <sql>` | ad-hoc (`CODE_INDEX.md §10.1`) | `<Table>` colunas: dinâmicas do `SELECT`; cap 1000 rows |
+| `agent --list-flags` | flag registry + `feature_flags_active` (`FEATURE_FLAGS.md §5.1`) | `<Table>` colunas: flag, kind, stage, default, active?, doc |
+| `/mcp list` | `mcp_servers` | `<Table>` colunas: name, state, tools, last_error |
+| `/memory list` | memory store | `<Table>` colunas: type, scope, name, description |
+| `/memory pending` | memory propostas | `<Table>` colunas: source, type, name, snippet |
+| `/cost` | aggregate de `tool_calls` + `messages` | `<Table>` colunas: dimension, tokens_in, tokens_out, usd; groupBy `provider` ou `tool_name` |
+| `/flags` (active) | `feature_flags_active` da sessão atual | `<Table>` colunas: flag, kind, value, set_by |
+| `/sessions list` | sessions + recap_cache | **`<SessionPicker>`** (não Table — caso especial com mini-recap inline; ver `§3.2`) |
+
+**Regras de aplicação:**
+
+- Output ≥ 3 colunas estruturadas → `<Table>`.
+- Output 1-2 colunas curtas → bullet list.
+- Output single-record com muitos campos → key-value style (`<ValidatorTrace>` style, `§3.2`).
+- Tree-shaped (parent/child) → `<DAGProgress>` ou indented list.
+
+**Em `--json` mode:** Table NDJSON `{ row: { col1, col2, ... } }` por linha. Compatível com `jq`, scripting. **Nunca** texto pretty-printed em `--json`.
+
 ### 5.5 Scroll & history
 
 Terminal não tem scroll programático confiável (cada terminal trata diferente). Estratégia:
