@@ -173,6 +173,50 @@ Stop sequence `</args>` força modelo parar imediatamente após fechar args, evi
 
 Stop sequences cuidadosamente curadas; eval cobre.
 
+### 3.5 Termination semantics — interação canônica
+
+Geração termina por **uma de quatro causas** (em ordem de precedência):
+
+| Trigger | Stop reason | Ordem de precedência |
+|---|---|---|
+| `stop_sequences` match | `'stop_sequence'` | **mais alta** (interrompe imediato no token) |
+| Modelo emite EOS natural | `'end_turn'` (Anthropic) / `'stop'` (OpenAI) | natural; segunda |
+| `max_tokens` atingido | `'max_tokens'` | **truncate**; terceira |
+| Provider error mid-stream | `'error'` | quarta (não é termination "limpa") |
+
+#### Precedência
+
+Se múltiplos triggers acontecem mesmo step:
+
+1. **stop_sequences** vence — interrompe no momento do match, mesmo se faltando tokens pra max_tokens
+2. **EOS natural** vence max_tokens — modelo decidiu parar antes de hit limite
+3. **max_tokens** vence apenas se modelo nunca emitiria EOS dentro do budget
+
+#### Por step
+
+Em multi-tool step (1.3 do ORCHESTRATION):
+- Cada tool_use **completo** (tool_use_stop) NÃO termina o step
+- Step termina em EOS natural ou max_tokens hit no nível do step inteiro
+- max_tokens é **soma** dos tokens do step (texto + tool_use args)
+
+#### Quando hit é "ok" vs "problema"
+
+| Stop reason | Status |
+|---|---|
+| `end_turn` / `stop` | normal — modelo terminou |
+| `stop_sequence` | normal — boundary respeitado (tool adapter) |
+| `max_tokens` em step de critique/compaction | normal (output budget intencional) |
+| `max_tokens` em step de geração | **warning** — output truncado; review needed |
+| `tool_use` (Anthropic) — modelo quer invocar tool | normal — segue pra tool dispatch |
+| `error` | failure_event registrado; recovery per FAILURE_MODES §2 |
+
+#### "Continue" prompt
+
+Em `stop_reason: 'max_tokens'` com necessidade de mais output:
+- Default: **não** auto-continue (custo runaway risk)
+- User explicit `/continue` slash command: re-prompt com "continue from where you stopped"
+- Em playbook configurável: `auto_continue_on_max_tokens: true` (raro; usar com budget cap)
+
 ---
 
 ## 4. Reasoning effort / thinking

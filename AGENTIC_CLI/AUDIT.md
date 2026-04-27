@@ -194,7 +194,69 @@ redaction_events(
 
 Permite saber **quanta** redaction houve sem expor **o quê**. Forensics pode incluir, audit query pode aggregar.
 
-### 3.4 Limites do redaction
+### 3.4 Output post-processing pipeline canônico
+
+Order-of-operations entre raw output do modelo e dados persistidos. **Ordem importa**; cada etapa pode falhar ou modificar.
+
+```
+raw_output (from provider stream)
+  ↓
+Step 1: Parse
+  - Extract text + tool_use blocks
+  - Strict format check (JSON parse pra args)
+  - Falha: vira ToolError estruturado (CONTRACTS §2)
+  ↓
+Step 2: Validate (se schema declarado)
+  - JSON Schema check pra tool args
+  - output_schema check pra step output (em playbooks)
+  - Falha: retry com hint OR fail step
+  ↓
+Step 3: Sanitize
+  - Strip ANSI control sequences (CSI escape malicioso)
+  - Preserve SGR (cor) seguro
+  - Normalize line endings
+  - Truncate output > limit (100KB default; pointer)
+  ↓
+Step 4: Redact
+  - Secret patterns (AWS, GitHub, JWT, etc) → <REDACTED:type>
+  - Path com username → ~/...
+  - Custom patterns (config TOML)
+  - Registra em redaction_events (count + pattern_kind)
+  ↓
+Step 5: Persist
+  - SQLite transaction commit (messages, tool_calls, etc)
+  - traces NDJSON write
+  - Atomic; failure = rollback
+  ↓
+Step 6: Emit
+  - UI render (sanitizado + redacted)
+  - Pass pra próximo step (contexto)
+  - Hooks PostToolUse fire-and-forget
+```
+
+**Idempotência:** mesmo raw_output → mesma persisted output (deterministic). Verifiable em replay.
+
+**Failure handling per etapa:**
+
+| Etapa | Falha | Recovery |
+|---|---|---|
+| Parse | malformed JSON | Tool error estruturado; modelo decide |
+| Validate | schema mismatch | Retry com hint; após N retries: fail step |
+| Sanitize | (não falha; sempre retorna string limpa) | n/a |
+| Redact | (não falha; aplica patterns) | n/a; eventos registrados |
+| Persist | SQLite error | Rollback transação; sessão `error_fatal` |
+| Emit | UI render error | Loggado; persist já ok; sessão continua |
+
+**Order rationale:**
+- Parse antes de validate (precisa estrutura)
+- Validate antes de sanitize (errors em tool args devem ser visíveis ao modelo)
+- Sanitize antes de redact (control chars podem mascarar secrets)
+- Redact antes de persist (audit table NUNCA recebe raw secrets)
+- Persist antes de emit (atomicidade > UX; se persist falha, UI também não recebe)
+
+**Anti-pattern:** redact após persist (window de exposure já em backup).
+
+### 3.5 Limites do redaction
 
 **Honesto:**
 - Heurística é trivialmente burlável (atacante com controle do prompt envia secret encoded em base64)

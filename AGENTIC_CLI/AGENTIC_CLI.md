@@ -1296,6 +1296,55 @@ Em profile `orchestrated`, validators precisam saber que o output vai chegar com
 
 Para um nó `llm` do DAG com `output_schema`, o backend escolhe o mecanismo mais forte disponível. Se nenhum: retry baseado em parse + validador. Mas `force_constrained: true` no nó faz falha-imediata se backend não suporta — evita silent degradation.
 
+#### Pipeline canônico
+
+Pipeline `output_schema` → output validado, ordenado por força:
+
+```
+output_schema (declared)
+  ↓
+Step 1: Schema → backend grammar
+  - GBNF (llama.cpp): JSON Schema → GBNF translator (built-in lib)
+  - JSON Schema (OpenAI structured outputs): direct
+  - tools (Anthropic, OpenAI tools native): converted to tool definition
+  - JSON mode (Ollama): hint via prompt (modelo respeita ~90-95%)
+  - regex/parse-only (last resort): no enforcement em runtime
+  ↓
+Step 2: Generation com enforcement
+  - GBNF: rejection sampling em token-level (100% schema adherence)
+  - structured outputs: server-side enforcement (100%)
+  - tools native: 100% schema correto (formato fixo)
+  - JSON mode: best-effort; parse-and-retry pós-generation
+  ↓
+Step 3: Parse output
+  - Extract structured payload (JSON / tool_use args)
+  - Strict JSON parse (fail = invalid)
+  ↓
+Step 4: Schema validate
+  - validators[] em ordem (fast first)
+  - Falha → retry com hint específico OR fallback
+  ↓
+Step 5: (validate ok) → emit pra step
+```
+
+#### Fallback chain
+
+Quando `force_constrained: false` (default) e backend mais forte falha:
+
+```
+tools native      ← preferred (Anthropic, OpenAI)
+   ↓ falha (raríssimo; bug do provider)
+GBNF              ← se llama.cpp disponível
+   ↓ falha (raro)
+JSON mode + retry ← Ollama; até 2 retries com hint
+   ↓ falha persistente
+adapter regex     ← LOCAL_MODELS §3 pattern XML-style
+   ↓ falha persistente
+fail              ← step.error = `tool.constrained.exhausted`
+```
+
+`force_constrained: true`: aborta no primeiro fail; sem fallback. Útil em workflows de alta-criticality (security audit, refactor).
+
 ### 14.2 Model Registry
 
 Capabilities de cada modelo declaradas em arquivo, usadas para auto-selecionar profile e prompt template.

@@ -197,6 +197,52 @@ Direção: A → B (request) ↔ A (stream events)
 - Context Engine: read-only em SQLite (carrega memory, repo map)
 - Provider: network call; cache server-side (transparente)
 
+### Streaming pipeline canônico
+
+Order-of-operations entre raw HTTP chunks e step persisted:
+
+```
+Provider HTTP/SSE chunks (raw bytes)
+  ↓
+Step 1: Stream parser per provider
+  - Anthropic: SSE → JSON events (content_block_*, input_json_delta)
+  - OpenAI: SSE → choice.delta accumulator
+  - Ollama: NDJSON → message accumulator
+  - llama.cpp: SSE → token deltas
+  ↓
+Step 2: Normalize → canonical StreamEvent
+  - kind ∈ { start, text_delta, tool_use_start, tool_use_delta, tool_use_stop, thinking_delta, stop, error }
+  - Adapter mapeia quirks de cada provider pro tipo único
+  ↓
+Step 3: Buffer (pra UI batching)
+  - text_delta acumulado em batches de 33ms (30fps target)
+  - tool_use_delta acumulado até tool_use_stop
+  - Outros: emit imediato
+  ↓
+Step 4: Emit pra UI (streaming visible)
+  - <StreamingMessage> recebe text_delta batched
+  - <ToolCallCard> recebe tool_use_start
+  - thinking_delta → <ThinkingIndicator>
+  ↓
+Step 5: Em tool_use_stop OU stop event:
+  - Validate args estruturado (JSON parse + schema)
+  - Falha de parse: tool_use descartado; modelo recebe ToolError
+  ↓
+Step 6: Persist em messages + tool_calls (transação SQLite)
+  - text → messages.content
+  - tool_use → tool_calls row
+  - Buffer descartado após persist
+```
+
+**Backpressure:** se UI render mais lento que stream emit, buffer cresce até `max_stream_buffer_kb = 256`; depois pausa stream (HTTP slow read). Provider eventualmente timeout; raríssimo em prática.
+
+**Mid-stream cancel atomicity:** Ctrl+C / Esc Esc dispara HTTP abort:
+- Buffer **descartado** (não persistido)
+- `failed_attempts.cost_usd` registra tokens cobrados pelo provider
+- UI: tokens visíveis somem (Ctrl+C) ou permanecem com label `[interrupted]` (Esc Esc) — ver ORCHESTRATION.md §7.5
+
+**Partial output never persists.** Único caso de persist parcial: provider crash mid-stream com tokens já parciais — esses ficam em `failed_attempts`, não em `messages`.
+
 ### Versão: **v1**
 
 ---
