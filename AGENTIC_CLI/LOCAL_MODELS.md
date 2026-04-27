@@ -1108,7 +1108,153 @@ Threshold > 5% hallucination rate sustained = warning; revisar layers ou modelo.
 
 ---
 
-## 16. Anti-patterns
+## 16. Feature-by-tier matrix (canonical)
+
+> **Cross-refs:** profile selection em `ORCHESTRATION.md §0-2`; provider/model catalog em `PROVIDERS.md`; small model defense em §15.
+
+Tier define **default** de cada feature. Override per-config sempre permitido, mas defaults refletem o que paga vs. quebra silenciosamente.
+
+### 16.1 Tiers canônicos
+
+| Tier | Exemplos | VRAM/Ctx típico | Profile default |
+|---|---|---|---|
+| **Frontier** | Opus 4.x, Sonnet 4.x, GPT-5 | API; 200k-1M ctx | `autonomous` |
+| **Mid** | Sonnet 4.6, GPT-4o, Gemini 2 Flash, Haiku 4.5 | API; 128k-200k ctx | `autonomous` |
+| **Small** (local-capable) | Llama 3.3 70B, Qwen 2.5 32B, Mistral Large | 24-48GB; 32k-128k | `orchestrated` ou `hybrid` |
+| **Tiny** (edge) | Llama 3.x 8B, Qwen 7B, Phi-3, Gemma 9B | 8-12GB; 8k-32k | `orchestrated` mandatório |
+
+Limite operacional: features marcadas ❌ em tier não são proibidas — são **off por default**; user que sabe o que está fazendo pode forçar via config, com warning.
+
+### 16.2 Legenda
+
+- ✅ **enabled** — feature ativa, calibração default funciona
+- ⚠ **degraded** — feature roda mas com caveat (calibração needed, format ocasionalmente quebra, custo desproporcional)
+- ❌ **disabled** — desligada por default; cai em fallback ou simplesmente não roda
+- — **N/A** — conceito não aplica nesse tier (ex: hybrid escalation em frontier)
+
+### 16.3 Loop & Orchestration
+
+| Feature | Frontier | Mid | Small | Tiny |
+|---|:-:|:-:|:-:|:-:|
+| Multi-tool-use **paralelo** (`ORCH §1.3`) | ✅ | ✅ | ⚠ | ❌ |
+| Multi-tool-use **sequencial** | ✅ | ✅ | ✅ | ✅ |
+| Subagents spawn (`ORCH §3`) | ✅ | ✅ | ⚠ (1-level only) | ❌ |
+| DAG profile orchestrated (`ORCH §2`) | — (overkill) | ⚠ (caro) | ✅ | ✅ |
+| Self-critique `on_writes` (`ORCH §6`) | ✅ | ✅ | ⚠ (calibrar threshold) | ❌ |
+| Self-critique `always` | ⚠ (custo) | ❌ | ❌ | ❌ |
+| Hooks chain (`ORCH §5`) | ✅ | ✅ | ✅ | ✅ |
+| Hybrid fallback escalation (`§15.7`) | — | — | ✅ | ✅ |
+
+**Notas:**
+- Multi-tool **paralelo** em small: modelos pequenos frequentemente emitem só sequencial mesmo quando schema permite paralelo. Não é bug; é capacidade.
+- Subagents em small: nesting > 1 nível confunde; cap em 1 nível.
+- Self-critique `always` em mid+ vira custo dobrado sem ganho proporcional fora de workflows críticos.
+
+### 16.4 Context & Memory (data-driven primitives funcionam em qualquer tier)
+
+| Feature | Frontier | Mid | Small | Tiny |
+|---|:-:|:-:|:-:|:-:|
+| Goal re-injection literal (`CTX §10`) | ✅ | ✅ | ✅ | ✅ |
+| Pinned context (`CTX §12.4`) | ✅ | ✅ | ✅ | ✅ |
+| Auto-rehydrate no resume (`SM §7.6`) | ✅ | ✅ | ✅ | ✅ |
+| Memory eager index (`MEM §4`) | ✅ | ✅ | ✅ | ✅ |
+| Repo map eager (`CTX §11`) | ✅ | ✅ | ✅ | ⚠ (truncar) |
+| Goal stack manual (`/goal push`, `SM §2.3`) | ✅ | ✅ | ✅ | ✅ |
+| Goal stack auto-emit por playbook (`phases:`) | ✅ | ✅ | ✅ | ✅ |
+| Goal stack model-emit (`goal_push()` tool) | ✅ | ✅ | ⚠ (não-confiável) | ❌ |
+| Step reflection `terse` (`CTX §13.10`) | ✅ | ✅ | ✅ | ⚠ (formatting) |
+| Step reflection `full` | ⚠ (custo) | ⚠ (custo) | ❌ | ❌ |
+| `todo_write` tool | ✅ | ✅ | ✅ | ⚠ |
+
+**Notas:**
+- Tudo que é **data-driven** (re-injetar literal de SQLite) funciona cross-tier. Pinned context + auto-rehydrate são as features mais portáveis do batch recente.
+- Goal stack tem 3 modos: manual (slash), playbook auto-emit (phases:), model-emit (tool). Tier baixo = só os 2 primeiros confiáveis.
+- Step reflection `full` em local: mais ruído que sinal — modelo gasta tokens em narração que ele mesmo confunde no próximo turno.
+
+### 16.5 Compaction & Crash Recovery
+
+| Feature | Frontier | Mid | Small | Tiny |
+|---|:-:|:-:|:-:|:-:|
+| Compaction via LLM (`ORCH §4.5`) | ✅ (Haiku) | ✅ (Haiku) | ⚠ (mesmo modelo, caro) | ❌ |
+| Compaction fallback determinístico (`ORCH §4.6`) | ✅ | ✅ | ✅ | ✅ |
+| Crash recovery (`SM §7`) | ✅ | ✅ | ✅ | ✅ |
+| `hard_cancel` opt-in (`ORCH §5.1.1`) | ✅ | ✅ | ✅ | ✅ |
+
+**Notas:**
+- Compaction LLM em small/tiny: não há "cheap secondary"; usar mesmo modelo é caro. Defaultar pra fallback determinístico (sem LLM) é correto pra esses tiers.
+- Fallback determinístico é o trabalho mais valioso pra small/tiny — único caminho que mantém sessão longa viável.
+
+### 16.6 Drift & Focus
+
+| Feature | Frontier | Mid | Small | Tiny |
+|---|:-:|:-:|:-:|:-:|
+| Drift detector (`SM §11`) | ✅ (Haiku secondary) | ✅ (Haiku secondary) | ⚠ (re-calibrar threshold; ou desligar) | ❌ |
+| Regrounding modal (`SM §11.3`) | ✅ | ✅ | ✅ (se detector ativo) | ❌ |
+| Drift threshold default 0.7 (`TT §13.5`) | ✅ | ✅ | ❌ (calibrar pelo modelo) | — |
+
+**Notas:**
+- Drift detector assume Haiku-class secondary disponível. Em air-gapped (local-only sem API), o detector só roda se houver segundo modelo local carregado — geralmente custo proibitivo de RAM/VRAM. Default: ❌ em local air-gapped, ⚠ em local com API access.
+- Threshold 0.7 calibrado em Haiku. Detector com Llama 3.3 70B emitindo o JSON tem distribuição de confidence diferente. Re-calibrar via `evals/drift/` antes de confiar.
+
+### 16.7 Recap & Audit
+
+| Feature | Frontier | Mid | Small | Tiny |
+|---|:-:|:-:|:-:|:-:|
+| RECAP projeção determinística (`RECAP §3`) | ✅ | ✅ | ✅ | ✅ |
+| RECAP renderer LLM (human/pr/changelog/slack) | ✅ | ✅ | ⚠ | ❌ (template-only) |
+| `recap_mini` para listings | ✅ | ✅ | ⚠ (fallback determinístico) | ⚠ (fallback determinístico) |
+| `gap-audit` playbook (`PB §10`) | ✅ | ✅ | ⚠ (sem `thinking_budget`) | ❌ |
+| `false_confirmation_rate` eval threshold | ✅ | ✅ | ⚠ (re-calibrar) | — |
+
+**Notas:**
+- RECAP projeção é puro SQL. Sempre disponível.
+- RECAP renderer LLM: small produz markdown OK em modos `human`/`slack`; `pr` e `changelog` exigem instruction-following mais cirúrgico — degradado.
+- `gap-audit` perde dente em small porque depende de `thinking_budget: 4000` (nativo só em Anthropic frontier). Em local cai pra prompt normal; viés cético sem extended thinking é menos confiável.
+
+### 16.8 Constraints & Validation
+
+| Feature | Frontier | Mid | Small | Tiny |
+|---|:-:|:-:|:-:|:-:|
+| Schema enforcement nativo (Anthropic/OpenAI) | ✅ | ✅ | — | — |
+| GBNF / constrained generation (local, `§4`) | — | — | ✅ | ✅ |
+| Permission engine | ✅ | ✅ | ✅ | ✅ |
+| Validators DAG (`ORCH §2`) | — (overkill) | ⚠ | ✅ | ✅ |
+| `assumptions` / `not_checked` honestidade | ✅ | ✅ | ⚠ (alucina cobertura) | ⚠ |
+
+**Notas:**
+- Schema enforcement: nativo via API tool use em frontier/mid; via GBNF em local. Equivalentes em rigor.
+- Honestidade epistêmica em small/tiny: modelos pequenos sistematicamente alucinam cobertura — declaram `not_checked: []` mesmo tendo ignorado 80% do escopo. Mitigação: validators externos (FileExists, GrepValidator) verificam claims.
+
+### 16.9 Custo cumulativo por tier (sessão típica de 50 steps com 20 writes)
+
+Estimativa de **secondary LLM calls** por sessão, com features default ligadas:
+
+| Tier | Drift checks | Critique calls | Compaction LLM | Recap render | Total LLM extras | Custo extras (~) |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Frontier | 20 (Haiku) | 20 (Haiku) | 1-2 (Haiku) | 1 (Haiku) | ~43 chamadas | $0.05-0.15 |
+| Mid | 20 (Haiku) | 20 (Haiku) | 1-2 (Haiku) | 1 (Haiku) | ~43 chamadas | $0.05-0.15 |
+| Small (com API) | 20 (Haiku) | 0 (default off) | 0 (fallback) | 1 (Haiku) | ~21 chamadas | $0.02-0.05 |
+| Small (air-gapped) | 0 | 0 | 0 (fallback) | 0 (template) | 0 | $0 |
+| Tiny | 0 | 0 | 0 (fallback) | 0 (template) | 0 | $0 |
+
+**Conclusão de custo:** features de viés cético (drift, critique, gap-audit thinking) custam principalmente em frontier/mid. Em small/tiny o spec **economiza por necessidade**, não por desenho — pode passar despercebido que sessão local é menos protegida contra drift sem que o user note.
+
+### 16.10 O que implementar primeiro por tier (priorização)
+
+Pra implementador escolhendo onde investir:
+
+| Tier | Top 3 features que mais pagam |
+|---|---|
+| Frontier | gap-audit playbook · drift detector · step_reflection terse (debug/explain) |
+| Mid | Compaction fallback determinístico · drift detector · pinned context |
+| Small | Compaction fallback determinístico · pinned context · DAG validators · hybrid escalation |
+| Tiny | Compaction fallback determinístico · pinned context · DAG validators · GBNF |
+
+Notar: **Compaction fallback** (`ORCH §4.6`) e **Pinned context** (`CTX §12.4`) aparecem nos 4 tiers — são as primitivas de maior alavancagem cross-tier do batch recente. Implementar primeiro.
+
+---
+
+## 17. Anti-patterns
 
 | Anti-pattern | Por quê ruim |
 |---|---|
@@ -1126,7 +1272,7 @@ Threshold > 5% hallucination rate sustained = warning; revisar layers ou modelo.
 
 ---
 
-## 17. Insight final
+## 18. Insight final
 
 Local não é "frontier mais barato". É **trade-off explícito** com perfil distinto:
 
