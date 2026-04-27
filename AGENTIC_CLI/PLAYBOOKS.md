@@ -57,10 +57,14 @@ context_recipe:               # shaping de contexto (ver CONTEXT_TUNING.md)
   memory_filter: [string]     # filtra memory index por type/tag
 prompt_version: int           # bump em mudança de prompt OR sampling
 context_recipe_version: int   # bump em mudança de recipe
+phases:                       # opt-in; auto-emite push/pop em goal_stack (STATE_MACHINE.md §2.3)
+  - name: string              # kebab-case
+    on_enter: string          # ex: goal_push("...")
+    on_complete: string       # ex: goal_pop("completion")
 ---
 ```
 
-Sampling defaults canônicos por workflow em [`TOKEN_TUNING.md`](./TOKEN_TUNING.md) §9. Context recipes canônicos por workflow em [`CONTEXT_TUNING.md`](./CONTEXT_TUNING.md) §13. Override per playbook conforme acima.
+Sampling defaults canônicos por workflow em [`TOKEN_TUNING.md`](./TOKEN_TUNING.md) §9. Context recipes canônicos por workflow em [`CONTEXT_TUNING.md`](./CONTEXT_TUNING.md) §13. Override per playbook conforme acima. Goal stack lifecycle em [`STATE_MACHINE.md`](./STATE_MACHINE.md) §2.3 — playbooks com `phases` declaradas auto-empilham objetivos; sem `phases`, push/pop é manual.
 
 ### 1.2 Output schema sempre tem
 
@@ -1374,7 +1378,147 @@ not_checked:
 
 ---
 
-## 10. Como adicionar um playbook novo
+## 10. Playbook: `gap-audit`
+
+Slash command: `/gapaudit`. Subagent isolado com viés cético. Audita um artefato (spec, plano, PR description, decision log, threat model) contra evidência verificável. Não corrige; reporta lacunas.
+
+Distinto de `code-review` (revisa **mudanças** de código contra correctness) e `security-audit` (varre **código** por threat categories). `gap-audit` opera sobre **artefatos textuais** verificando *claim vs evidence*.
+
+```yaml
+---
+name: gap-audit
+description: Audita artefato (spec/plano/PR/threat model) procurando gaps, contradições e claims sem evidência. Não conserta.
+tools: [read_file, grep, glob]
+budget:
+  max_steps: 30
+  max_cost_usd: 0.50
+references:
+  - CRITICAL_THINKING.md
+slash: gapaudit
+sampling:
+  temperature: 0.2                 # baixo; queremos consistência cética, não criatividade
+  max_tokens: 4096
+  thinking_budget: 4000            # vale pensar antes de declarar gap
+output_schema:
+  summary: string                  # 1-3 linhas: "audit verdict + headline gaps"
+  gaps:                            # algo que devia existir e não existe
+    - { artifact_ref, claim_or_section, what_is_missing, severity, why_it_matters }
+  contradictions:                  # X afirma Y; A afirma ¬Y
+    - { artifact_ref_a, artifact_ref_b, conflict, severity }
+  unverifiable:                    # claim feito sem evidência checável
+    - { artifact_ref, claim, why_unverifiable, suggested_evidence }
+  confirmed_ok:                    # claims que foram verificados contra evidência
+    - { artifact_ref, claim, evidence_ref }
+  not_checked:                     # honestidade epistêmica — escopo não auditado
+    - { area, reason }
+  assumptions: [string]
+---
+```
+
+```markdown
+# Gap Audit
+
+Você audita artefatos (spec, plano, PR description, decision log) com viés cético.
+Sua única saída é um relatório no schema acima.
+Não escreve código. Não aplica fixes. Não reescreve o artefato.
+
+## NÃO faça
+
+- NÃO coloque nada em `confirmed_ok` sem ter verificado contra evidência específica (`file:line`, comando rodado, output observado).
+- NÃO use linguagem que confirma sem evidência ("parece OK", "provavelmente correto", "looks good"). Se não verificou, vai pra `unverifiable` ou `not_checked`.
+- NÃO marque gap baseado em ausência ambígua. Se "X não está mencionado" pode ser intencional, vai pra `unverifiable` com `suggested_evidence`, não pra `gaps`.
+- NÃO sugira como consertar. Esse é trabalho do autor; você só aponta.
+- NÃO trate o artefato como autoritativo. Se ele afirma que `tabela_X` existe, você grep pra confirmar — não assuma.
+- NÃO termine sem preencher `not_checked` honestamente. "Auditei tudo" é red flag.
+- NÃO produza output que parece thorough mas não cita evidência. Cada item tem `artifact_ref` (`file:line` ou `file §N`).
+
+## Faça
+
+- Cite `artifact_ref` (formato `file:line` ou `file §N.N`) em **todo** item.
+- Para `gaps`: explique **por que importa** — gap sem consequence é nit, não gap.
+- Para `contradictions`: cite **ambos** os lados com refs.
+- Para `unverifiable`: sugira que evidência fecharia (`suggested_evidence`), assim autor sabe o que produzir.
+- Para `confirmed_ok`: cite `evidence_ref` que verifica (pode ser outro `file:line`, comando, ou test fixture).
+- Em `summary`, comece com veredicto: "solid", "needs work", ou "structural issues".
+
+## Critérios de severidade (gaps e contradictions)
+
+| Severidade | Definição |
+|---|---|
+| `critical` | Gap/contradição que torna o artefato inaplicável (spec impossível de implementar, plano internamente inconsistente) |
+| `high` | Gap que vai surpreender quem implementar; contradição entre seções principais |
+| `medium` | Gap em edge case; claim importante sem evidência mas consertável |
+| `low` | Detalhe ausente, melhoria de clareza |
+
+`low` quase nunca vai em `gaps` — vira `unverifiable` ou `not_checked`. Auditor que reporta 30 itens `low` está fazendo nitpick, não audit.
+
+## Heurísticas (o que procurar)
+
+- **Conceito introduzido sem schema/contrato.** "Tabela X é usada" sem schema declarado.
+- **Cross-ref que não resolve.** `§N` ou `FOO.md §M` apontando pra inexistente.
+- **Symbol mencionado sem definição.** Tool/comando/estado citado sem aparecer em outro lugar canônico.
+- **Invariante declarada sem verificação.** "Sempre X" sem mecanismo que garanta X.
+- **Trade-off omitido.** Decisão sem custo declarado é decisão sem ponderação.
+- **Claim de "isso é seguro/correto/idempotente" sem evidência.** Vai pra `unverifiable`.
+- **Numeração inconsistente após renumeração.** Comum em spec longa editada incrementalmente.
+
+## Anti-pattern do próprio auditor (sycophancy)
+
+Modelo default tende a confirmar. Sintomas:
+
+- `confirmed_ok` longo com itens não-verificados
+- Ratio `confirmed_ok / (gaps + contradictions + unverifiable)` > 3:1 sem evidência forte
+- Nenhuma `unverifiable` em audit de artefato com 1000+ linhas (improvável que tudo seja checável)
+
+Se o output parece "tudo OK", **revise** — provavelmente faltou cético.
+
+## Quando NÃO conseguir auditar
+
+- Artefato é prosa narrativa sem claims verificáveis (ensaio, design rationale puro): retorna `summary` reconhecendo isso + `not_checked` com motivo.
+- Faltam refs externas pra verificar (artefato cita `INTERNAL_DOC.md` que você não pode acessar): vai em `unverifiable`, não em `gaps`.
+
+## Exemplo de output mínimo
+
+\`\`\`yaml
+summary: "needs work — 2 contradictions estruturais entre STATE_MACHINE §2.3 e RECAP §3, 4 gaps de schema. Resto está sólido onde verificado."
+gaps:
+  - artifact_ref: "STATE_MACHINE.md §11"
+    claim_or_section: "drift detector emite drift_event(...)"
+    what_is_missing: "schema da tabela drift_events não declarado"
+    severity: high
+    why_it_matters: "consumidores (eval, /recap forensics) não sabem colunas"
+contradictions:
+  - artifact_ref_a: "RECAP.md §3 (linha 107)"
+    artifact_ref_b: "STATE_MACHINE.md §2.3.1 (schema)"
+    conflict: "RECAP define goal_stack com 6 campos; schema SQL canônico tem 9"
+    severity: medium
+unverifiable:
+  - artifact_ref: "ORCHESTRATION.md §4.6"
+    claim: "fallback estático tem latência < 50ms"
+    why_unverifiable: "sem benchmark referenciado"
+    suggested_evidence: "link pra evals/compaction/static_fallback/latency.json"
+confirmed_ok:
+  - artifact_ref: "STATE_MACHINE.md §9"
+    claim: "todos eventos novos (drift_*, regrounding_*) estão na tabela"
+    evidence_ref: "verificado via grep ^| em §9; 4 entries presentes"
+not_checked:
+  - area: "ORCHESTRATION.md §6 (self-critique)"
+    reason: "fora do escopo do patch auditado"
+assumptions:
+  - "spec é source of truth; não verifiquei contra implementação real (não existe ainda)"
+\`\`\`
+```
+
+**Eval acoplado:** `evals/playbooks/gap-audit/` com 10 fixtures:
+- 4 artefatos com gaps semeados deliberadamente (esperado: `gap_recall ≥ 0.8`)
+- 3 artefatos limpos (esperado: `false_positive_rate ≤ 0.05`, ou seja, `gaps[]` quase vazio)
+- 3 artefatos com contradições internas semeadas (esperado: detector recall ≥ 0.7)
+
+Métrica anti-sycophancy: **`false_confirmation_rate`** = items em `confirmed_ok` que não têm `evidence_ref` válido (resolvível) / total `confirmed_ok`. Threshold: ≤ 0.05. PR-bloqueante.
+
+---
+
+## 11. Como adicionar um playbook novo
 
 1. Criar `~/.config/agent/playbooks/<name>.md` com frontmatter completo.
 2. Definir output schema com `summary` + `assumptions` + `not_checked` (mínimo).
@@ -1388,7 +1532,7 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 11. Anti-patterns comuns (não cometa)
+## 12. Anti-patterns comuns (não cometa)
 
 | Anti-pattern | Por que é ruim |
 |---|---|
@@ -1404,11 +1548,13 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 12. Playbooks futuros (candidatos)
+## 13. Playbooks futuros (candidatos)
 
-Ordem de retorno esperado. Teto recomendado: **6 playbooks total**. Mais que isso o modelo confunde a seleção. **Atual: 8** — acima do teto. Decisão deliberada; gatilho de revisão: eval de slash command selection mostra confusão > 5% em sessões recentes → revisitar (deprecar `pair-coding`/`architect` é trivial — não existem; deprecar um dos 8 ativos exige PR de remoção).
+Ordem de retorno esperado. Teto recomendado: **6 playbooks total**. Mais que isso o modelo confunde a seleção. **Atual: 9** — acima do teto. Decisão deliberada; gatilho de revisão: eval de slash command selection mostra confusão > 5% em sessões recentes → revisitar (deprecar `pair-coding`/`architect` é trivial — não existem; deprecar um dos 9 ativos exige PR de remoção).
 
-Atual (8): `code-review`, `security-audit`, `debug`, `refactor`, `explain`, `threat-model`, `perf-investigate`, `git-hygiene`.
+Atual (9): `code-review`, `security-audit`, `debug`, `refactor`, `explain`, `threat-model`, `perf-investigate`, `git-hygiene`, `gap-audit`.
+
+`gap-audit` é meta — opera sobre artefatos, não código. Distinto dos outros 8 por escopo de input (texto/spec) e ausência de domain heuristics. Trade-off aceito: mais um playbook em troca de primitiva canônica anti-sycophancy reusável (audit de spec, plano, PR description, threat model com mesmo schema).
 
 | Candidato | Quando fazer | Por quê |
 |---|---|---|
@@ -1422,7 +1568,7 @@ Princípio: cada playbook novo só entra se **eval mostra que modo normal falha*
 
 ---
 
-## 13. Insight final
+## 14. Insight final
 
 Playbook bem feito não ensina o modelo a pensar — **restringe** o que ele pode fazer e **estrutura** o que ele deve devolver. O resto é o modelo já fazendo o trabalho dele.
 

@@ -702,6 +702,9 @@ Em `[current_turn]`, **bottom** do prompt:
 User: <input atual>
 ─
 Goal (original task): <literal goal>
+Pinned context (always-include):       ← se houver pins ativos (§12.4)
+  - [constraint] <pin.text>
+  - [workflow]   <pin.text>
 ─
 ```
 
@@ -717,17 +720,28 @@ Goal (original task): "refactor queue retry logic into pure function preserving 
 
 ### 10.4 Multi-goal sessions
 
-Sessão com sub-goals (refactor + tests + docs):
+> **Cross-ref:** estrutura canônica em `STATE_MACHINE.md §2.3` (goal stack). `todo_write` cobre TODOs; goal stack cobre **objetivos aninhados** com push/pop auditados.
+
+Sessão com aninhamento real (refactor → add tests → update docs) usa goal stack. `active_goal` substitui `goal.text` na injection:
 
 ```
-Goal (original task): "...refactor + add tests + update docs..."
-Sub-goals (declared):
-  - [done] extract pure function
-  - [in progress] add 5 tests
+Goal (active): "add 5 tests for retry edge cases"
+Goal stack:
+  - [done]    refactor queue retry logic
+  > [active]  add 5 tests for retry edge cases       ← marcador `>` indica active
   - [pending] update docs
+
+Sub-goals (todo_write):
+  - [done] arrange test fixtures
+  - [in progress] cover backoff edge case
+  - [pending] cover concurrent retry case
 ```
 
-Sub-goals trackeados via `todo_write` tool; injetados se ativos.
+Distinção operacional:
+- **Goal stack** = objetivos com push/pop registrados em `goal_stack` table; foco do drift detector (`STATE_MACHINE.md §11`).
+- **Sub-goals via `todo_write`** = TODOs informais dentro do active goal; sem audit trail rígido.
+
+Sessão simples (um goal só) usa apenas o raiz; stack tem profundidade 1.
 
 ---
 
@@ -910,6 +924,101 @@ sessions.elided_tool_results_count INTEGER
 - Elision sem audit (modelo "esquece" silenciosamente)
 - Elision agressiva sem eval (perde decisões críticas)
 - Elision em sessão crítica (audit/security workflows)
+
+### 12.4 Pinned context primitive
+
+> **Cross-refs:** consumido pelo fallback determinístico em `ORCHESTRATION.md §4.6`; re-injetado em auto-rehydrate em `STATE_MACHINE.md §7.6`; goal re-injection em §10.
+
+Contraints invisíveis matam sessão longa. "Não mudar API pública", "sempre rodar `pnpm fmt` antes de commitar", "evitar import circular em `src/auth/`" — fatos que valem para a sessão inteira mas que ficam soterrados em `decisions[]` no checkpoint, não são re-injetados a cada compaction, e desaparecem em fallback estático.
+
+**Pin** é uma marcação explícita: *este fato sobrevive compaction, é re-injetado junto com o goal, e aparece em auto-rehydrate.*
+
+#### 12.4.1 API
+
+```
+/pin "<text>" [--scope session] [--kind <kind>] [--expires-in <duration>]
+/pin --list
+/pin --remove <id>
+```
+
+Flags:
+
+| Flag | Default | Valores |
+|---|---|---|
+| `--scope` | `session` | apenas `session` em v1 (cross-session pins violariam contrato com memory) |
+| `--kind` | `constraint` | `constraint` \| `workflow` \| `invariant` \| `reminder` |
+| `--expires-in` | nenhum (vive até fim da sessão) | duration string: `30m`, `2h`, `1d`. Persistido em `expires_at` (epoch ts) |
+
+Exemplos:
+
+```
+/pin "API pública de PaymentService não pode mudar"
+/pin "rodar pnpm fmt antes de commitar" --kind workflow
+/pin "fase de refactor — não tocar em testes ainda" --expires-in 45m
+```
+
+Tool equivalente para o modelo: `pin_context(text, kind?, expires_in?)` — modelo pode propor pin (vai a `awaiting_user` para confirmação modal, idêntico a memory writes).
+
+#### 12.4.2 Schema
+
+```sql
+context_pins(
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  text TEXT NOT NULL,                  -- ≤ 500 chars
+  kind TEXT NOT NULL,                  -- constraint | workflow | invariant | reminder
+  created_at INTEGER NOT NULL,
+  created_by TEXT NOT NULL,            -- user | model_proposed_user_approved
+  expires_at INTEGER,                  -- NULL = sessão; ts = expira
+  source_step_id TEXT                  -- step que originou (se model-proposed)
+);
+```
+
+Cap: **10 pins por sessão**. Pin #11 → erro com sugestão de remover algum primeiro. Limite força priorização.
+
+#### 12.4.3 Onde injeta
+
+Pins são re-injetados em **três pontos**, sempre literais:
+
+1. **Goal re-injection** (§10) — bloco `Pinned context:` logo após `Goal (original task):`, antes dos sub-goals.
+2. **Pós-compaction** (LLM ou fallback estático em `ORCHESTRATION.md §4.6`) — primeira coisa após o summary.
+3. **Auto-rehydrate no resume** (`STATE_MACHINE.md §7.6`) — bloco dedicado, sempre incluído.
+
+Format:
+
+```
+Pinned context (always-include):
+  - [constraint] API pública de PaymentService não pode mudar
+  - [workflow] rodar pnpm fmt antes de commitar
+  - [invariant] sem import circular em src/auth/
+```
+
+#### 12.4.4 Garantias
+
+- **Nunca elididos.** §12.1 heurísticas de elision **excluem** pins — eviction policy os pula.
+- **Nunca truncados.** Auto-rehydrate (`STATE_MACHINE.md §7.6`) trunca decisions/todos se exceder budget; pins ficam fora do truncamento. Se 10 pins juntos > budget, é erro de configuração — warning explícito ao user.
+- **Auditados.** Cada pin entra em `recap_intermediate.pinned_context[]` (extensão a `RECAP.md §3`). `/recap` mostra pins ativos.
+- **Persistidos cross-resume.** Pins sobrevivem crash/`/resume`; tabela `context_pins` é durable.
+
+#### 12.4.5 Pins NÃO são memória
+
+Distinção crítica vs `MEMORY.md`:
+
+| Memory (user/feedback/project/reference) | Pin |
+|---|---|
+| Cross-session, persistente em `~/.config/agent/memory/` | Per-session, em SQLite da sessão |
+| Carregada via index condicional | Sempre injetada literal |
+| Pode ser body lazy-loaded | Sempre full text |
+| Refere-se a fatos sobre projeto/usuário | Refere-se a constraints da tarefa atual |
+
+Regra: se o fato vale para **outras sessões** desse repo, é memory. Se vale só para **esta** tarefa, é pin. Promoção pin → memory é manual: user copia o texto do pin (`/pin --list`) e salva via fluxo canônico de memory (`MEMORY.md`).
+
+#### 12.4.6 Anti-patterns
+
+- **Pin como TODO.** Pin é constraint *para evitar drift*, não uma tarefa. TODO → `todo_write`. Pin → "sempre fazer X" / "nunca fazer Y" / "lembrar de Z".
+- **Pin de detalhe.** "Renomear `validateOrder` para `validateOrderInput`" não é pin — é decisão única, vai em `decisions[]`. Pin é coisa que precisa ser lembrada *múltiplas vezes na sessão*.
+- **Pin sem expires_at em sessão multi-fase.** Sessão > 50 turns mudando de fase (refactor → test → docs): pins de fase anterior viram ruído. Use `--expires-in 30m` ou remova explicitamente ao mudar de fase.
+- **Pinar tudo.** 10 pins = teto duro. Mais que 5 pins ativos é sinal de que a tarefa devia ser quebrada (`PLAYBOOKS.md`) ou que o pin certo é mais geral.
 
 ---
 

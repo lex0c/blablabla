@@ -87,6 +87,11 @@ Estados terminais marcados com `*`.
             └─────┘  └──────────┘  └───────────┘
 ```
 
+**Estados transientes não ilustrados** (mesma classe de `awaiting_user`/`compacting` — pausam o loop e retomam):
+- `regrounding` — disparado por drift detector antes de side-effect (`§2.2`, `§11`); transita pra `tool_exec` (confirma), `running` (re-plan), ou `awaiting_user` (edit goal).
+
+Diagrama ASCII evita inflar branches; estados transientes são definidos em §2.2 com transições completas em §9.
+
 ### 2.2 Estados e invariantes
 
 #### `[initializing]`
@@ -184,7 +189,8 @@ Compaction em progresso (chamada LLM separada).
 
 **Transições:**
 - `→ running` ao finalizar compaction (contexto compactado, retoma loop)
-- `→ error_fatal*` se compaction LLM retornar lixo persistente (após retry)
+- `→ running` via **fallback determinístico** se LLM falhar 2× ou exceder budget (`ORCHESTRATION.md §4.6`); contexto degradado mas sessão prossegue
+- `→ error_fatal*` apenas se `PreCompact` hook retornou `hard_cancel: true` (`ORCHESTRATION.md §5.1.1` — opt-in explícito)
 - Compaction **não é cancelável** por Ctrl+C — Ctrl+C agenda interrupt para depois
 
 #### `[awaiting_user]`
@@ -200,6 +206,26 @@ Aguardando humano em modal (permission, trust, memory write, plan approval).
 - `→ running` ou `→ tool_exec` quando user decide (allow/confirm/edit)
 - `→ idle` quando user rejeita (cancela operação corrente; histórico fica intacto)
 - `→ interrupted` em Ctrl+C (timeout do prompt = 5min, configurável)
+
+#### `[regrounding]`
+
+Estado transiente disparado por drift detector (`§11`) antes de tool com side-effect. Tool call proposta **não foi invocada**; user/modelo decide se prossegue, re-planeja, ou edita goal.
+
+**Invariantes:**
+- `sessions.status = 'regrounding'`
+- `pending_decisions` tem entry `kind='regrounding_prompt'` com `payload = drift_check_result`
+- Tool call proposta preservada em buffer (não persistida em `tool_calls` ainda)
+- `active_goal` (`§2.3`) imutável durante regrounding (mudança de goal só em `awaiting_user` via opção `(c)`)
+
+**Ações ao entrar:**
+- Re-injeta `[regrounding_context]` no próximo turno (formato em `§11.3`)
+- UI mostra modal com 3 opções (default: re-plan after 30s)
+
+**Transições:**
+- `→ tool_exec` em `regrounding_confirmed` (drift confirmado como falso positivo)
+- `→ running` em `regrounding_replan` (modelo gera próximo step do zero)
+- `→ awaiting_user` em `regrounding_update_goal` (modal pra editar goal)
+- `→ interrupted` em Ctrl+C
 
 #### `[paused]`
 
@@ -236,6 +262,137 @@ Estado transiente — usuário cancelou e agente está em cleanup (matando subpr
 - `[done*]` — fim normal. `sessions.ended_at` setado.
 - `[exhausted*]` — budget atingido. Estado preservado para review/resume com novo budget.
 - `[error_fatal*]` — erro irrecoverable. Logs preservados; sessão não é resumível com mesmo state.
+
+### 2.3 Goal stack
+
+> **Cross-refs:** drift detector consome `active_goal` em §11; auto-rehydrate em §7.6; multi-goal sessions em `CONTEXT_TUNING.md §10.4`; recap em `RECAP.md §3`.
+
+`goal.text` (`CONTEXT_TUNING.md §10`) modela **um** goal por sessão. Sessão real frequentemente tem aninhamento: "refactor → adicionar testes → atualizar docs → voltar pro refactor". Tratar tudo como string monolítica obriga o modelo a inferir qual sub-objetivo está ativo, e drift detector (§11) não tem o que comparar.
+
+Goal stack formaliza aninhamento: **stack ordenada de goals**, com push/pop registrados, sempre com `decided_by`.
+
+#### 2.3.1 Schema
+
+```sql
+goal_stack(
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  parent_id TEXT,                      -- NULL = root goal; senão referência ao goal pai
+  text TEXT NOT NULL,                  -- literal, ≤ 1000 chars
+  status TEXT NOT NULL,                -- active | suspended | done | abandoned
+  pushed_at INTEGER NOT NULL,
+  popped_at INTEGER,
+  pushed_by TEXT NOT NULL,             -- user | model_proposed_user_approved | playbook
+  decided_by TEXT,                     -- ao pop: user | model | playbook | timeout
+  pop_reason TEXT,                     -- completion | abandoned | superseded | error
+  source_step_id TEXT
+);
+```
+
+**Invariantes:**
+
+- Sessão tem **exatamente um** goal com `status='active'` em qualquer instante (`active_goal`).
+- Goal raiz (`parent_id IS NULL`) é o primeiro user prompt da sessão; criado em `initializing`.
+- `pop` requer `decided_by` não-null — sem isso é bug fatal (registro de auditoria incompleto).
+- Goal `done` ou `abandoned` é terminal; não pode reativar (cria-se novo goal idêntico se necessário, com referência via `pop_reason='superseded'`).
+- Profundidade máxima da stack: **5**. Push em depth 6 → erro com sugestão de fechar/colapsar antes.
+
+#### 2.3.2 Operações
+
+```
+push_goal(text, pushed_by, parent_id?)
+  → INSERT goal com status='active'
+  → UPDATE goal pai (se houver): status='suspended'
+  → emit span goal.pushed
+
+pop_goal(decided_by, pop_reason)
+  → UPDATE goal ativo: status=<done|abandoned>, popped_at=<now>
+  → UPDATE goal pai (se houver): status='active'
+  → emit span goal.popped
+
+suspend_goal(reason)
+  → raro; usado quando user pausa sub-task explicitamente
+  → goal pai NÃO é reativado (stack permanece com gap; user resolve depois)
+```
+
+API de slash commands:
+
+```
+/goal push "<text>"             # push manual
+/goal pop [reason]              # pop manual com reason livre
+/goal list                      # mostra stack atual
+/goal abandon                   # pop com reason=abandoned (UI confirma)
+```
+
+Modelo propõe push/pop via tool `goal_push(text)` / `goal_pop(reason)` — vai pra `awaiting_user` para confirmação modal (idêntico a memory writes).
+
+#### 2.3.3 Como `active_goal` é injetado
+
+Substitui `goal.text` em todos os pontos de injeção:
+
+- **Goal re-injection** (`CONTEXT_TUNING.md §10`):
+  ```
+  Goal (active): <active_goal.text>
+  Goal stack:
+    - [done]    refactor queue retry logic
+    > [active]  add 5 tests for retry edge cases       ← active marcado
+    - [pending] update docs
+  ```
+- **Auto-rehydrate** (§7.6): `active_goal.text` em vez de `goal.text`; stack completa em bloco separado.
+- **Drift detector** (§11): compara `next_action` contra `active_goal.text`, não goal raiz.
+
+#### 2.3.4 Interação com playbooks
+
+Playbook (`PLAYBOOKS.md`) que tem fases declaradas pode emitir push/pop automaticamente:
+
+```yaml
+playbook: refactor
+phases:
+  - name: extract-pure-function
+    on_enter: goal_push("extract pure function preserving semantics")
+    on_complete: goal_pop("completion")
+  - name: add-tests
+    on_enter: goal_push("add tests for extracted function")
+    on_complete: goal_pop("completion")
+```
+
+Sem isso, push/pop é manual (user/model). Auto via playbook é opt-in.
+
+#### 2.3.5 Recap
+
+`RECAP.md §3` é estendido:
+
+```yaml
+recap_intermediate:
+  goal:
+    text: string                       # active_goal.text no fim da sessão (ou último popped se sessão terminou)
+    source_step_id: string
+  goal_stack:                          # novo campo
+    - { text: string, status: string, decided_by: string, pop_reason: string, duration_ms: int }
+```
+
+`/recap` renderiza tree:
+
+```
+Goal stack:
+  ✓ refactor queue retry logic (4m12s — completion, decided_by: user)
+    ✓ extract pure function (2m30s — completion, decided_by: playbook)
+    ✓ add 5 tests (1m15s — completion, decided_by: user)
+    ✗ update docs (abandoned, decided_by: user — out of scope)
+```
+
+#### 2.3.6 Crash recovery
+
+Tabela `goal_stack` é durable (SQLite). Resume preserva stack inteira; `active_goal` é recomputado: o goal mais recente com `status='active'` (sempre exatamente um por invariante).
+
+Se invariante violada no resume (zero ou múltiplos active) → state machine entra em walk-back: marca todos exceto o mais recente como `abandoned` com `pop_reason='resume_recovery'`; loga em `failure_events`.
+
+#### 2.3.7 Anti-patterns
+
+- **Pop sem `decided_by`.** Audit trail incompleto — invariante quebrada.
+- **Stack profunda (>3 níveis na prática).** Sinal de que tarefa devia ser sessões separadas. Cap de 5 é defesa contra runaway, não target.
+- **Goal raiz mutado.** Goal raiz é imutável após `initializing`. Se user quer mudar tarefa fundamental, cria-se nova sessão (ou push de novo goal raiz com `pop_reason='superseded'` no anterior).
+- **Push em playbook sem pop correspondente.** Playbook deve garantir simetria; eval verifica via property-based test (sessão termina com stack vazia exceto raiz).
 
 ---
 
@@ -587,6 +744,56 @@ Permite ao user ver: "essa sessão crashou — vale resumir e recovery, ou desca
 
 **Sessão duplicada em outra instância:** se outro processo `agent` está ativo no mesmo `cwd` (lockfile detecta), sua sessão aparece com label `(active in PID N)` em listings de outras instâncias — evita race de duplo-resume.
 
+### 7.6 Auto-rehydrate no resume
+
+> **Cross-refs:** schema em `RECAP.md §3`; goal re-injection format em `CONTEXT_TUNING.md §10.2-10.3`; pinned context em `CONTEXT_TUNING.md §12.4`.
+
+Resume restaura **estado** da máquina, mas isso não é suficiente: contexto in-memory foi perdido e o modelo do próximo turno começa sem `goal`, sem `decisions[]`, sem `todos`. O efeito prático é que sessão > 1h crashada e retomada **age como sessão nova com histórico opaco** — modelo lê tool calls antigos sem entender por que foram feitos.
+
+Auto-rehydrate ataca isso: ao transitar `* → idle` via `resume_request` (seja crash recovery ou `/resume`), antes do primeiro `user_prompt` consumir o turno, harness injeta literalmente em `[current_turn]`:
+
+```
+[resume_context]
+Goal (original task): <recap_intermediate.goal.text — literal, byte-by-byte>
+
+Decisions taken before crash:
+  - step 7: <decisions[0].what> — <decisions[0].why> (decided_by: <who>)
+  - step 12: <decisions[1].what> — <decisions[1].why> (decided_by: <who>)
+  - ... (até 5 decisões mais recentes)
+
+Pinned context:
+  - <pin_1.text>
+  - <pin_2.text>
+  - ... (todas, pins não são truncados)
+
+Open todos (last todo_write):
+  - [done] extract pure function
+  - [in progress] add 5 tests
+  - [pending] update docs
+
+Resumed at: <ts>; previous status: <pre_crash_status>; loss_bound: <descrição>.
+[/resume_context]
+```
+
+**Garantias:**
+
+- **Determinístico.** Projeção é `RecapIntermediate` (`RECAP.md §3`) → texto via template fixo. Sem LLM no caminho crítico de resume (Haiku no resume = latência inaceitável + ponto de falha extra).
+- **Idempotente.** Mesmo crash retomado N vezes ⇒ mesmo `[resume_context]` injetado. Resume não acumula camadas de rehydrate.
+- **Preservado entre `/clear`.** `[resume_context]` é parte do *primeiro turno após resume*, não do system prompt; `/clear` limpa normalmente.
+- **Pinned context é always-include.** Pins (`CONTEXT_TUNING.md §12.4`) são re-injetados independentemente de truncamento de decisions/todos.
+
+**Quando NÃO injetar:**
+
+- Resume de sessão em estado terminal (`done`, `exhausted`, `error_fatal`) — não há próximo turno; user está revisitando histórico.
+- Resume de sessão `paused` com < 5 turns desde último user prompt — contexto in-memory não foi perdido (paused preserva), rehydrate vira ruído.
+- Sessão sem `RecapIntermediate` cacheado e sem hook `Stop` ter rodado — fallback: injeta apenas `goal.text` + `Resumed at: <ts>`, marca `incomplete: true`.
+
+**Truncation budget:** `[resume_context]` cap em 2k tokens. Se decisions + todos + pins excedem, decisions são head+tail-truncadas (preserva primeiras 2 + últimas 2; meio elide com `... N decisions elided ...`). Pins **nunca** são truncados — se pins sozinhos > 2k, é bug do user (alertar via warning).
+
+**Visibilidade:** UI mostra `🔄 Resumed from <pre_crash_status> — N decisions, M pins, K todos rehydrated` no primeiro turno após resume. User vê o que foi recarregado e pode fazer `/recap` para inspecionar.
+
+**Eval acoplado:** `evals/resume/auto_rehydrate/` — fixture com sessão multi-decisão crashada em `tool_exec`; resume sem rehydrate falha 60%+ das tarefas que dependem de decisão pré-crash; com rehydrate falha < 5%. Threshold é PR-bloqueante.
+
 ---
 
 ## 8. Estado de pending decisions
@@ -633,7 +840,15 @@ Todo subsistema dispara um destes eventos quando força transição. Telemetria 
 | `tool_writes_blocked` | tool_exec → error_fatal | Checkpoint Manager (snapshot fail) |
 | `compact_trigger` | running → compacting | Context Engine |
 | `compact_done` | compacting → running | Compaction LLM |
-| `compact_failed` | compacting → error_fatal | Compaction LLM (after retries) |
+| `compact_fallback_used` | compacting → running | Compaction Engine (LLM failed 2× / budget exceeded — `ORCHESTRATION.md §4.6`) |
+| `compact_hard_cancelled` | compacting → error_fatal | PreCompact hook (`hard_cancel: true` — `ORCHESTRATION.md §5.1.1`) |
+| `drift_detected` | running → regrounding | Drift Detector (§11) |
+| `regrounding_confirmed` | regrounding → tool_exec | UI (user/model confirmed action despite drift signal) |
+| `regrounding_replan` | regrounding → running | UI (re-plan from scratch) |
+| `regrounding_update_goal` | regrounding → awaiting_user | UI (goal edit modal) |
+| `goal_pushed` | (sem mudança de session state) | Goal Stack (`§2.3`) — user / model_proposed / playbook |
+| `goal_popped` | (sem mudança de session state) | Goal Stack (`§2.3`) — requer `decided_by` + `pop_reason` |
+| `goal_suspended` | (sem mudança de session state) | Goal Stack (`§2.3`) — pausa explícita de sub-task |
 | `interrupt_signal` | * → interrupted | UI (Ctrl+C) |
 | `interrupt_complete` | interrupted → idle/done | Cleanup |
 | `budget_exhausted` | running/tool_exec → exhausted | Budget tracker |
@@ -673,7 +888,142 @@ Resume tem que retornar a estado **consistente** (todas invariantes satisfeitas)
 
 ---
 
-## 11. Insight final
+## 11. Drift detection (foco invariant)
+
+> **Cross-refs:** goal re-injection em `CONTEXT_TUNING.md §10`; pinned context em `CONTEXT_TUNING.md §12.4`; eval-driven thresholds e config tunáveis em `TOKEN_TUNING.md §13.5`.
+
+Re-injetar `goal.text` literal (`CONTEXT_TUNING.md §10`) garante que o **goal está no prompt** — não garante que o **modelo está perseguindo o goal**. Em sessão > 30 turns, modelo pode estar focado em sub-problema tangencial enquanto a tarefa original ficou meio resolvida 15 turns atrás. Isso é *drift de foco*, e é invisível por construção: tool calls parecem coerentes localmente.
+
+Drift detection é uma checagem barata, **antes de ações com side-effect**, comparando intent declarado da próxima ação contra o goal ativo.
+
+### 11.1 Quando dispara
+
+Trigger: transição `running → tool_exec` para tool com `writes: true` **ou** com `network_egress: true`. Não dispara para tools read-only (custo > benefício para `read_file`/`grep`).
+
+Skip:
+- Sessão < 10 turns (não há histórico para drift)
+- Tool faz parte de `parallel_safe` batch já validado no batch-anchor
+- `drift_detection.enabled = false` em config (default `true` em `autonomous`/`hybrid`; `false` em `orchestrated` — DAG já tem validators próprios)
+
+### 11.2 Mecânica
+
+Antes de entrar em `tool_exec`:
+
+```
+1. Construir DriftCheck input (≤ 400 tokens):
+   - goal.text (literal)
+   - pinned_context[] (literal, sempre)
+   - last_decision.what (mais recente em decisions[])
+   - next_action: { tool: <name>, args_summary: <derived>, intent: <model self-declared> }
+2. Chamar Haiku com prompt versionado prompts/drift/v1.j2:
+   "Given goal G, is action A advancing G, exploring G, or unrelated to G?
+    Output JSON: { alignment: aligned|exploring|drifted, confidence: 0..1, reason: string }"
+3. Validar schema; se inválido, default a aligned (fail-open — drift detector nunca bloqueia falsamente).
+4. Decisão:
+   - aligned (confidence ≥ 0.7) → continua para tool_exec (caminho normal)
+   - exploring (qualquer confidence) → continua, mas registra drift_event(kind="exploring")
+   - drifted (confidence ≥ 0.7) → transição → regrounding (§11.3)
+   - drifted (confidence < 0.7) → continua com warning visível
+```
+
+**Custo:** ~300 tokens input + ~50 tokens output via Haiku ≈ **$0.0003 por check**. Em sessão de 50 turns com 20 tool_exec qualificados, custo total ~ $0.006 — uma ordem de magnitude abaixo de uma compaction.
+
+**Latência:** ≤ 400ms p95. Colocado **em paralelo** com hook `PreToolUse` quando possível (não bloqueia hook chain). Bloqueia entrada em `tool_exec` apenas se `drifted` com alta confiança.
+
+#### 11.2.1 Schema `drift_events`
+
+```sql
+drift_events(
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  step_id TEXT NOT NULL,
+  proposed_tool TEXT NOT NULL,
+  proposed_intent TEXT,
+  active_goal_id TEXT NOT NULL,        -- referência a goal_stack
+  alignment TEXT NOT NULL,             -- aligned | exploring | drifted
+  confidence REAL NOT NULL,            -- 0.0 - 1.0
+  reason TEXT,                         -- detector_reason
+  outcome TEXT NOT NULL,               -- proceeded | regrounded | warned | skipped
+  created_at INTEGER NOT NULL,
+  detector_cost_usd REAL,
+  detector_latency_ms INTEGER
+);
+```
+
+**Toda chamada do detector** insere uma row, independente do outcome (incluindo `aligned` e `skipped` por fail-open). Permite:
+- Eval offline com replay (§11.5)
+- Calibração de thresholds via análise de histórico
+- `/recap forensics` mostra drift events da sessão
+
+### 11.3 Estado `[regrounding]`
+
+Novo estado transiente:
+
+**Invariantes:**
+- `sessions.status = 'regrounding'`
+- `pending_decisions` tem entry `kind='regrounding_prompt'` com `payload = drift_check_result`
+- Tool call proposta **não** foi invocada
+
+**Ações ao entrar:**
+- Re-injeta `[regrounding_context]` no próximo turno:
+  ```
+  [regrounding_context]
+  Goal: <literal>
+  Pinned: <literal>
+
+  Last 3 decisions:
+    - ...
+
+  Next action you proposed: <tool> with intent: <intent>
+
+  Drift detector flagged this as: drifted (confidence: 0.84)
+  Reason: <detector_reason>
+
+  Choose:
+    (a) Confirm action — continue as proposed
+    (b) Re-plan — discard this tool_use, generate new approach
+    (c) Update goal — current goal is stale; user input needed
+  [/regrounding_context]
+  ```
+- UI mostra modal com 3 opções; default escolhido em 30s = `(b) Re-plan`.
+
+**Timeout override:** `pending_decisions.expires_at` default é 5min (`§8`); para `kind='regrounding_prompt'` é override pra 30s. Razão: drift modal interrompe trabalho ativo; default longo de 5min cria pausa custosa. Auto-replan em vez de auto-deny (default de §8) é seguro: tool proposta é descartada mas sessão continua produtiva. Override declarado em código de Permission Engine, não config.
+
+**Transições:**
+- `→ tool_exec` em `(a) Confirm` (drift confirmado pelo user/modelo como falso positivo)
+- `→ running` em `(b) Re-plan` (modelo gera próximo step do zero)
+- `→ awaiting_user` em `(c) Update goal` (modal pra editar goal; raro)
+- `→ interrupted` em Ctrl+C
+
+### 11.4 Calibração e fail-open
+
+Drift detector é **fail-open por construção**:
+- Schema violation no Haiku output → default `aligned`
+- Provider down → skip detection, proceed (warning em `failure_events`)
+- Confidence < 0.7 com sinal de drift → continua mas registra evento
+
+Razão: drift detector que bloqueia ação válida é **mais caro** do que drift que escapa. False positive interrompe trabalho legítimo; false negative custa um eval round depois.
+
+### 11.5 Eval acoplado
+
+`evals/drift/` com 30 fixtures:
+- 10 sessões "alinhadas" (todas as ações servem o goal) — espera-se **0 false positives**
+- 10 sessões "drift gradual" (foco escorrega) — espera-se **≥ 80% recall** no detector
+- 10 sessões "drift abrupto" (modelo entra em rabbit hole) — espera-se **≥ 95% recall**
+
+Métricas: precision (false positives), recall (drift detectado), latency p95, cost per check.
+
+PR-bloqueante: precision < 0.95 (fail-open mas raro), recall < 0.80 em "gradual", recall < 0.95 em "abrupto", custo médio > $0.001/check.
+
+### 11.6 O que **não** garantimos
+
+- Detector funciona em **multi-goal sessions** (`§2.3` — goal stack) com goal ativo bem definido. Sessões com goals empilhados sem clear active marker degradam para skip + warning.
+- Detector funciona em sessões com pin loaded (mantém constraint visível). Sessão sem pin + sem decisions[] = baseline degradado (recall cai pra ~60%).
+- Modelo de detecção (Haiku) calibrado para natural language goals. Goals em formato exclusivamente structured (DAG node spec) usam validators de `ORCHESTRATION.md §2.2` em vez de drift detector.
+
+---
+
+## 12. Insight final
 
 Estado vago é bug latente. Cada estado mal-definido é uma transição que vai quebrar em produção em algum cliente, em algum cenário, em algum momento — geralmente quando você não está olhando.
 

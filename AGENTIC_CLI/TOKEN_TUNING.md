@@ -882,6 +882,41 @@ Adicionar item novo ao §13.4.6 quando:
 
 Remover item: **proibido** sem PR + 6 meses sem regressão histórica + revisão de security maintainer. Itens de injection envelhecem bem; remover é raro.
 
+### 13.5 Drift detector threshold calibration
+
+> **Cross-refs:** mecânica do detector em `STATE_MACHINE.md §11`; schema de eventos em `STATE_MACHINE.md §11.2.1`; corpus de eval em `STATE_MACHINE.md §11.5` (`evals/drift/`).
+
+Thresholds do drift detector são **tunáveis por config**, não constantes:
+
+```toml
+[drift_detection]
+enabled = true                         # default true em autonomous/hybrid; false em orchestrated
+confidence_threshold_drifted = 0.7     # confidence ≥ X com alignment=drifted → regrounding
+confidence_threshold_aligned = 0.7     # confidence ≥ X com alignment=aligned → proceed
+warn_below_threshold = true            # se confidence < threshold mas sinal de drift, registra warning
+budget_max_cost_per_session_usd = 0.05 # cap; acima disso, drift detector vira fail-open
+```
+
+Calibração via `evals/drift/`:
+
+```bash
+agent eval --suite drift \
+  --tune confidence_threshold_drifted=0.6,0.7,0.8 \
+  --runs 5
+```
+
+Métricas (alvos em `STATE_MACHINE.md §11.5`):
+- **precision ≥ 0.95** (false positives custam interrupt de trabalho legítimo)
+- **recall ≥ 0.80** em "drift gradual"
+- **recall ≥ 0.95** em "drift abrupto"
+- **custo médio ≤ $0.001/check**
+
+Threshold default 0.7 é o ponto onde os 4 alvos coincidem na fixture canônica. Mover threshold:
+- Pra 0.6 → ↑ recall, ↓ precision (mais falso positivo)
+- Pra 0.8 → ↑ precision, ↓ recall (drift gradual escapa)
+
+Mudança requer PR com eval re-rodado e justification em commit body. Threshold em config local de user é OK; mudança em default do projeto é PR-bloqueante via eval.
+
 ---
 
 ## 14. Anti-patterns

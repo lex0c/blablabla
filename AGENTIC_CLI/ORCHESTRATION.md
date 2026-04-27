@@ -358,10 +358,10 @@ if count > 70% × context_window:
     Validate compaction output (schema check)
     ↓
     if invalid: retry once
-    if invalid 2x: error_fatal (state machine §7)
+    if invalid 2x OR budget exceeded: deterministic fallback (§4.6)
     ↓
     Atomic swap: turns >3 antigos ⇒ summary
-    Goal re-injection literal
+    Goal re-injection literal + pinned context (CONTEXT_TUNING.md §12.4)
     ↓
     Resume step loop (próximo step usa contexto compactado)
 ```
@@ -394,6 +394,51 @@ Default por profile:
 
 Override via `compaction.model` em config (ver `AGENTIC_CLI.md` §6 Compaction).
 
+### 4.6 Fallback determinístico
+
+> **Cross-refs:** pinned context em `CONTEXT_TUNING.md §12.4`; selective elision em `CONTEXT_TUNING.md §12.1-12.2`; failure mode `compaction.llm.unavailable` em `FAILURE_MODES.md`.
+
+Compaction-via-LLM (§4.5) é o caminho default, mas tem três modos de falha que **não devem** levar a `error_fatal`:
+
+1. **LLM falha 2× consecutivas** (§4.2 step "if invalid 2x") — provider indisponível, schema violation persistente, rate limit duro.
+2. **Budget excedido** — `compaction.max_cost_usd` ou `compaction.max_duration_ms` estouraram (defaults: $0.05, 30s).
+3. **PreCompact hook cancelou** (§4.2 step "if cancelled") — caminho já existente, agora unificado aqui.
+
+Em qualquer um dos três, harness aplica fallback estático **sem LLM**:
+
+```
+Eviction policy (deterministic):
+  1. Identify pinned items (CONTEXT_TUNING.md §12.4) — always preserved.
+  2. Preserve last K turns literally (default K=3, configurable).
+  3. Preserve goal + sub-goals literal (CONTEXT_TUNING.md §10).
+  4. Drop tool_results from turns older than K, EXCEPT:
+       - tool_results referenced em decisions[] (RECAP.md §3) — keep
+       - tool_results com writes:true que não foram revertidos — keep metadata, drop body
+       - pinned tool_results — keep
+  5. Replace dropped tool_results com pointer:
+       <tool_result tool="..." step="..." elided="size_bytes" reason="static_fallback">
+  6. If still > 70% após drop: truncate oldest assistant turns head+tail
+     (preserve first 200 chars + last 200 chars; insert "... N tokens elided ...").
+  7. Re-inject goal + pinned context.
+```
+
+**Garantias:**
+
+- **Idempotente.** Mesmo input ⇒ mesmo output. Sem LLM ⇒ sem variabilidade.
+- **Bounded.** Custo zero (USD), latência < 50ms (puro SQL + string ops).
+- **Audited.** Cada drop registrado em `sessions.elided_tool_results_count` (`CONTEXT_TUNING.md §12.2`); `failure_event` `compaction.fallback.used` com motivo (`llm_failed` | `budget_exceeded` | `hook_cancelled`).
+- **Observável.** UI mostra warning `⚠ compaction degraded: static fallback (reason)` no próximo turno; `/recap` inclui o evento.
+
+**O que se perde:** sumarização semântica de turns antigos. Modelo vê pointer em vez de "N rodadas de exploração resumidas em 2 frases". Trade-off explícito: **degradação visível > erro fatal**. Sessão continua; user pode `/clear` e recomeçar se quiser contexto limpo.
+
+**Quando NÃO cair em fallback:**
+
+- LLM falhou **1×** apenas: retry uma vez antes (já coberto em §4.2).
+- Provider down mas backup provider configurado: tenta backup antes do fallback (`PROVIDERS.md` cobre fallback chain).
+- `PreCompact` hook retornou com `hard_cancel: true` (`§5.1.1`): respeita decisão do user, não força fallback — vai pra `error_fatal` (raro; opt-in explícito).
+
+**Eval acoplado:** `evals/compaction/static_fallback/` — fixture com provider mockado retornando lixo; verifica que sessão não quebra, contexto post-compaction satisfaz invariante de tokens, e modelo seguinte consegue completar tarefa simples (read-modify-write).
+
 ---
 
 ## 5. Hook chain composition
@@ -413,6 +458,25 @@ Tabela canônica:
 | `PreCheckpoint` | sim | não | `{ session_id, files_to_snapshot }` |
 | `MemoryWrite` | sim | sim (bloqueia write) | `{ session_id, scope, name, body, source }` |
 | `Stop` | sim (final) | não | `{ session_id, status, total_cost_usd }` |
+
+### 5.1.1 Payload de retorno (hooks bloqueáveis)
+
+Hook bloqueável retorna JSON com formato:
+
+```json
+{
+  "decision": "allow" | "block",
+  "reason": "<string opcional>",
+  "hard_cancel": true | false        // opt-in; ver abaixo
+}
+```
+
+**`hard_cancel: true`** (opt-in, default `false`) altera o tratamento do bloqueio em hooks específicos:
+
+- **`PreCompact`** com `hard_cancel: true` → compaction não cai em fallback determinístico (`§4.6`); transita pra `error_fatal*`. Sem `hard_cancel`, bloqueio cai em fallback (sessão prossegue degradada).
+- **Outros hooks bloqueáveis:** `hard_cancel` ignorado (sem semântica especial); decisão `block` sempre cancela a operação corrente sem matar a sessão.
+
+Razão: default é **fail-soft** (degradar > parar). User que precisa de fail-stop em compaction (ex: política regulatória que proíbe contexto incompleto) ativa `hard_cancel` explicitamente.
 
 ### 5.2 Ordem de execução
 

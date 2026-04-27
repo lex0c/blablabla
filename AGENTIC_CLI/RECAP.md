@@ -101,11 +101,17 @@ recap_intermediate:
     incomplete: bool                 # alguma sessão em estado não-terminal
     incomplete_sessions: [string]
     incomplete_reason: string
-  goal:                              # objetivo original literal (não resumido)
+  goal:                              # active_goal no fim da sessão (literal, não resumido)
     text: string
     source_step_id: string
+  goal_stack:                        # stack completa; schema SQL canônico em STATE_MACHINE.md §2.3.1; raiz primeiro
+    - { text: string, status: enum [active, suspended, done, abandoned],
+        pushed_by: string, decided_by: string, pop_reason: string,
+        duration_ms: int, parent_idx: int }
   decisions:                         # decisões tomadas (extraídas determinísticamente de approvals + step outputs)
     - { step_id: string, what: string, why: string, decided_by: enum [user, policy, hook] }
+  pinned_context:                    # pins ativos no fim da sessão; schema SQL canônico em CONTEXT_TUNING.md §12.4.2
+    - { kind: enum [constraint, workflow, invariant, reminder], text: string, created_by: string }
   actions:
     files_read: [{ path: string, count: int }]
     files_written:                   # com diff summary
@@ -166,6 +172,16 @@ recap_mini:
   - Fallback determinístico (`--no-llm-render`): `"<status>: {N} steps, {M} files, {goal_truncated}"`
 
 **Pré-render:** hook `Stop` (não-bloqueável) gera `recap_mini` no fim da sessão e popula `recap_cache`. Picker exibe cached em < 50ms.
+
+### 3.2 Schema usado em auto-rehydrate
+
+`RecapIntermediate` (§3) é também consumido por `STATE_MACHINE.md §7.6` (auto-rehydrate no resume). Subset usado:
+
+- `goal.text` — re-injetado literal
+- `decisions[]` — últimas 5 (head+tail truncadas se exceder budget)
+- `not_done[]` — surface no primeiro turno pós-resume
+
+**Garantia operacional:** hook `Stop` **deve** popular `recap_cache` antes da sessão terminar — caso contrário, resume cai em fallback degradado (apenas `goal.text` literal + warning `incomplete: true`). Crash em `tool_exec` antes de `Stop` rodar é o caso esperado em produção; eval `evals/resume/auto_rehydrate/` cobre que projeção determinística (`§3` puro SQL) reconstrói `goal.text` + `decisions[]` direto do SQLite, **sem depender de cache**. Cache é otimização, não correctness path.
 
 ---
 
@@ -293,7 +309,9 @@ Refactored queue retry logic — extracted `computeBackoff` to pure function wit
 
 | Campo do schema | Fonte |
 |---|---|
-| `goal.text` | primeiro `messages.role='user'` da sessão |
+| `goal.text` | `goal_stack` ativo no fim da sessão (raiz se nenhum push); fallback ao primeiro `messages.role='user'` |
+| `goal_stack` | tabela `goal_stack` (`STATE_MACHINE.md §2.3`) |
+| `pinned_context` | tabela `context_pins` (`CONTEXT_TUNING.md §12.4`) |
 | `decisions` | `approvals` (with `decided_by`) + assistant messages com explicit decision markers |
 | `actions.files_read` | `tool_calls` com `tool_name='read_file'`, agregado |
 | `actions.files_written` | `tool_calls` com `writes:true` + diff via `checkpoints` |
