@@ -182,7 +182,135 @@ Cada item: **o que é → por que rejeita → quando reconsiderar**.
 
 ---
 
-## 6. Quando este doc muda
+## 6. MCP
+
+> **Spec consolidada:** [`MCP.md`](./MCP.md). Esta seção é **só** o que **não** fazer.
+
+### 6.1 Re-implementar tools canônicas via MCP
+
+**O que é:** server MCP que expõe `read_file`, `bash`, `edit_file`, ou outras tools do catálogo §2.6.
+
+**Por que rejeita:**
+- `MCP.md §4.2` lista nomes reservados; registro é **rejeitado** automaticamente com `mcp.namespace.shadow_canonical`.
+- Quebra replay determinístico: se `read_file` pode vir de canônico OU de MCP, sessão sem o server diverge silenciosa.
+- Quebra portabilidade: outra instalação do `agentic-cli` sem o server não roda a mesma sessão.
+
+**Substituição:** se canônica tem gap real, abrir issue contra catálogo §2.6 (tools deferred em §2.6.8 viram pull request, não MCP workaround).
+
+**Quando reconsiderar:** nunca para tools canônicas. Para extensões legítimas (databases, services, browsers), MCP é o caminho.
+
+### 6.2 Server que muda manifest a cada sessão
+
+**O que é:** server cujo `tools/list` retorna tools diferentes a cada handshake (ex: tools "dinâmicas" baseadas em FS state, env, ou hora do dia).
+
+**Por que rejeita:**
+- Cada manifest change → trust prompt re-disparado → ruído de UX brutal.
+- Cache breakpoint #2 invalida toda sessão (`CONTEXT_TUNING.md §5.5`); custo de re-cache de 2-7k tokens em todo turn.
+- Trust history (`AUDIT.md §1.5`) infla com hashes superseded sem valor analítico.
+
+**Substituição:** server tem **manifest fixo**; tools recebem parâmetros que selecionam comportamento dinâmico. Ex: em vez de tool `query_postgres_v1` aparecer/sumir, tool `query` recebe `database` como input.
+
+**Quando reconsiderar:** nunca como design pattern. Casos legítimos (server detecta capability X disponível ou não, decide tool por isso): aceitável **se** mudança ocorre apenas em install/upgrade do server, não em runtime.
+
+### 6.3 Auth via env var hardcoded em config
+
+**O que é:**
+
+```toml
+[servers.github]
+env = { GITHUB_TOKEN = "ghp_actualSecretInsideConfig..." }
+```
+
+**Por que rejeita:**
+- Config é versionado (`AGENTIC_CLI.md §6` — diretório `.agent/` committed). Secret no git = vazamento.
+- Memória do projeto: feedback "só commitar quando pedido explícito" não impede commit acidental de secret se ele estiver em `.agent/mcp.toml`.
+- Padrão correto existe: `auth.env` aponta pra var; var não fica em config.
+
+**Substituição:**
+
+```toml
+[servers.github]
+auth = { kind = "bearer", env = "GITHUB_MCP_TOKEN" }
+```
+
+`GITHUB_MCP_TOKEN` vem do shell do user (`~/.bashrc`, `direnv`, etc.), não do config versionado.
+
+### 6.4 Server que ignora `network.allow_hosts`
+
+**O que é:** server stdio que faz HTTP requests internos sem respeitar a allowlist declarada em `[servers.<name>.network]`.
+
+**Por que rejeita:**
+- Bypass do `SECURITY_GUIDELINE.md §9` (network egress control).
+- Trust prompt aprovou tools, **não** acesso de rede arbitrário.
+- Sandbox em Linux/macOS pode pegar (bwrap/sandbox-exec); sem sandbox, é convenção honrada apenas pelo server.
+
+**Substituição:** server bem-comportado **respeita** declaração; servers de terceiros são tratados como hostis até prova em contrário (sandbox opt-in via `[servers.<name>.sandbox = true]`).
+
+**Quando reconsiderar:** nunca. Server que precisa de network = declarar explicitamente.
+
+### 6.5 Server que escreve em diretórios do agente
+
+**O que é:** server que escreve em `~/.config/agent/`, `~/.local/share/agent/sessions.db`, ou paths internos do harness.
+
+**Por que rejeita:**
+- Out of contract (`CONTRACTS.md §11` — server não muta state do agente).
+- Corrupção de SQLite vira data loss silenciosa.
+- Backdoor potencial: server compromete sessões futuras editando memória ou prompts.
+
+**Substituição:** server escreve em `cwd` declarado ou em paths fora do agente. Estado próprio do server fica em diretório do server.
+
+### 6.6 `--auto-approve-mcp` por default em CI
+
+**O que é:** pipeline de CI passa `--auto-approve-mcp` mesmo sem motivo claro, "porque é mais fácil que configurar trust".
+
+**Por que rejeita:**
+- Vira backdoor: PR malicioso adiciona server hostil em `mcp.toml`; CI auto-aprova; tools maliciosas viram visíveis.
+- Anula camada de trust prompt inteira.
+- Princípio 11 ("confiança explícita") evaporado.
+
+**Substituição:**
+- CI roda **sem** servers MCP por default.
+- Se CI precisa de MCP server específico, trust **pre-gravado** no estado SQLite (commitable em fixture controlada).
+- `--auto-approve-mcp` só aceita lista explícita: `--auto-approve-mcp postgres,github` — nunca `--auto-approve-mcp *`.
+
+### 6.7 MCP tool com `_meta.agentic_cli.writes: false` que escreve
+
+**O que é:** server declara `writes: false` no manifest extension, mas tool efetivamente muta FS, DB, ou state externo.
+
+**Por que rejeita:**
+- Quebra checkpoint pre-call (`CONTRACTS.md §11`); harness não cria snapshot, `/undo` não cobre.
+- Replay diverge: re-execução tem efeito que a primeira não previu.
+- Bug de implementação do server, não graceful degradation.
+
+**Substituição:** server **conservador na declaração**: `writes: true` é default seguro; declarar `false` só quando tool é provadamente read-only (sem network mutável, sem cache externo, sem rate-limited counters).
+
+**Detecção:** modo dev hash do `cwd` antes/depois de tool com `writes: false`; mismatch → bug do server, classificado como `mcp.metadata.writes_lied`.
+
+### 6.8 MCP-over-MCP (servers que dependem de outros servers)
+
+**O que é:** server A declara que precisa do server B estar ativo; chain de dependências.
+
+**Por que rejeita:**
+- Lifecycle vira complexo: B disconnecta → A degraded em cascata?
+- Trust composition virá quem-confia-em-quem-recursivamente.
+- v1 explicitamente fora de escopo (`MCP.md §11`).
+
+**Substituição:** user compõe na config — ambos servers em `mcp.toml`, decisão arquitetural do user. Chain implícita = não.
+
+### 6.9 Slash command auto-promotion para tools MCP
+
+**O que é:** harness cria `/<server>:<tool>` automaticamente como slash command pra cada tool MCP.
+
+**Por que rejeita:**
+- Slash commands são **UX curados** (`AGENTIC_CLI.md §2.5`).
+- 5 servers × 10 tools cada = 50 slash commands poluindo `/help`.
+- User que quer atalho cria manualmente em `~/.config/agent/commands/`.
+
+**Substituição:** auto-promotion **never**; manual mapping **always**.
+
+---
+
+## 7. Quando este doc muda
 
 Este doc é deliberadamente **append-mostly**. Remover anti-pattern requer:
 1. PR com motivo (eval, mudança de premissa, ou bug do anti-pattern original).

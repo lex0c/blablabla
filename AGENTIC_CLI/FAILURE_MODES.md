@@ -510,7 +510,258 @@ Não é falha de fato; está aqui pra completude do catálogo.
 
 ---
 
-## 15. Recovery hierarchy (decisão por classe)
+## 15. MCP failures
+
+> **Cross-refs:** [`MCP.md §8`](./MCP.md) catálogo curto; [`STATE_MACHINE.md §6.5`](./STATE_MACHINE.md) máquina de estado; [`CONTRACTS.md §11`](./CONTRACTS.md) contrato A/B; [`AUDIT.md §1.5`](./AUDIT.md) tabelas `mcp_servers` e `mcp_manifest_history`. Esta seção é o **catálogo operacional** com playbook de recovery por code.
+
+Classificação (§1 Taxonomia):
+
+| Code | Classe | User-visible | Estado pós-falha |
+|---|---|---|---|
+| `mcp.protocol.version_mismatch` | external | sim | `error` |
+| `mcp.transport.broken` | external (transient) | depende | `disconnected` |
+| `mcp.timeout` | external (transient) | sim | `active` (tool result com error) |
+| `mcp.schema.invalid` (input) | internal | não (modelo retry) | `active` |
+| `mcp.output.invalid` | external | não (warning audit) | `degraded` |
+| `mcp.budget.exceeded` | configuration | sim | `disconnected` (até próxima sessão) |
+| `mcp.namespace.shadow_canonical` | configuration | sim (fail closed em startup) | server não registra |
+| `mcp.metadata.writes_lied` | adversarial-ish (server bug) | sim | `degraded` + flag |
+| `mcp.manifest.changed` | adversarial | sim | `trust_pending` (ver §14.2) |
+
+`mcp.manifest.changed` já está em `§14.2`. Os 8 abaixo são novos.
+
+### 15.1 `mcp.protocol.version_mismatch`
+
+**Detecção:** após `initialize`, server retorna `protocolVersion` ≠ versão suportada pelo harness (default `2024-11-05`).
+
+**Recovery:**
+1. Server transita pra `error`; tools **nunca** registradas.
+2. UI modal: "Server `<name>` requer protocolo X; harness suporta Y."
+3. Sessão prossegue **sem** o server; tools dele invisíveis.
+4. `failure_event` registrado em SessionStart, não bloqueia sessão.
+
+**Mensagem-template:**
+
+```
+⚠ MCP server "{name}" incompatível
+
+Server declarou protocolo {server_protocol}, mas harness suporta {harness_protocol}.
+Tools deste server ficam indisponíveis nesta sessão.
+
+Tente: atualizar o server ou o agentic-cli (`agent doctor` mostra versões)
+       /mcp logs {name}    (ver erro do server)
+
+(detalhes: mcp.protocol.version_mismatch | /help mcp.protocol)
+```
+
+**Audit footprint:** `failure_events.payload = { server, server_protocol, harness_protocol }`. Persiste enquanto config tiver o server.
+
+### 15.2 `mcp.transport.broken`
+
+**Detecção:**
+- Stdio: `EPIPE` em write, ou `kill(pid, 0)` retorna `ESRCH`.
+- SSE: gap > `heartbeat_max_age_ms` (default 60s) sem evento.
+- HTTP: response 5xx em `tools/call` ou connection reset.
+
+**Recovery:**
+1. Server transita `*` → `disconnected`.
+2. Tool em vôo (se houver) recebe `{ error: "mcp.server.crashed", server }` (cobre `STATE_MACHINE.md §7.1`).
+3. **Reconnect lazy**: nada acontece em background; próxima invocação tenta reconnect.
+4. Tools do server permanecem **registradas e visíveis** ao modelo (não invisibilizadas em transient failure — design intencional).
+5. Após 3 falhas consecutivas em janela de 60s → tools invisibilizadas até `/mcp reconnect <name>` explícito.
+
+**Mensagem-template (apenas após threshold):**
+
+```
+⚠ MCP server "{name}" instável
+
+3 falhas de transporte em 60s. Tools deste server ficaram ocultas.
+
+Tente: /mcp reconnect {name}
+       /mcp logs {name}
+
+(detalhes: mcp.transport.broken | /help mcp.transport)
+```
+
+**Audit footprint:** cada falha vira `failure_event`; threshold de 3 vira `mcp_servers.last_error = "transport.broken"` + state `disconnected`.
+
+### 15.3 `mcp.timeout`
+
+**Detecção:** `tools/call` não retornou em `mcp_servers.<name>.timeout_ms` (default 30s, cap 60s).
+
+**Recovery:**
+1. Harness envia `notifications/cancelled` com matching id.
+2. Aguarda 2s graceful para server reconhecer.
+3. Resultado vira `{ error: "mcp.timeout", server, tool, elapsed_ms }`.
+4. Server **permanece** `active` (timeout não derruba); contador `mcp_servers.timeout_count_session += 1`.
+5. Após 3 timeouts consecutivos do mesmo tool → tool flag `degraded_in_session` (modelo recebe warning quando escolher).
+
+**Mensagem ao usuário:** apenas se ≥ 3 timeouts no mesmo tool em 1 sessão (senão é ruído).
+
+**Audit footprint:** `failure_events.payload = { server, tool, elapsed_ms, request_id }`. Permite query "qual tool MCP é mais lenta?".
+
+### 15.4 `mcp.schema.invalid` — input
+
+**Detecção:** input emitido pelo modelo **não valida** contra `inputSchema` declarado pelo server em `tools/list`.
+
+**Recovery:**
+1. Harness **não envia** ao server (rejeição pre-send).
+2. Modelo recebe `{ error: "mcp.schema.invalid", hint: "<validation_error_path>: <msg>" }` como tool result.
+3. Modelo decide retry; harness não auto-retry (decisão do modelo, não do harness).
+4. Server permanece `active`; nada muda no estado dele.
+
+**Mensagem ao usuário:** silenciosa. Modelo lida.
+
+**Audit footprint:** `failure_events.payload = { server, tool, validation_error, schema_hash }`. Trend útil: "esse modelo erra mais em qual schema?".
+
+### 15.5 `mcp.output.invalid`
+
+**Detecção:** server retornou output que **não valida** contra `outputSchema` (se declarado). Se schema ausente: heurística mínima — não-string em campo `text`, content array vazio, etc.
+
+**Recovery:**
+1. Harness loga; devolve ao modelo `{ error: "mcp.output.invalid", hint, raw_output_truncated }` (raw com truncate em 1KB).
+2. Server transita `active` → `degraded`.
+3. Após 3 outputs válidos consecutivos do mesmo server → recover para `active` (`STATE_MACHINE.md §6.5` evento `mcp.recover_ok`).
+4. Modelo decide retry, fallback, ou abandono — não automatic.
+
+**Mensagem ao usuário:** apenas se persistir > 5 minutos em `degraded`.
+
+**Audit footprint:** `mcp_servers.state` reflete; `failure_events.payload = { server, tool, validation_error, raw_truncated }`.
+
+### 15.6 `mcp.budget.exceeded`
+
+**Detecção:** algum dos limites em `MCP.md §5`:
+- `total_calls > max_calls_per_session` (default 200, cap 1000)
+- `total_tokens_in > max_tokens_in_per_session` (default 50k, cap 500k)
+- `max_concurrent_servers` excedido (default 10, cap 30) no startup
+
+**Recovery (per-session limits):**
+1. Server transita `active` → `disconnected` na sessão atual.
+2. Tools do server invisíveis até **próxima sessão** (não reconectável dentro da sessão atual).
+3. Modal informativa ao user: "Server `<name>` excedeu budget; tools indisponíveis até /reset ou nova sessão."
+
+**Recovery (`max_concurrent_servers`):**
+1. Servers **excedentes** ficam `disabled` automatically (ordem: alfabética por nome, last in disabled first).
+2. Erro em startup; user vê quais foram desabilitados.
+
+**Mensagem-template:**
+
+```
+⚠ MCP server "{name}" budget exhausted
+
+Limite atingido: {limit_kind} = {value} (cap {cap}).
+Tools deste server indisponíveis até próxima sessão.
+
+Tente: ajustar [servers.{name}] em mcp.toml
+       /sessions switch  (nova sessão começa zerada)
+
+(detalhes: mcp.budget.exceeded | /help mcp.budget)
+```
+
+**Audit footprint:** `failure_events.payload = { server, limit_kind, value, cap }`. Sinal útil para tunar caps por workflow.
+
+### 15.7 `mcp.namespace.shadow_canonical`
+
+**Detecção:** em `tools/list`, server declara tool com nome **reservado** pelo catálogo canônico (`MCP.md §4.2`): `read_file`, `write_file`, `edit_file`, `glob`, `grep`, `bash`, `task_*`, `memory_search`, `fetch_url`.
+
+**Recovery:**
+1. Server transita pra `error` em SessionStart; **nenhuma** tool do server é registrada (não só a conflituosa — bloqueia o server inteiro, fail-fast).
+2. Sessão prossegue sem o server.
+3. Erro fica visível em `agent doctor` e `/mcp show <name>`.
+
+**Razão para fail-fast (vs. registrar as outras):** server que tenta shadow canônica é sinal de design ruim ou tentativa adversarial; melhor errar visível que silenciosamente registrar metade.
+
+**Mensagem-template:**
+
+```
+✖ MCP server "{name}" rejeitado
+
+Server declara tool "{tool_name}" que colide com o catálogo canônico.
+Nomes reservados não podem ser sombreados via MCP.
+
+Tente: pedir ao maintainer do server pra renomear a tool
+       remover server de mcp.toml se não for crítico
+
+(detalhes: mcp.namespace.shadow_canonical | /help mcp.namespace)
+```
+
+**Audit footprint:** `failure_events` em SessionStart; persiste enquanto config tiver o server. Não vira `mcp_servers` row (server nunca foi registrado).
+
+### 15.8 `mcp.metadata.writes_lied`
+
+**Detecção (modo dev):**
+1. Antes de `tools/call` com declarado `_meta.agentic_cli.writes: false`: harness computa hash de tree do `cwd` declarado do server.
+2. Após response: re-computa hash.
+3. Mismatch → bug do server (escreveu apesar de declarar `writes: false`).
+
+**Detecção (modo prod):** desabilitado por default (custo de hash de tree). Habilitável via `agent doctor --check-mcp-writes`.
+
+**Recovery:**
+1. Server transita `active` → `degraded` com flag persistente `writes_lied = true` em `mcp_servers`.
+2. Próximas calls do mesmo tool: harness força tratamento como `writes: true` (cria checkpoint pré-call) ignorando o manifest.
+3. Tool result do call original: vai pro modelo normal (já aconteceu o side effect; aviso a posteriori não desfaz).
+4. UI mostra warning persistente: "Server X tem tool Y mal-comportada; checkpoints habilitados."
+
+**Mensagem-template (uma vez por server por sessão):**
+
+```
+⚠ MCP server "{name}" comportamento inconsistente
+
+Tool "{tool}" declarou writes:false mas modificou {cwd}.
+Checkpoints automáticos habilitados pra essa tool nesta sessão.
+
+Tente: reportar ao maintainer do server (link em /mcp show {name})
+       /mcp revoke {name}    (se tool não for confiável)
+
+(detalhes: mcp.metadata.writes_lied | /help mcp.metadata)
+```
+
+**Audit footprint:**
+- `mcp_servers.last_error = "metadata.writes_lied:<tool>"`
+- `failure_events.payload = { server, tool, hash_before, hash_after, files_changed_count }`
+- Flag persiste cross-session: server fica em "modo paranoico" até user explicitamente fazer `/mcp trust <name>` novamente.
+
+**Cross-ref:** `ANTI_PATTERNS.md §6.7` (anti-pattern do lado do server).
+
+### 15.9 Audit aggregate queries
+
+```sql
+-- "Servers MCP com falha nos últimos 7d"
+SELECT s.name,
+       SUM(CASE WHEN fe.code LIKE 'mcp.transport%' THEN 1 ELSE 0 END) AS transport_failures,
+       SUM(CASE WHEN fe.code = 'mcp.timeout' THEN 1 ELSE 0 END) AS timeouts,
+       SUM(CASE WHEN fe.code = 'mcp.output.invalid' THEN 1 ELSE 0 END) AS output_failures
+FROM mcp_servers s
+JOIN failure_events fe ON json_extract(fe.payload, '$.server') = s.name
+WHERE fe.created_at > unixepoch('now', '-7 days')
+GROUP BY s.name;
+
+-- "Tools MCP que excedem budget mais frequentemente"
+SELECT json_extract(payload, '$.server') AS server,
+       json_extract(payload, '$.limit_kind') AS limit_kind,
+       COUNT(*) AS hits
+FROM failure_events
+WHERE code = 'mcp.budget.exceeded'
+  AND created_at > unixepoch('now', '-30 days')
+GROUP BY server, limit_kind
+ORDER BY hits DESC;
+
+-- "Servers com writes_lied flag (red flag persistente)"
+SELECT name, last_error, last_connected_at
+FROM mcp_servers
+WHERE last_error LIKE 'metadata.writes_lied%';
+```
+
+### 15.10 O que **não** está coberto
+
+- **Server-side bugs internos** que não violam contrato (ex: tool retorna resultado errado mas com schema válido). Fora do contrato — eval do user pega.
+- **Latência crônica** (não-timeout, mas lento). Coberto por `PERFORMANCE.md §5` SLOs, não falha classificada.
+- **Manifest válido mas tools mentirosas** (ex: tool "read_only_query" que faz INSERT). Cobertura parcial via §15.8 (`writes_lied`); resto exige user reportar e revogar trust.
+- **MCP-over-network specifically** (SSE/HTTP) com TLS broken: cobre como `mcp.transport.broken` mas user pode querer telemetria mais fina (TLS handshake fail vs DNS fail vs cert mismatch). Deferido para v1.1.
+
+---
+
+## 16. Recovery hierarchy (decisão por classe)
 
 Quando uma falha ocorre, a árvore de decisão é:
 
@@ -532,7 +783,7 @@ falha detectada
 
 ---
 
-## 16. Mensagens ao usuário (templates)
+## 17. Mensagens ao usuário (templates)
 
 Toda mensagem segue:
 
@@ -564,7 +815,7 @@ Templates ficam em `~/.config/agent/messages/<lang>/<code>.md`. Versionados, tra
 
 ---
 
-## 17. Audit trail (o que **sempre** é registrado)
+## 18. Audit trail (o que **sempre** é registrado)
 
 Tabela `failure_events`:
 
@@ -586,7 +837,7 @@ Toda falha **classificada** vai pra `failure_events`. Sem exceção. Auditoria m
 
 ---
 
-## 18. Como se preparar pra falhas que **não** estão aqui
+## 19. Como se preparar pra falhas que **não** estão aqui
 
 Princípio: **catálogo é vivo**, não exaustivo. Procedimento quando uma nova falha aparece em produção:
 
@@ -601,7 +852,7 @@ Mensagem ao usuário **sempre antes** de implementação — força clareza.
 
 ---
 
-## 19. Insight final
+## 20. Insight final
 
 Catálogo de falhas é o doc que ninguém lê quando tudo funciona — e o único que importa quando para de funcionar.
 

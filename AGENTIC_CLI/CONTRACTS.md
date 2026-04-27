@@ -758,7 +758,70 @@ Direção: B → A (publica evento), A → B (devolve decisão se evento bloque�
 
 ---
 
-## 11. Telemetry ↔ Subsistemas
+## 11. MCP Server ↔ Harness
+
+A: **Harness** (MCP client embutido)
+B: **MCP Server** (processo externo, qualquer linguagem)
+Direção: A ↔ B (bidirecional via JSON-RPC; lifecycle controlado por A)
+
+> **Autoridade detalhada:** [`MCP.md`](./MCP.md) — lifecycle completo, transport, manifest format, namespacing, sandbox. Esta seção é o contrato formal; detalhes operacionais lá.
+
+MCP é o **único caminho declarado** para extensão do tool catalog (`§2.6.7`). Sem este contrato, MCP é folclore — implementações divergem silenciosamente.
+
+### A (Harness) garante a B (Server):
+
+- **Transport conformidade:** segue [MCP spec](https://modelcontextprotocol.io) versão declarada em `mcp_protocol_version` (default `2024-11-05`); transport pode ser stdio, SSE, ou streamable HTTP
+- **Lifecycle ordenado:** `initialize` → `initialized` → `tools/list` antes de qualquer `tools/call`
+- **Spawn limpo (stdio):** env mínima (`PATH`, `HOME`, `MCP_*` allow-list); `cwd` documentado; sem inheritance de file descriptors do agente
+- **Cancellation propagada:** `notifications/cancelled` enviado ao server quando user interrompe (Ctrl+C / Esc Esc); aguarda 2s graceful, depois SIGTERM (stdio) ou close (HTTP/SSE)
+- **Timeout por call:** default 30s por `tools/call`; configurável via `mcp_servers.<name>.timeout_ms` em config
+- **Schema validation:** input para `tools/call` é validado contra o schema declarado pelo server em `tools/list` antes do envio
+- **Argumentos não-modificados:** harness não injeta `_meta`, `agent_session_id`, ou similar; server vê apenas o que o modelo emitiu
+- **Hash do manifest persistido:** primeiro `tools/list` é hash-ado e gravado em `mcp_servers` (`AUDIT.md §1.5`); mudança detectada antes da próxima sessão
+- **Per-server budget:** wall-clock e tokens consumidos cobertos por `ORCHESTRATION.md §11` (limite agregado de 30 connections, budget cascading do parent step)
+
+### B (Server) garante a A (Harness):
+
+- **Manifest válido:** resposta a `tools/list` retorna `tools: { name, description, inputSchema }[]` conforme MCP spec; nomes únicos dentro do server
+- **Schemas estáveis:** `inputSchema` de uma tool não muda entre `tools/list` calls da mesma sessão; mudança requer reconnect (lifecycle reset)
+- **Resposta em tempo finito:** `tools/call` retorna em ≤ timeout (default 30s); tool longa = ack `progress` notifications, não silêncio
+- **Erros estruturados:** falha de tool retorna `{ isError: true, content: [...] }`, **não** JSON-RPC error frame (reservado pra protocol violations)
+- **Sem dados sensíveis sem solicitação:** server não envia `resources/read` ou `prompts/get` que o modelo não pediu (princípio: server é tool source, não autoridade)
+- **Sem mutação de policy:** server **não pode** declarar permissions, hooks, ou trust upgrades; apenas declara tools (ver `SECURITY_GUIDELINE.md §5` invariant 9)
+- **Versão protocolar declarada:** `initialize` response tem `protocolVersion` exato; mismatch → harness aborta connect com erro classificado
+
+### Failure semantics:
+
+- **Server crash mid-call** → `tools/call` em vôo recebe `{ error: "mcp.server.crashed", server: "<name>" }`; server transita pra `disconnected` (ver `STATE_MACHINE.md §6.5`); reconnect tentado em próxima invocação (não automático em background)
+- **Server manifest change** → detectado no início da próxima sessão; tools do server ficam **invisíveis ao modelo** até trust prompt re-aprovar (ver `FAILURE_MODES.md §14.2`)
+- **Schema violation no input** → harness rejeita antes de enviar; modelo recebe `{ error: "mcp.schema.invalid", hint: <validation error> }`; **não chega ao server**
+- **Schema violation no output** → harness loga, devolve `{ error: "mcp.output.invalid", hint }` ao modelo; server fica `degraded` mas não desconectado
+- **Timeout** → `notifications/cancelled` enviado; resultado vira `{ error: "mcp.timeout", server, tool, elapsed_ms }`
+- **Transport error** (stdio pipe broken, SSE disconnect, HTTP 5xx) → server transita pra `disconnected`; tools invisíveis até reconnect bem-sucedido
+- **Protocol version mismatch** → server **nunca** registra; user vê erro no startup com hint pra atualizar harness ou server
+
+### Side effects permitidos:
+- **Harness:** escreve em `mcp_servers`, `mcp_manifest_history`, `tool_calls` (com `mcp_server` field), `approvals` (trust prompts), emite spans OTEL
+- **Server:** declarados pelo próprio server no manifest e/ou descrição; **não** podem incluir mutação de SQLite do agente, FS fora de `cwd` declarado, ou network sem allowlist (`SECURITY_GUIDELINE.md §9`)
+
+### Trust boundary:
+
+- Server é **NÃO-confiável até prova em contrário** (princípio 11 do `AGENTIC_CLI.md`)
+- Primeira conexão exige **trust prompt** (`AGENTIC_CLI.md §9.4`); decisão registrada em `approvals` com hash do manifest
+- Tools de server não-confiável: registradas com `visible_to_model: false`; modelo nem sabe que existem
+- Trust é **per-manifest-hash**, não per-server-name: server publicar nova tool = novo trust prompt (`STATE_MACHINE.md §6.5`)
+
+### Namespacing:
+
+- Tools MCP aparecem no registry como `mcp:<server-name>:<tool-name>` (ex: `mcp:postgres:query`)
+- Colisão com tool canônica do `§2.6` → tool MCP **rejeitada** ao registrar (server não pode shadow `read_file`, `bash`, etc); registro falha com `mcp.namespace.shadow_canonical`
+- Colisão entre dois servers → segundo registro vira `mcp:<server-name-2>:<tool-name>`; resolução por `server-name`, sem fallback ambíguo
+
+### Versão: **v1**
+
+---
+
+## 12. Telemetry ↔ Subsistemas
 
 A: **Telemetry**
 B: **Todos os subsistemas que emitem spans**
@@ -790,7 +853,7 @@ Direção: B → A
 
 ---
 
-## 12. Tabela-resumo de versionamento
+## 13. Tabela-resumo de versionamento
 
 | Contrato | Versão | Compatibilidade |
 |---|---|---|
@@ -803,6 +866,7 @@ Direção: B → A
 | Checkpoint ↔ FS | v1 | git ref namespace `refs/agent/v1/checkpoints/...` |
 | Permission ↔ Tool Registry | v1 | policy YAML tem `version: 1` |
 | Hooks Dispatcher ↔ Subsystems | v1 | event payload tem `schema: "v1"` |
+| MCP Server ↔ Harness | v1 | `mcp_protocol_version` declarada per server; hash do manifest gravado |
 | Telemetry ↔ Subsystems | v1 | OTEL semantic conventions seguidas onde aplicável |
 
 Mudança em qualquer contrato:
@@ -813,7 +877,7 @@ Mudança em qualquer contrato:
 
 ---
 
-## 13. O que **não** é contratual (intencionalmente)
+## 14. O que **não** é contratual (intencionalmente)
 
 Coisas que ficam de fora dos contratos por design:
 
@@ -826,7 +890,7 @@ Coisas que ficam de fora dos contratos por design:
 
 ---
 
-## 14. Como verificar contratos
+## 15. Como verificar contratos
 
 Cada contrato tem **eval de contrato** dedicado:
 
@@ -849,7 +913,7 @@ Eval roda em CI. Falha = breaking change não-anunciada = PR bloqueado.
 
 ---
 
-## 15. Insight final
+## 16. Insight final
 
 Contrato bom não é o que **descreve** comportamento. É o que **constraini** comportamento para que duas implementações independentes interoperem.
 

@@ -25,7 +25,7 @@ Sem audit consolidado, "compliance" e "debug forense" viram intenção sem entre
 
 ## 1. Tables canônicas
 
-Lista canônica das **15 tabelas de audit**, com escopo, retention, sensitivity, e regra de redaction.
+Lista canônica das **17 tabelas de audit**, com escopo, retention, sensitivity, e regra de redaction.
 
 | Tabela | Escopo | Retention default | Sensitivity | Redaction |
 |---|---|---|---|---|
@@ -44,6 +44,8 @@ Lista canônica das **15 tabelas de audit**, com escopo, retention, sensitivity,
 | `background_processes` | bg processes metadata | 30d | low | redact `cmd` |
 | `prompt_versions` | versões de system prompt e playbooks | **forever** (no auto-cleanup) | low | nenhuma (conteúdo é o ponto) |
 | `todos` | plano stream-parsed do modelo (ver §1.4) | 90d | low | nenhuma |
+| `mcp_servers` | estado e config de MCP servers (ver §1.5) | mantido enquanto server em config | low | redact env values |
+| `mcp_manifest_history` | versões de manifest MCP (ver §1.5) | **forever** (no auto-cleanup) | low | nenhuma (manifest é spec) |
 | `traces` (NDJSON) | OTEL spans | 90d | medium | redact attrs |
 | `redaction_events` | NEW — audit de redactions | 365d | low | nenhuma (sem o conteúdo redacted) |
 
@@ -285,6 +287,197 @@ A última query é o **gatilho de reconsideração** declarado em `CONTRACTS.md 
 - **Não captura "intent" do modelo, só o que ele declarou.** Plano implícito (sem checklist) fica invisível. Aceitável: mesma limitação de Claude Code com `todo_write` opcional.
 - **Parser confidence é heurística.** False positives (UI list markdown que não é todo) são possíveis; mitigado por contexto (parser só ativa em respostas pós-prompt do tipo "plan", "list steps", ou explicit slash command).
 - **Modelos locais podem ter alta `fail_rate`.** Se inviável em `LOCAL_MODELS.md`, profile `orchestrated` pode promover `todo_write` a tool **só nesse profile**. Decisão deferida pra v1.1.
+
+### 1.5 MCP servers (`mcp_servers`, `mcp_manifest_history`)
+
+Cobre o ponto cego de auditabilidade de MCP — antes deste schema, trust history vivia espalhada em `approvals` genérica, sem rastreio de manifest. Spec completa em [`MCP.md`](./MCP.md); state machine em [`STATE_MACHINE.md §6.5`](./STATE_MACHINE.md); contrato em [`CONTRACTS.md §11`](./CONTRACTS.md).
+
+#### 1.5.1 Schema — `mcp_servers`
+
+Estado **atual** de cada server em config (1 row per `<name>`).
+
+```sql
+CREATE TABLE mcp_servers (
+  name TEXT PRIMARY KEY,                 -- ex: "postgres"
+  transport TEXT NOT NULL CHECK (transport IN ('stdio','sse','http')),
+  command TEXT,                          -- JSON array, stdio only; redacted env values
+  url TEXT,                              -- SSE/HTTP only
+  source TEXT NOT NULL,                  -- 'user' | 'project_shared' | 'project_local'
+  state TEXT NOT NULL CHECK (state IN (
+    'disconnected','handshaking','trust_pending',
+    'trusted','active','degraded','denied','error'
+  )),
+  current_manifest_hash TEXT,            -- hash atualmente trusted (NULL se nunca aprovado)
+  protocol_version TEXT,                 -- ex: "2024-11-05"
+  server_version TEXT,                   -- declarado em initialize
+  last_connected_at INTEGER,
+  last_error TEXT,                       -- last failure reason, classed
+  total_calls INTEGER NOT NULL DEFAULT 0,
+  total_tokens_in INTEGER NOT NULL DEFAULT 0,
+  audit_schema_version INTEGER NOT NULL DEFAULT 1
+);
+```
+
+Sensitivity: **low**. Redaction: env values em `command` substituídos por `${VAR_NAME}` antes de persistir; URL em `url` é literal (esperado público). Retention: enquanto server estiver em config; remoção de config → row removida no próximo `agent gc` (excepcional pra audit table; razão: estado, não history).
+
+UPDATE permitido em: `state`, `current_manifest_hash`, `last_connected_at`, `last_error`, contadores. **Imutável**: `name`, `transport`, `command`, `url`, `source`. Mudança de transport ou command = remove + insert.
+
+#### 1.5.2 Schema — `mcp_manifest_history`
+
+History de manifests. **Append-only, forever retention** (igual a `prompt_versions §1.3`).
+
+```sql
+CREATE TABLE mcp_manifest_history (
+  id INTEGER PRIMARY KEY,
+  server_name TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  previous_hash TEXT,                    -- hash imediatamente anterior pra esse server
+  manifest_json TEXT NOT NULL,           -- conteúdo canonical
+  protocol_version TEXT NOT NULL,
+  server_version TEXT,
+  decision TEXT NOT NULL CHECK (decision IN ('granted','denied','revoked','superseded')),
+  decided_by TEXT NOT NULL,              -- 'user' | 'auto-approve-flag' | 'ci'
+  decided_at INTEGER NOT NULL,
+  approval_id INTEGER,                   -- FK soft pra approvals
+  audit_schema_version INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE UNIQUE INDEX idx_mcp_manifest_unique
+  ON mcp_manifest_history(server_name, hash);
+
+CREATE INDEX idx_mcp_manifest_decided
+  ON mcp_manifest_history(server_name, decided_at DESC);
+```
+
+Sensitivity: **low**. Redaction: nenhuma (manifest é spec, não dado de usuário; mesmo princípio de `prompt_versions`).
+
+`decision = 'superseded'` é registrado quando manifest atual é trocado por um novo (não revogado, apenas substituído).
+
+#### 1.5.3 Pipeline canônico
+
+```
+SessionStart
+   │
+   ▼
+para cada server em config (mcp.toml):
+   │
+   ▼ initialize + tools/list
+   ▼ hash = SHA256(canonical(manifest))
+   │
+   ▼ SELECT current_manifest_hash FROM mcp_servers WHERE name=?
+   │
+   ├─── match: state ← 'trusted' (skip prompt)
+   │
+   └─── mismatch ou NULL:
+        ▼ INSERT INTO mcp_manifest_history (..., decision='granted'|'denied')
+        ▼ UPDATE mcp_servers SET current_manifest_hash, state
+```
+
+Em `tools/call`:
+- `tool_calls.mcp_server` populado com nome do server (NULL para canônicos)
+- `mcp_servers.total_calls += 1`, `total_tokens_in += output_tokens`
+- Em erro: `mcp_servers.last_error` updated; `failure_events` criado
+
+#### 1.5.4 Append-only com exceção declarada
+
+Conforme `§4.1` (regra geral), audit é INSERT-only. `mcp_servers` é a **segunda exceção** (primeira: `todos`). Razão: representa **estado**, não history; history vive em `mcp_manifest_history` que é append-only puro.
+
+Trigger restritivo:
+
+```sql
+CREATE TRIGGER mcp_servers_immutable_keys BEFORE UPDATE ON mcp_servers
+WHEN OLD.name != NEW.name
+  OR OLD.transport != NEW.transport
+  OR (OLD.command IS NOT NULL AND OLD.command != NEW.command)
+  OR (OLD.url IS NOT NULL AND OLD.url != NEW.url)
+  OR OLD.source != NEW.source
+BEGIN
+  SELECT RAISE(ABORT, 'mcp_servers: immutable keys changed; remove + insert');
+END;
+```
+
+#### 1.5.5 Integração com `audit_timeline`
+
+Adicionar UNION na view §2.1:
+
+```sql
+UNION ALL
+SELECT 'mcp_trust_decision' AS kind, decided_at AS ts, NULL AS session_id,
+       json_object('server', server_name, 'hash', hash, 'decision', decision,
+                   'previous_hash', previous_hash, 'decided_by', decided_by)
+FROM mcp_manifest_history
+UNION ALL
+SELECT 'mcp_state_change', last_connected_at, NULL,
+       json_object('server', name, 'state', state, 'last_error', last_error)
+FROM mcp_servers WHERE last_connected_at IS NOT NULL
+```
+
+Note: `session_id` NULL — eventos de MCP são cross-session.
+
+#### 1.5.6 Queries canônicas
+
+```sql
+-- "Quais servers MCP rodaram nos últimos 30 dias?"
+SELECT s.name, s.state, s.total_calls, s.last_connected_at
+FROM mcp_servers s
+WHERE s.last_connected_at > unixepoch('now', '-30 days')
+ORDER BY s.total_calls DESC;
+
+-- "Manifest history de um server específico"
+SELECT decided_at, decision, hash, previous_hash, decided_by
+FROM mcp_manifest_history
+WHERE server_name = 'postgres'
+ORDER BY decided_at DESC;
+
+-- "Servers com falha recente"
+SELECT name, state, last_error, last_connected_at
+FROM mcp_servers
+WHERE state IN ('error','degraded','disconnected')
+  AND last_connected_at > unixepoch('now', '-7 days');
+
+-- "Tools MCP mais chamadas (últimos 7d)"
+SELECT json_extract(tc.tool_name, '$') AS tool,
+       tc.mcp_server, COUNT(*) AS calls
+FROM tool_calls tc
+WHERE tc.mcp_server IS NOT NULL
+  AND tc.tc_started_at > unixepoch('now', '-7 days')
+GROUP BY tool, tc.mcp_server
+ORDER BY calls DESC;
+
+-- "Manifest changes que viraram denied (red flag)"
+SELECT server_name, decided_at, hash, previous_hash
+FROM mcp_manifest_history
+WHERE decision = 'denied' AND previous_hash IS NOT NULL
+ORDER BY decided_at DESC;
+```
+
+#### 1.5.7 CLI
+
+```
+agent audit mcp list                       # servers + estados + total calls
+agent audit mcp show <name>                # config + state atual + history compacta
+agent audit mcp history <name>             # full mcp_manifest_history
+agent audit mcp diff <hash1> <hash2>       # diff entre versões de manifest
+agent audit mcp calls <name>               # tool_calls filtrados por server
+```
+
+#### 1.5.8 Interação com `tool_calls`
+
+Adicionar coluna em `tool_calls`:
+
+```sql
+ALTER TABLE tool_calls ADD COLUMN mcp_server TEXT;  -- NULL para canônicos
+ALTER TABLE tool_calls ADD COLUMN mcp_manifest_hash TEXT;  -- hash ativo na chamada
+```
+
+Permite query: "quando esse server estava nesse manifest, quais tools foram chamadas?". Integra com `prompt_versions §1.3` para análise cross-dimensional (prompt_hash × mcp_manifest_hash × outcome).
+
+#### 1.5.9 Limites
+
+- **Server-side audit não captura.** O que o server faz internamente (queries SQL, FS reads) é problema do server, não do harness. Audit cobre interface, não implementação.
+- **Hash de manifest, não de comportamento.** Server pode ter mesmo manifest mas comportamento diferente (mudou implementação interna). Trust é em manifest, não em binary; documented.
+- **`source` do server pode mudar entre sessões.** Mesmo `<name>` aparecendo em fontes diferentes (user → project → local) não é detectado como event; rastrear via git/config diff.
+- **Sem audit de `prompts/get` ou `resources/read`.** v1 só consome `tools/*` (ver `MCP.md §11`).
 
 ---
 

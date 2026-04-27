@@ -438,6 +438,102 @@ Não há transição de top-level state — `executing` engloba ambos.
 
 ---
 
+## 6.5 MCP Server Lifecycle
+
+> **Cross-refs:** contrato em `CONTRACTS.md §11`; threat model em `SECURITY_GUIDELINE.md §3, §5`; failure mode `adversarial.mcp_server.changed_manifest` em `FAILURE_MODES.md §14.2`; spec consolidada em `MCP.md`.
+
+```
+[disconnected] → [handshaking] → [trust_pending] → [trusted] → [active]
+       ▲                ↓              ↓                          ↓
+       │           [error]        [denied]                   [degraded]
+       │                                                          ↓
+       └──────────────────────────────────────────────────── [disconnected]
+                              ▲
+                              │
+                          (manifest_changed em qualquer estado pós-trusted →
+                           força [trust_pending] na próxima sessão)
+```
+
+### Estados (em `mcp_servers`)
+
+- `disconnected` — nenhuma conexão; estado inicial e pós-erro
+- `handshaking` — transport aberto; `initialize` enviado, aguardando resposta
+- `trust_pending` — manifest recebido; trust prompt pendente para o user (decisão modal em `pending_decisions`)
+- `trusted` — user aprovou hash do manifest; tools registradas mas server ainda não ativo no turno
+- `active` — server pode receber `tools/call`; tools visíveis ao modelo
+- `degraded` — schema violation em output ou heartbeat lento; tools ainda visíveis mas chamadas extras com warning
+- `denied` — user recusou trust; server fica in-config mas inativo (slash command pra reverter)
+- `error` — falha de protocolo terminal (version mismatch, manifest malformado); user é notificado, ação requer fix
+
+### Transições nomeadas
+
+| Evento | De → Para | Side effect |
+|---|---|---|
+| `mcp.connect_requested` | `disconnected` → `handshaking` | spawn (stdio) ou open (HTTP/SSE) |
+| `mcp.initialize_ok` | `handshaking` → `trust_pending` | manifest hash gravado em `mcp_manifest_history` |
+| `mcp.initialize_protocol_mismatch` | `handshaking` → `error` | `failure_event` `mcp.protocol.version_mismatch` |
+| `mcp.trust_granted` | `trust_pending` → `trusted` | `approvals` row com hash; tools registradas com `visible_to_model: true` |
+| `mcp.trust_denied` | `trust_pending` → `denied` | tools registradas mas `visible_to_model: false` |
+| `mcp.session_first_call` | `trusted` → `active` | (lazy activation; primeiro `tools/call` da sessão) |
+| `mcp.output_invalid` | `active` → `degraded` | warning em audit; modelo recebe `mcp.output.invalid` |
+| `mcp.recover_ok` | `degraded` → `active` | N calls válidas consecutivas (default 3) |
+| `mcp.transport_error` | `*` → `disconnected` | classifica em `failure_events` por kind |
+| `mcp.manifest_changed` | `trusted`/`active`/`degraded` → `trust_pending` | detectado em SessionStart; tools ficam invisíveis até nova aprovação |
+| `mcp.user_revoked` | `*` → `denied` | via `/trust mcp <name> revoke` slash command |
+
+### Invariantes
+
+- Server **sempre** começa em `disconnected` ao spawn do agente; trust não é "lembrado entre sessões sem manifest match"
+- Trust é **per-manifest-hash**: hash novo = trust novo, mesmo que o `<name>` do server seja igual
+- `active` é estado **lazy** — server só vira active quando o modelo efetivamente chama uma tool; evita conexões pré-emptivas custosas
+- `degraded` **não** torna tools invisíveis ao modelo; só adiciona warning em audit. Decisão deliberada: degradação intermitente vs invisibilidade abrupta favorece o segundo apenas quando crítico (manifest change, transport break)
+- Em `denied`/`error`: tools **nunca** são apresentadas ao modelo no `tool_schemas` cache breakpoint (`CONTEXT_TUNING.md §2`), mesmo que estejam registradas
+
+### Heartbeat e degradation
+
+Não há heartbeat MCP no protocolo. Harness usa **proxy de saúde**:
+
+- **Stdio:** processo vivo (`kill(pid, 0)`); pipe leitura sem `EPIPE`
+- **SSE/HTTP:** última resposta < `mcp.heartbeat_max_age` (default 60s)
+
+Falha de proxy → `mcp.transport_error` → `disconnected`.
+
+### Manifest change detection (cross-session)
+
+Em `SessionStart`, para cada server em config:
+1. Conecta, envia `initialize`, recebe manifest
+2. Computa `hash = SHA256(canonical(manifest))`
+3. Compara com último `mcp_manifest_history.hash` para esse `<name>`
+4. **Match:** transita direto para `trusted` (skip prompt)
+5. **Mismatch:** transita para `trust_pending`, registra `mcp_manifest_history` com novo hash + `previous_hash`, tools ficam invisíveis até user aprovar
+6. **Server não responde:** transita para `disconnected`; tools invisíveis; warning em UI
+
+Step 4 é o "skip" justificado: re-prompting a cada sessão pra hash idêntico vira ruído de UX. Step 5 é o defense-in-depth contra `adversarial.mcp_server.changed_manifest` (`FAILURE_MODES.md §14.2`).
+
+### Crash recovery interaction
+
+Tabela do `§7.1` aplicada a MCP:
+
+| Estado pré-crash | Estado após resume | Recovery |
+|---|---|---|
+| `disconnected` | `disconnected` | nada |
+| `handshaking` | `disconnected` | reconnect na próxima invocação |
+| `trust_pending` | `trust_pending` | modal re-mostrado (preservado em `pending_decisions`) |
+| `trusted`/`active` | `disconnected` | reconnect lazy; manifest hash re-validado (Step 3 acima) |
+| `degraded` | `disconnected` | mesmo |
+| `denied` | `denied` | preservado entre sessões; ação explícita do user pra reverter |
+| `error` | `error` | preservado; `mcp doctor` mostra causa |
+
+Server crash mid-tool-call: cobre `§7.1` linha "tool_exec (durante invocação)" — tool result vira `{ error: "mcp.server.crashed", server }`, modelo decide próxima ação.
+
+### O que **não** garantimos
+
+- **Reentrant calls:** se modelo chama `mcp:foo:bar` e `mcp:foo:baz` em paralelo (parallel_safe tools), server precisa suportar JSON-RPC concorrente — harness não serializa pra ele. Server não-reentrant declara `parallel_safe: false` em manifest extension (campo `_meta.agentic_cli.parallel_safe`)
+- **State entre `tools/call`:** server pode manter estado interno; harness não garante isolamento. Se o user precisa de isolamento, é problema do server (ex: spawn worker per call)
+- **Server-side persistência:** server pode escrever em FS/DB próprios; harness não captura em `checkpoints`. Tool MCP que escreve algo persistente é **fora do contrato de checkpoint** — `/undo` não cobre
+
+---
+
 ## 7. Crash Recovery (resume após SIGKILL/power loss)
 
 ### 7.1 Onde a sessão pode estar quando o processo morre

@@ -44,7 +44,8 @@ Este documento (`AGENTIC_CLI.md`) é a spec arquitetural de alto nível. Detalhe
 | [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) | Foundations visuais — color tokens semânticos, glyph catalog (Unicode + ASCII fallback), typography, spacing, motion, capability matrix, a11y, naming conventions | Antes de qualquer componente novo. UI.md consome este doc. |
 | [`UI.md`](./UI.md) | Componentes Ink, layout, microcopy, headless contract, padrões de interação | Ao implementar qualquer componente UI, ou definir microcopy de erro |
 | [`RECAP.md`](./RECAP.md) | Vista projetada de sessões (PR/changelog/slack/etc), source-of-truth determinística + LLM renderer | Ao implementar `/recap`, ou gerar artefato a partir de sessão |
-| [`ANTI_PATTERNS.md`](./ANTI_PATTERNS.md) | Padrões deliberadamente rejeitados (undercover mode, prompt-as-IP, persona tuning, vector DB no v1, multi-model router, auto-commit, etc) com motivo e gatilho de reconsideração | Antes de adicionar feature que parece útil mas conflita com princípios; ao revisar PR de scope creep |
+| [`ANTI_PATTERNS.md`](./ANTI_PATTERNS.md) | Padrões deliberadamente rejeitados (undercover mode, prompt-as-IP, persona tuning, vector DB, multi-model router, auto-commit, anti-patterns de MCP) com motivo e gatilho de reconsideração | Antes de adicionar feature que parece útil mas conflita com princípios; ao revisar PR de scope creep |
+| [`MCP.md`](./MCP.md) | Spec consolidada de MCP — lifecycle, transport (stdio/SSE/HTTP), capability negotiation, manifest format e hash, namespacing, per-server budget, sandbox, cache impact, slash commands, observabilidade | Ao integrar MCP server novo; ao implementar cliente MCP; ao auditar trust history |
 
 Spec arquitetural sem esses docs é descrição de uma implementação. **Com** esses docs vira protocolo que múltiplas implementações respeitam.
 
@@ -679,7 +680,11 @@ Detalhes do subsistema em [`MEMORY.md`](./MEMORY.md). Markdown-based, escopo iso
 
 ### 7.2 MCP
 
-Cliente MCP nativo. Tools de servidores MCP aparecem no registry como cidadãos de primeira classe. Mesmas regras de permissão se aplicam. Servidores MCP de terceiros entram pelo trust prompt (§9).
+> **Autoridade detalhada:** [`MCP.md`](./MCP.md) — lifecycle, transport, manifest, namespacing, sandbox, budget, slash commands, observabilidade. Esta seção é overview.
+
+Cliente MCP nativo é a **única superfície declarada de extensão** do tool catalog v1 (`CONTRACTS.md §2.6.7`). Tools de servidores MCP aparecem no registry como `mcp:<server>:<tool>` — namespacing obrigatório, sem colisão com canônicos. Mesmas regras de permissão se aplicam. Servidores entram pelo trust prompt (§9.4) com hash do manifest gravado em `AUDIT.md §1.5`; mudança de manifest força re-trust.
+
+Transport: stdio (default), SSE, e streamable HTTP. Conexão é **lazy** — server só conecta quando modelo chama uma tool. Per-server budget e sandbox em `MCP.md §5, §2.3`. State machine completa em `STATE_MACHINE.md §6.5`. Contrato formal em `CONTRACTS.md §11`.
 
 ### 7.3 Background processes
 

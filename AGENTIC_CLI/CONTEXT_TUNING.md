@@ -357,19 +357,19 @@ Modelo só vê o que pode usar. Confusão de tool selection cai dramaticamente.
 
 ### 5.2 Tool ordering em schemas
 
-Em `[tool_schemas]`, tools listadas em ordem **canônica fixa** (não alfabética; semântica):
+Em `[tool_schemas]`, tools listadas em ordem **canônica fixa** (não alfabética; semântica). Catálogo canônico v1 em `CONTRACTS.md §2.6` (12 tools):
 
 1. `read_file` (mais usada)
 2. `grep`, `glob`
 3. `edit_file`, `write_file`
 4. `bash`, `bash_background`
-5. `web_fetch`
-6. `task`, `task_async`, `task_await`
-7. `todo_write`
-8. `memory_*`
-9. `wait_for`, `monitor`
+5. `fetch_url` (escopado; ver `CONTRACTS.md §2.6.5b` + `SECURITY_GUIDELINE.md §9.1`)
+6. `task_sync`, `task_async`, `task_await`, `task_cancel`
+7. `memory_search`
+8. `wait_for`, `monitor` (background process coordination — `AGENTIC_CLI.md §7.3.1`)
+9. **MCP tools** — sempre por último; ver §5.4 abaixo
 
-Ordem afeta probabilidade de seleção (modelos atendem mais nas primeiras posições).
+Ordem afeta probabilidade de seleção (modelos atendem mais nas primeiras posições). `todo_write` **não está nesta lista** — é UI affordance via stream parsing, não tool de modelo (decisão B em `CONTRACTS.md §2.6.8`).
 
 ### 5.3 Tool description cuidadoso
 
@@ -390,6 +390,52 @@ Primeira encoraja uso; segunda é neutra. Em playbooks especializados, descripti
 ### 5.4 Anti-pattern
 
 Expor 30 tools em todo playbook = paralisia de decisão + alucinação de tool inexistente. **Restrição de palette é otimização, não limitação.**
+
+### 5.5 MCP tools no cache breakpoint #2
+
+Tools de MCP servers (`MCP.md`) entram no `[tool_schemas]` cache breakpoint #2, **depois** das canônicas e em ordem fixa por server name (alfabética). Razão: canônicas são ordenadas por uso esperado (§5.2 acima); MCP varia por instalação do user, então fixar por nome dá estabilidade de cache cross-session.
+
+#### Eventos que invalidam o cache breakpoint #2
+
+| Evento | Invalidação | Custo típico |
+|---|---|---|
+| Trust grant para server novo | sim — tools entram no schema | re-cache de ~2-5k tokens |
+| Trust revoke ou denied | sim — tools saem do schema | re-cache |
+| Manifest hash muda (server atualizou) | sim — schemas das tools podem ter mudado | re-cache |
+| Server transita `trusted` → `active` | **não** — schema não muda em activation lazy | zero |
+| Server transita `active` → `degraded` | **não** — schema continua | zero |
+| Server transita para `disconnected` | **sim, condicional** — se tools previamente visíveis, harness re-renderiza schema sem o server | re-cache |
+| Manifest **idêntico** entre sessões | **não** — match de hash skip prompt; schema mantido | zero |
+
+Sessão típica não invalida cache MCP — eventos são raros (trust, manifest change). Sessão patológica (server que muda manifest a cada turn) detectada por taxa de invalidação > 1% em janela de 7d e trata como `ANTI_PATTERNS.md §7.x` (ver MCP anti-patterns).
+
+#### Ordering canônica MCP
+
+```
+[tool_schemas]
+  # canônicas v1 (ordem em §5.2)
+  read_file, grep, glob, edit_file, write_file, bash, ..., memory_search
+
+  # MCP — alfabética por server name, depois por tool name dentro do server
+  mcp:github:create_issue
+  mcp:github:list_issues
+  mcp:postgres:explain_plan
+  mcp:postgres:list_tables
+  mcp:postgres:query
+[/tool_schemas]
+```
+
+Ordering por nome do server (não por uso) dá determinismo: dois implementadores com mesmo `mcp.toml` produzem mesmo schema na mesma ordem → hash do prefix idêntico → cache hit cross-implementação possível.
+
+#### Tokens estimados (sessão com MCP)
+
+Adicionar à tabela §2.1:
+
+| Section | Tokens (canônico) | Tokens (com 2-3 MCP servers, ~10 tools) |
+|---|---|---|
+| tool_schemas | 2000-4000 | 4000-7000 |
+
+Custo aceito: tools MCP são opt-in via config; user que instala servers paga o overhead.
 
 ---
 
