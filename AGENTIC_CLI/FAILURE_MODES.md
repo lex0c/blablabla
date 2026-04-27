@@ -761,7 +761,240 @@ WHERE last_error LIKE 'metadata.writes_lied%';
 
 ---
 
-## 16. Recovery hierarchy (decisão por classe)
+## 16. Code index failures
+
+> **Cross-refs:** subsistema em [`CODE_INDEX.md`](./CODE_INDEX.md); tools simbólicas em [`CONTRACTS.md §2.6.5c, §2.6.9`](./CONTRACTS.md). Esta seção é o catálogo operacional.
+
+Classificação (§1 Taxonomia):
+
+| Code | Classe | User-visible | Recovery |
+|---|---|---|---|
+| `index.parse_failed` | internal | não (warning em doctor) | arquivo invisível ao index; recai em `read_file` |
+| `index.parse_partial` | internal | não | symbols extraídos até onde possível; flag `parse_status='partial'` |
+| `index.schema_version_mismatch` | configuration | sim (em SessionStart) | migration auto; falha → `rebuild --clean` |
+| `index.stale_excessive` | internal | sim (warning) | sugestão de rebuild; sessão prossegue com stale |
+| `index.disk_full` | external | sim | tools simbólicas degradam; fallback para `read_file`/`grep` |
+| `index.lock_timeout` | internal (transient) | sim | abort do reindex; `agent code-index check` |
+| `index.unavailable` | configuration | sim (warning único) | tools simbólicas no-op; modelo cai em fallback |
+
+7 codes. Comparado com MCP (8 codes em §15) é menor — code index é subsistema mais auto-contido.
+
+### 16.1 `index.parse_failed`
+
+**Detecção:** tree-sitter parse retorna erro fatal (sintaxe que o parser não consegue recuperar) em arquivo `X`.
+
+**Recovery:**
+1. `files.parse_status = 'failed'`, `parse_error` preenchido com classe (`syntax_error`, `unsupported_feature`, `parser_panic`).
+2. **Nenhum** symbol/reference/import extraído desse arquivo.
+3. Arquivo continua existindo no FS; só **invisível** ao index.
+4. Tools simbólicas que tentam alvejar o arquivo retornam `file.parse_failed`; modelo recebe e decide (recai em `read_file`).
+5. Próximo edit no arquivo dispara re-parse incremental (`CODE_INDEX.md §3.2`); se sintaxe foi corrigida, status volta para `ok`.
+
+**Mensagem ao usuário:** silenciosa por default. `agent doctor` mostra contagem de `parse_failed`; > 5% do repo dispara warning.
+
+**Audit footprint:** `failure_events.payload = { file, parse_error_class, line, col }`. Útil pra: "quais arquivos do repo o parser não digere?".
+
+### 16.2 `index.parse_partial`
+
+**Detecção:** tree-sitter retorna CST mas com nodos `ERROR` ou `MISSING` — sintaxe parcialmente válida.
+
+**Recovery:**
+1. `files.parse_status = 'partial'`.
+2. Symbols extraídos das **regiões válidas** apenas; regiões com erro são puladas.
+3. Tools simbólicas funcionam normalmente, mas com warning implícito (resultado pode estar incompleto).
+4. `outline_file` retorna campo extra `parse_warnings: number` para sinalizar.
+
+**Mensagem:** silenciosa. `outline_file` carrega o sinal pro modelo via `parse_warnings`.
+
+**Audit:** `failure_events.payload = { file, error_node_count, recovered_symbols }`. Sinal para tunar grammar selection (linguagem com `partial` rate alto pode estar sub-suportada).
+
+### 16.3 `index.schema_version_mismatch`
+
+**Detecção:** em `SessionStart`, `index_meta.value WHERE key='index_schema_version'` ≠ versão atual do binary.
+
+**Recovery:**
+1. **Migration auto-tentada** com pipeline declarado em `migrations/code_index/`:
+   - 1.x → 1.y: ALTER TABLE adicionando colunas com default
+   - 1.x → 2.x: rebuild parcial; symbols/references mantidos, schemas dinâmicos refeitos
+2. Migration succeeded → sessão prossegue normal.
+3. Migration failed → `index.unavailable` é o estado de fallback; user prompt sugerindo `agent code-index rebuild --clean`.
+
+**Mensagem-template (em failure de migration):**
+
+```
+⚠ Code index incompatível com esta versão
+
+Schema da DB local é v{old}, binary atual usa v{new}.
+Migration automática falhou: {error_class}.
+
+Tente: agent code-index rebuild --clean
+       (~15-30s; reindex from scratch)
+
+Tools simbólicas (read_symbol, find_references, ...) ficam
+indisponíveis até o rebuild. Sessão prossegue com fallback
+a read_file/grep.
+
+(detalhes: index.schema_version_mismatch | /help index.schema)
+```
+
+**Audit:** `failure_events.payload = { old_version, new_version, migration_step_failed }`.
+
+### 16.4 `index.stale_excessive`
+
+**Detecção:** em `SessionStart`, query do §3.5:
+
+```sql
+SELECT COUNT(*) FROM files
+WHERE last_modified_at > indexed_at + 60;  -- arquivos modificados há > 60s sem reindex
+```
+
+Se contagem > 5% do total: stale excessivo.
+
+**Recovery:**
+1. **Não bloqueia** sessão.
+2. Warning em UI: "Code index stale em N% dos arquivos. Tools simbólicas podem retornar info desatualizada."
+3. Sugestão: `agent code-index rebuild --since <last_session_end>` (incremental restrito ao diff).
+4. Tools simbólicas continuam funcionando, mas com flag `index_stale: true` em metadata do tool result.
+
+**Mensagem:**
+
+```
+⚠ Code index parcialmente stale
+
+{N} arquivos foram modificados fora do harness e ainda não foram
+reindexados (~{percent}% do repo).
+
+Tente: agent code-index rebuild --since {last_session}
+       (incremental; ~5-15s)
+
+Tools simbólicas ainda funcionam, com warning de staleness.
+
+(detalhes: index.stale_excessive | /help index.stale)
+```
+
+**Audit:** `failure_events.payload = { stale_count, total_files, threshold_pct }`. Trend útil: "user trabalhando em outro editor (vim/vscode) entre sessões com FS watcher off?".
+
+### 16.5 `index.disk_full`
+
+**Detecção:** SQLite write retorna `SQLITE_FULL` ou `SQLITE_IOERR_WRITE`.
+
+**Recovery:**
+1. Re-index abortado in-flight; estado SQLite preservado consistente (transação rolled back).
+2. Subsistema transita para `index.unavailable` em-memory; tools simbólicas no-op até fim da sessão.
+3. Próxima sessão tenta reconectar; se disco ainda cheio, mantém unavailable.
+
+**Mensagem:**
+
+```
+✖ Code index sem espaço em disco
+
+Falha ao escrever em ~/.local/share/agent/code_index.db.
+Espaço disponível: {free_mb} MB.
+
+Tente: agent gc                   (limpar audit/sessions antigas)
+       agent code-index rebuild --clean   (após liberar espaço)
+
+(detalhes: index.disk_full | /help index.disk_full)
+```
+
+**Audit:** `failure_events.payload = { db_path, free_mb, attempted_write_kb }`. `redaction`: nenhuma (paths já são `~/...`).
+
+### 16.6 `index.lock_timeout`
+
+**Detecção:** SQLite write/read aguardando lock por > 30s (SQLITE_BUSY repetido).
+
+**Recovery:**
+1. Operação atual aborta; estado preservado.
+2. Possível causa: outra instância do `agent` está reindexando o mesmo `cwd`.
+3. Tool simbólica que disparou retorna `index.lock_timeout`; modelo decide retry (provavelmente passa após alguns segundos) ou fallback.
+4. `agent code-index check` é sugestão: detecta locks órfãos (de processos crashed) e tenta recovery.
+
+**Mensagem (apenas se persistir > 60s):**
+
+```
+⚠ Code index com lock prolongado
+
+Tools simbólicas estão aguardando ~{seconds}s.
+Possível causa: outra instância do agent reindexando.
+
+Tente: agent code-index check   (detecta locks órfãos)
+       /sessions list           (ver outras sessões ativas)
+
+(detalhes: index.lock_timeout | /help index.lock)
+```
+
+**Audit:** `failure_events.payload = { operation, wait_ms, holding_pid_if_known }`.
+
+### 16.7 `index.unavailable`
+
+**Detecção:** `code_index.db` ausente, ou em estado `error` cumulativo.
+
+**Recovery:**
+1. **Modo esperado** em primeira sessão de um repo (initial scan ainda não rodou).
+2. Tools simbólicas (`read_symbol`, etc.) retornam `index.unavailable` no tool_result.
+3. Modelo recebe **fallback hint** no error: "use `read_file`/`grep` enquanto index não está pronto".
+4. Initial scan dispara em background; `index_status()` informa progress.
+5. Quando scan termina: tools simbólicas viram disponíveis silenciosamente (sem interrupção da sessão).
+
+**Mensagem (apenas em primeiro encontro da sessão):**
+
+```
+ℹ Code index aquecendo
+
+Initial scan em progresso (~{remaining_files} arquivos).
+Estimativa: ~{seconds}s.
+
+Tools simbólicas (read_symbol, find_references, outline_file,
+code_graph) ficam indisponíveis até conclusão. Use read_file/grep
+neste meio tempo.
+
+(detalhes: index.unavailable | /help index.unavailable)
+```
+
+**Audit:** `failure_events.payload = { reason: 'initial_scan'|'corrupted'|'error', files_indexed_so_far }`.
+
+### 16.8 Audit aggregate queries
+
+```sql
+-- "Saúde do code index nos últimos 30d"
+SELECT code, COUNT(*) AS occurrences
+FROM failure_events
+WHERE code LIKE 'index.%'
+  AND created_at > unixepoch('now', '-30 days')
+GROUP BY code
+ORDER BY occurrences DESC;
+
+-- "Arquivos com parse failure recorrente (eval candidates)"
+SELECT json_extract(payload, '$.file') AS file,
+       COUNT(*) AS failures
+FROM failure_events
+WHERE code = 'index.parse_failed'
+  AND created_at > unixepoch('now', '-30 days')
+GROUP BY file
+HAVING failures > 3
+ORDER BY failures DESC;
+
+-- "Sessões com index unavailable + tools simbólicas tentadas"
+SELECT s.id, s.created_at,
+       COUNT(DISTINCT tc.id) AS symbolic_tool_attempts
+FROM sessions s
+JOIN failure_events fe ON fe.session_id = s.id AND fe.code = 'index.unavailable'
+LEFT JOIN tool_calls tc ON tc.session_id = s.id
+  AND tc.tool_name IN ('read_symbol', 'find_references', 'outline_file', 'code_graph')
+GROUP BY s.id;
+```
+
+### 16.9 O que **não** está coberto
+
+- **Symbol resolution falha cross-language.** TS chamando WASM Rust = ref `target_symbol_id IS NULL`. Não é "falha" classificada — é limite documentado em `CODE_INDEX.md §12`.
+- **Polymorphism resolution.** `obj.method()` ambíguo retorna lista; modelo decide. Sem código de erro.
+- **Performance regression em initial scan.** Cresce > 30% vs baseline → coberto por `PERFORMANCE.md §5` (SLO violation), não por failure code.
+- **Index corruption parcial silenciosa** (queries retornam stale refs sem warning). `agent code-index check` detecta sob demanda; sem failure event automático.
+- **Race entre dois agents reindexando paralelamente** com `inotify` agressivo. Aceitável: `index.lock_timeout` cobre o sintoma. Documentado em `CODE_INDEX.md §7.3`.
+
+---
+
+## 17. Recovery hierarchy (decisão por classe)
 
 Quando uma falha ocorre, a árvore de decisão é:
 
@@ -783,7 +1016,7 @@ falha detectada
 
 ---
 
-## 17. Mensagens ao usuário (templates)
+## 18. Mensagens ao usuário (templates)
 
 Toda mensagem segue:
 
@@ -815,7 +1048,7 @@ Templates ficam em `~/.config/agent/messages/<lang>/<code>.md`. Versionados, tra
 
 ---
 
-## 18. Audit trail (o que **sempre** é registrado)
+## 19. Audit trail (o que **sempre** é registrado)
 
 Tabela `failure_events`:
 
@@ -837,7 +1070,7 @@ Toda falha **classificada** vai pra `failure_events`. Sem exceção. Auditoria m
 
 ---
 
-## 19. Como se preparar pra falhas que **não** estão aqui
+## 20. Como se preparar pra falhas que **não** estão aqui
 
 Princípio: **catálogo é vivo**, não exaustivo. Procedimento quando uma nova falha aparece em produção:
 
@@ -852,7 +1085,7 @@ Mensagem ao usuário **sempre antes** de implementação — força clareza.
 
 ---
 
-## 20. Insight final
+## 21. Insight final
 
 Catálogo de falhas é o doc que ninguém lê quando tudo funciona — e o único que importa quando para de funcionar.
 

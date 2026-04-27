@@ -132,7 +132,7 @@ Tool que passa em 10/10 entra no catálogo. Tool que passa em 8-9/10 entra com T
 
 ## 2.6 Tool catalog canônico v1
 
-Conjunto fechado para v1. Adições requerem PR contra este doc + eval de regressão. **Total: 12 tools** — acima do teto sugerido de 10, mas justificado em §2.6.6. Decisões revisitadas (incluindo a aceitação de `fetch_url` que levou de 11 → 12) ficam em §2.6.8.
+Conjunto fechado para v1. Adições requerem PR contra este doc + eval de regressão. **Total: 16 tools** — acima do teto sugerido de 10, mas justificado em §2.6.6. Decisões ADR: §2.6.8 (leak-driven: apply_patch/todo_write/fetch_url) e §2.6.9 (code-index-driven: read_symbol/find_references/outline_file/code_graph).
 
 ### 2.6.1 Filesystem (read)
 
@@ -184,20 +184,41 @@ Conjunto fechado para v1. Adições requerem PR contra este doc + eval de regres
 
 URL deve estar na **allowlist da sessão** (extraída do prompt do usuário ou de arquivos lidos no turno). URL sintetizada pelo modelo → `fetch.policy_denied`. Decisão completa, policy obrigatória, e gatilho de implementação em §2.6.8 / decisão C.
 
-### 2.6.6 Justificativa do teto (12 vs 10)
+### 2.6.5c Code retrieval (symbolic)
 
-`task_*` é uma **família** (4 tools) servindo um conceito (subagent). Modelo trata como uma palette, não 4 decisões independentes. Contado como "1.5" no orçamento conceitual:
+Família de retrieval que opera sobre o subsistema de [`CODE_INDEX.md`](./CODE_INDEX.md). Decisão completa em §2.6.9. Pré-requisitos de visibilidade ao modelo em §2.6.9.y.
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `read_symbol` | `{ symbol, file?, include_doc? }` | `{ symbol{...}, source, signature?, doc? }` | nenhum | sim | ~5-20ms; ~50-200 tokens |
+| `find_references` | `{ symbol, file?, ref_kind?, max_results? }` | `{ references[], truncated, total_count }` | nenhum | sim | ~10-50ms; cap default 100 refs |
+| `outline_file` | `{ path, include_internal?, include_doc? }` | `{ symbols[], loc, imports_summary, test_files[] }` | nenhum | sim | ~8-30ms; ~5-15% dos tokens de read_file |
+| `code_graph` | `{ path, direction, hops?, include_external? }` | `{ edges[], truncated }` | nenhum | sim | ~15-100ms (1-3 hops) |
+
+`index.unavailable` é failure mode comum às 4: subsistema de index não inicializado ou em rebuild. Modelo recai em `read_file`/`grep` quando vê esse erro.
+
+### 2.6.6 Justificativa do teto (16 vs 10)
+
+Tools agrupam-se em **3 famílias** que economizam slots conceituais:
+
+- **`task_*`** (4 tools): família de subagent — uma palette, não 4 decisões independentes. Peso ~1.5.
+- **Code retrieval simbólica** (4 tools, `§2.6.5c`): família de queries sobre code index — schema homogêneo (read-only, struct output), modelo escolhe direção. Peso ~2.
+- **Demais** (8 tools): contam 1:1.
+
+Orçamento conceitual:
 
 ```
-read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) ≈ 9.5
+read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) + code retrieval family (~2) ≈ 11.5
 ```
 
-Ainda dentro do princípio. Adicionar `todo_write`, `checkpoint_*`, ou `recap_*` como tools expostas ao modelo **estouraria** o teto — por isso ficam em domínios separados:
+Ainda dentro do princípio (10 ± 2 é faixa aceitável). Promoções futuras precisam justificar via redução de slots existentes ou demonstração de família.
+
+Adicionar `todo_write`, `checkpoint_*`, ou `recap_*` como tools expostas ao modelo **estouraria** o teto — por isso ficam em domínios separados:
 - `todo_write` é UI affordance (ver `UI.md`), não tool de modelo (escreve via stream parsing). Audit gap endereçado por tabela `todos` em vez de promoção a tool — ver §2.6.8 decisão B.
 - `checkpoint` é operação do harness, exposta via slash command.
 - `recap` é projeção SQL, exposto via CLI.
 
-Cargo-cult check: nenhuma das tools acima foi adicionada porque "Claude Code tem". Cada uma resolve uma falha enumerada em `FAILURE_MODES.md` ou um caso de uso documentado em §2.6.8.
+Cargo-cult check: nenhuma das tools acima foi adicionada porque "Claude Code tem". Cada uma resolve uma falha enumerada em `FAILURE_MODES.md` ou um caso de uso documentado em §2.6.8 / §2.6.9.
 
 ### 2.6.7 Tools deliberadamente ausentes
 
@@ -381,6 +402,204 @@ Ainda dentro do princípio 3.
 | `fetch_url` | accepted | escrever `SECURITY_GUIDELINE.md` policy section; adicionar 3 corpus items de injection em `evals/regression/prompts`; bump catalog para 12 |
 
 Decisões aqui são **append-mostly**: revogar uma requer PR com motivo + eval que justifique mudança de premissa. Reasoning preservado é mais útil que decisão atual silenciosa.
+
+### 2.6.9 Symbolic tools (code-index-driven review)
+
+`CODE_INDEX.md` introduziu um subsistema queryable que torna viável tools simbólicas — modelo pergunta "onde X é usada?" e recebe lista exata, sem grep storm. Esta sub-seção formaliza a decisão de promoção dessas tools ao catálogo §2.6.
+
+Pré-requisito: subsistema de `CODE_INDEX.md` implementado e funcional. Sem index, todas as 4 abaixo retornam `index.unavailable` e o modelo cai em fallback (`grep`/`read_file`).
+
+| # | Tool proposta | Decisão | Tool count após |
+|---|---|---|---|
+| D | `read_symbol` | **accepted** | 13 |
+| E | `find_references` | **accepted** | 14 |
+| F | `outline_file` | **accepted** | 15 |
+| G | `code_graph` (imports + dependents combinados) | **accepted** | 16 |
+
+Total: 12 → 16. Justificativa do teto revisada em §2.6.6 — tools simbólicas formam **família de retrieval** análoga a `task_*` (família com peso conceitual ~2 slots para 4 tools).
+
+#### D. `read_symbol` — accepted
+
+**Proposta:** retorna corpo de uma função/classe/método/type específico, sem ler o arquivo inteiro.
+
+**Schema:**
+
+```yaml
+name: read_symbol
+input:
+  symbol: string                  # nome local ou FQN
+  file?: string                   # disambiguação se nome ambíguo
+  include_doc?: boolean           # default true
+output:
+  symbol: { name, kind, fqn, file, line_range }
+  source: string                  # corpo
+  signature?: string
+  doc?: string
+metadata:
+  writes: false
+  idempotent: true
+  reads_secrets: false
+  failure_modes:
+    - symbol.not_found
+    - symbol.ambiguous            # múltiplos matches; exige `file`
+    - index.unavailable           # fallback recomendado: read_file + grep
+    - file.parse_failed           # symbol não extraível (parser falhou no arquivo)
+```
+
+**Por que accepted:**
+- Token economy mensurável: ~50-200 tokens vs 500-3000 de `read_file` médio. Redução 5-20×.
+- Caso de uso quente: "antes de editar `validateOrder`, lê o corpo dela". Hoje vira `grep validateOrder` + `read_file path:src/orders.ts offset:124 limit:50` — frágil (offset adivinhado), caro (linhas adjacentes ignoradas).
+- Ergonomics rubric `§2.5`: 10/10 (input determinístico, output estruturado, idempotente, side effects nulos, failures enumerados, custo declarado, composable, reversível n/a, audit completo, erro como dado).
+
+**Substituição em playbook:** todos os recipes em `CONTEXT_TUNING.md §13` que hoje fazem `read_file` em alvo simbólico passam a usar `read_symbol`.
+
+**Gatilho de reconsideração:** se eval (`§13.4` em `TOKEN_TUNING.md`) mostrar regressão de qualidade > 5% em workflow X após adoção (modelo perde contexto que estava no arquivo inteiro), reverter para `read_file` no recipe específico.
+
+#### E. `find_references` — accepted
+
+**Proposta:** lista todos os usos (call sites, type refs, etc) de um símbolo, com contexto.
+
+**Schema:**
+
+```yaml
+name: find_references
+input:
+  symbol: string
+  file?: string                   # disambiguação
+  ref_kind?: 'call'|'type'|'import'|'extends'|'implements'  # filtro
+  max_results?: number            # default 100, cap 500
+output:
+  references: [
+    { file, line, col, kind, surrounding_text }   # surrounding ±2 linhas
+  ]
+  truncated: boolean
+  total_count: number             # mesmo se truncated
+metadata:
+  writes: false
+  idempotent: true
+  failure_modes:
+    - symbol.not_found
+    - symbol.ambiguous
+    - index.unavailable
+    - results.truncated           # warning, não erro
+```
+
+**Por que accepted:**
+- Substitui padrão "grep + filtrar comentários e strings manualmente". Modelo hoje faz `grep "validateOrder"` e recebe matches em comments, docstrings, examples, test fixtures — false positives são caros (re-grep pra refinar) ou perigosos (refactor que mexe no que não é uso real).
+- Semântico via tree-sitter: distingue `validateOrder()` (call) de `// validateOrder is broken` (comment) de `"call validateOrder"` (string literal).
+- Caso de uso quente: refactor playbook em `CONTEXT_TUNING.md §13.2` lista `[callers section]: arquivos que importam o target (via grep)` — `find_references` é a versão precisa e estruturada disso.
+
+**Limites:**
+- Polymorphism: `obj.method()` quando há múltiplas classes com `method` retorna lista com `target_symbol_id: NULL` (ambíguo); modelo decide.
+- Dynamic dispatch: callbacks, function refs, eval — não rastreados; ficam como references unresolved se aparecerem na sintaxe de chamada explícita.
+- Cross-language: TS chamando WASM Rust não conecta (limite de `CODE_INDEX.md §12`).
+
+**Gatilho de reconsideração:** falsos negativos > 5% em corpus de eval (refactor missou um call site real) → reabrir grammar/queries do tree-sitter pro idioma específico.
+
+#### F. `outline_file` — accepted
+
+**Proposta:** retorna esqueleto de um arquivo (símbolos com signature + line, sem corpos).
+
+**Schema:**
+
+```yaml
+name: outline_file
+input:
+  path: string
+  include_internal?: boolean      # default false: só exports
+  include_doc?: boolean           # default false: docstrings dos símbolos
+output:
+  symbols: [
+    { name, kind, signature, line, visibility, parent_name? }
+  ]
+  loc: number
+  imports_summary: string         # 1-line: "imports from 5 files (3 local, 2 external)"
+  test_files: string[]            # via test_mapping; pode estar vazio
+metadata:
+  writes: false
+  idempotent: true
+  failure_modes:
+    - file.not_found
+    - file.parse_failed
+    - file.skipped                # arquivo em exclude do index
+    - index.unavailable
+```
+
+**Por que accepted:**
+- Custo: ~5-15% dos tokens de `read_file`. Use case "qual a estrutura de `auth.ts` antes de editar?" é universal.
+- Entrada óbvia para refactor/explain/audit: ver as peças antes de tocar nelas.
+- Compõe bem: `outline_file` → escolher symbol → `read_symbol`.
+- Inclui `test_files` derivado de `test_mapping` — sinaliza imediatamente onde estão os testes do arquivo, sem grep separado.
+
+**Substituição:** `[target_file]` em recipes (refactor, explain) hoje carrega o arquivo via `read_file`; pode-se trocar por `outline_file` + `read_symbol` on-demand. Eval define qual recipe ganha.
+
+**Gatilho de reconsideração:** se em > 30% dos casos modelo chama `outline_file` seguido de `read_file` do mesmo arquivo (ignora o outline e lê tudo), o outline não está economizando — reabrir.
+
+#### G. `code_graph` — accepted (combinação de imports/dependents)
+
+**Proposta:** query polimórfica do grafo de imports — direção `imports` (o que esse arquivo importa) ou `dependents` (quem importa esse arquivo).
+
+**Schema:**
+
+```yaml
+name: code_graph
+input:
+  path: string
+  direction: 'imports' | 'dependents'
+  hops?: number                   # default 1, cap 3
+  include_external?: boolean      # default false: só locais (não node_modules)
+output:
+  edges: [
+    { from_path, to_path, target_module, names[], is_external, hop_distance }
+  ]
+  truncated: boolean
+metadata:
+  writes: false
+  idempotent: true
+  failure_modes:
+    - file.not_found
+    - graph.exceeds_hops          # > 3 inviável
+    - index.unavailable
+```
+
+**Por que accepted (combinado):**
+- Imports vs dependents são duas perguntas com **mesma estrutura** de output (lista de edges); polimorfismo pelo campo `direction` é mais barato que duas tools.
+- Reduz bloat do catálogo: 1 tool em vez de 2.
+- Schema homogêneo facilita parsing pelo modelo.
+
+**Por que não 2 tools separadas:**
+- Custo de tool slot é real (`§2.5` rubric, princípio 3).
+- Mental model é compatível: "grafo de dependências, qual direção?". Não há ergonomic loss em parametrização.
+
+**Use case quente:** refactor — `code_graph(path: "src/auth.ts", direction: "dependents", hops: 2)` lista todos os arquivos que precisam ser revisados ao mudar API de `auth.ts`. Hoje vira grep do nome do módulo + filtros manuais.
+
+**Limites:**
+- Dynamic imports (`import(variable)`, `require(computed)`) não rastreados (`CODE_INDEX.md §12`).
+- 3 hops é cap pragmático: hops >= 4 retornam quase todo o repo em projetos coesos; útil zero.
+- External (libs) é opt-in: default false para não poluir output com grafo de `react`/`lodash` sem necessidade.
+
+**Gatilho de reconsideração:** se eval mostra que `direction: 'dependents'` é 10× mais usado que `'imports'`, considerar split — `dependents_of` vira tool dedicada e `imports_of` fica em `outline_file.imports_summary` (já está lá).
+
+#### 2.6.9.x Resumo das 4 decisões + impacto no catálogo
+
+| Tool | Status | Próximo passo concreto |
+|---|---|---|
+| `read_symbol` | accepted | implementar via `CODE_INDEX.md §4`; adicionar a `[tool_schemas]` em ordem após `glob`/`grep` |
+| `find_references` | accepted | mesmo + corpus de eval para 5% false-negative threshold |
+| `outline_file` | accepted | mesmo + adoptar em recipes de `CONTEXT_TUNING.md §13` (refactor, explain) |
+| `code_graph` | accepted | mesmo + adicionar `dependents_of` query em `code-index profile` para benchmark |
+
+Catalog count atualizado: **12 → 16**. Reformulação de §2.6.6 abaixo (peso conceitual revisado).
+
+#### 2.6.9.y Pré-requisitos de release
+
+Estas 4 tools só viram visíveis ao modelo quando:
+1. `CODE_INDEX.md` schema implementado e initial scan funcional (`§3.1`).
+2. Linguagem do projeto está em §1.3 (TS/JS/Python/Go/Rust/Java).
+3. `index.parse_status='ok'` para o arquivo target — senão tool retorna `file.parse_failed`, modelo recai em `read_file`.
+4. Eval (`TOKEN_TUNING.md §13.4`) inclui ≥ 1 item por tool com `severity: critical` — gate de release.
+
+Sem (1)-(4): tool **registrada** mas com `visible_to_model: false` em todos os schemas. Decisão simétrica à de MCP servers não-confiáveis (`MCP.md §1.5`). Modelo nem sabe que existe a tool até pré-requisitos serem cumpridos.
 
 ---
 

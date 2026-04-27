@@ -788,6 +788,97 @@ max_file_path_depth = 5
 | `orchestrated` | eager em `[repo_map]` section (modelo small **precisa** evitar grep storm) |
 | `hybrid` | eager em planner; lazy em executor |
 
+### 11.6 Estratégias de leitura sem dump de repo
+
+> **Cross-refs:** subsistema queryable em [`CODE_INDEX.md`](./CODE_INDEX.md); tools simbólicas em `CONTRACTS.md §2.6.5c` e ADRs em §2.6.9.
+
+Repo map (§11.1-11.5) é **uma** estratégia. Compilação canônica das 8 que o `AGENTIC_CLI` reconhece, com quando usar cada uma e custo relativo de tokens.
+
+#### 11.6.1 Catálogo
+
+| # | Estratégia | Custo (tokens) | Cobertura | Ferramenta |
+|---|---|---|---|---|
+| 1 | **Repo map** (symbol summary) | 1k-5k stable | overview do projeto | `repo_map` (`§11.1-11.5`) |
+| 2 | **Symbol-targeted read** | 50-200 per symbol | corpo de função/classe/método | `read_symbol` |
+| 3 | **Outline-then-zoom** | 200-500 per file → 50-200 per symbol | estrutura de arquivo + drill-down sob demanda | `outline_file` + `read_symbol` |
+| 4 | **Diff-anchored reading** | Σ(arquivos no diff + tests + callers diretos) | mudanças de PR | `git diff` + `code_graph(direction='dependents', hops=1)` |
+| 5 | **Import-graph traversal** (BFS) | 1-3 hops, ~50-500 tokens edges | dependências transitivas | `code_graph(direction='imports', hops=2-3)` |
+| 6 | **Caller-callee map** | igual ao traversal mas focado em refs simbólicas | "quem chama Y?" | `find_references` |
+| 7 | **Test-to-source mapping** | metadata derivado | "bug em test_X.py — qual source?" | `outline_file.test_files` + `tests_for/source_for` API |
+| 8 | **Heuristic file ranking** | depende do algoritmo, ~0 (só ranking) | "dada query Q, quais arquivos olhar primeiro" | derivado de filename + path proximity + recency |
+
+Vector search (similarity-based) **não está na lista**: rejeitado em `ANTI_PATTERNS.md §2.2`.
+
+#### 11.6.2 Quando usar cada uma
+
+Decisão é **por workflow**, não global:
+
+| Workflow | Estratégias canônicas |
+|---|---|
+| **Code review** (PR) | (4) diff-anchored + (6) caller-callee em pontos sensíveis + (3) outline-then-zoom em arquivos novos |
+| **Refactor** | (1) repo map + (6) caller-callee no target + (4) diff-anchored para verificar impacto + (5) import-graph para visualizar blast radius |
+| **Debug** | (7) test-to-source partindo do teste falhando + (2) symbol-targeted no fluxo suspeito + (6) caller-callee para reverse-engineering |
+| **Audit (security)** | (1) repo map + (8) heuristic ranking (filename matches `auth`, `crypto`, etc) + (6) caller-callee em entry points |
+| **Explain** | (1) repo map + (3) outline-then-zoom no target |
+| **First contact** (sessão exploratória) | (1) repo map + (8) heuristic ranking pela primeira pergunta do user |
+
+Regra geral: **comece com a mais cheap** (repo map, outline) e drill-down apenas quando precisar. Se o modelo está pedindo `read_file` em arquivo > 500 LOC sem ter outlined, é sinal de strategy errada.
+
+#### 11.6.3 Custo comparativo (mesma tarefa)
+
+Tarefa: "qual o impacto de mudar a assinatura de `validateOrder` em `src/orders.ts`?"
+
+| Estratégia ingênua | Custo aproximado |
+|---|---|
+| Dump do repo via `cat $(find . -name '*.ts')` | ~50k-500k tokens (excede contexto) |
+| `glob 'src/**/*.ts'` + `read_file` em cada (8 arquivos) | ~12k tokens, 9 tool calls |
+
+| Estratégia desta seção | Custo aproximado |
+|---|---|
+| `find_references('validateOrder')` + `read_symbol` em 3 callsites | ~600 tokens, 4 tool calls |
+| `code_graph('src/orders.ts', 'dependents', 2)` + outline dos top 3 | ~800 tokens, 4 tool calls |
+
+Diferença: **15-20× redução de tokens, 2-4× redução de tool calls**, mais precisão.
+
+#### 11.6.4 Anti-patterns
+
+- **Estratégia "leia tudo".** `read_file` em arquivos > 500 LOC sem `outline_file` antes. Modelo se perde, contexto trasborda. Eval pega via correlação tokens vs quality.
+- **Grep antes de symbol query.** `grep "validateOrder"` para localizar definição quando `read_symbol("validateOrder")` ou `find_references("validateOrder")` cobrem com precisão semântica. Aceitável apenas como fallback (`index.unavailable`).
+- **BFS sem hop cap.** `code_graph(hops=999)` retorna o repo todo em projetos coesos. Cap default 1, nunca acima de 3 (§G em `CONTRACTS.md §2.6.9`).
+- **Diff-anchored sem callers.** Ler só o diff perde quem chama o que mudou. Workflow review **deve** incluir `code_graph(direction='dependents')` nos arquivos modificados.
+- **Outline em todo arquivo do repo.** Outline é per-file pré-edit, não scan exaustivo — para isso é repo map (§1).
+- **Heuristic ranking sem evidência.** Se o algoritmo de ranking não tem eval mensurando precision@5, é cargo cult. Sem corpus, ranker mais simples (path proximity + filename match) ganha.
+
+#### 11.6.5 Quando o index não está disponível
+
+Subsistema de `CODE_INDEX.md` pode estar `unavailable` (initial scan em progresso, disk full, schema migration). Estratégias degradam:
+
+| # | Sem index | Custo extra |
+|---|---|---|
+| 1 (repo map) | re-scan tree-sitter ao vivo (mesma lógica, sem cache); **ou** fallback grep-based em arquivos pequenos | +10-30s no primeiro use |
+| 2 (read_symbol) | `grep` definição + `read_file` com offset adivinhado | 5-20× mais tokens, mais frágil |
+| 3 (outline) | `read_file` completo, modelo parseia mentalmente | 10-20× mais tokens |
+| 4 (diff-anchored) | funciona — só o "callers" parte degrada |
+| 5, 6 (graph/refs) | `grep` por nome de módulo/símbolo; risco de false positives |
+| 7 (test mapping) | heurística filename: `foo_test.py` ↔ `foo.py` |
+| 8 (heuristic ranking) | independente do index |
+
+**Princípio operacional:** modelo recebe warning único por sessão quando index está unavailable; tools simbólicas retornam `index.unavailable` e modelo decide se cai no fallback ou aborta o step.
+
+#### 11.6.6 Eval-driven selection
+
+Workflow A/B testing (em `TOKEN_TUNING.md §13.4`):
+
+```bash
+agent eval --suite playbooks/refactor \
+  --tune retrieval_strategy=symbol_first,read_file_first \
+  --runs 5
+```
+
+Métrica primária: **tokens-out** por tarefa (proxy de custo). Métrica secundária: pass rate. Se symbol_first reduz tokens > 30% sem perder pass rate → ganha.
+
+Sem eval-driven selection, escolha de estratégia vira gosto pessoal e regride silenciosa entre versões.
+
 ---
 
 ## 12. Selective context inclusion
