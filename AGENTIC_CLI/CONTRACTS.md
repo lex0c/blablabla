@@ -246,19 +246,43 @@ UI integration: `<BackgroundProcessTray>` mostra `bash_*` ativos; `<WaitIndicato
 
 **Hibernation:** `wait_for` bloqueia o agente process. Daemon-based hibernation (agente sai durante wait, daemon dispara hook em wakeup) é **deferred v2** (`AGENTIC_CLI.md §7.3.1`).
 
-### 2.6.6 Justificativa do teto (21 vs 10)
+### 2.6.5e Interaction (anti-presumption)
+
+> **Cross-refs:** mecânica completa em `STATE_MACHINE.md §12`; estado `[clarifying]` em `STATE_MACHINE.md §2.2`; per-playbook config em `PLAYBOOKS.md §1.1` (`clarify_mode`).
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `clarify` | `{ question, options[≥2], why_it_matters?, blast_radius: low\|medium\|high }` | `{ outcome: resolved\|skipped\|escalated\|auto_low, chosen_option_id?, user_text? }` | nenhum (consulta humana) | sim (mesma question + options ⇒ mesmo modal recriado) | `low`: ~5ms (auto-resolve); `medium`/`high`: bound por timeout 60s |
+
+**Semantics distintos por `blast_radius`:**
+
+- `low` — auto-resolvido sem modal; output `outcome: auto_low`, `chosen_option_id: options[0].id`. Registra em `assumptions[]` do output do playbook.
+- `medium` — bufferizado; agrupado com outros `medium` pendentes; modal único antes do próximo write.
+- `high` — modal imediato (transição `running → clarifying`). Outras tools bloqueadas até resolver.
+
+**Failure semantics:**
+- `clarify.options.invalid` — < 2 options, ou IDs duplicados
+- `clarify.disabled_by_playbook` — `clarify_mode: off` no frontmatter; modelo recebe erro estruturado e re-tenta com `assumptions[]` em vez
+- `clarify.budget_exceeded` — sessão emitiu mais de `clarification.max_per_session` (default 5); fallback para `auto_low` automático
+
+**Disponibilidade ao modelo:** controlada por `clarify_mode` do playbook ativo:
+- `pre_execution`: tool exposta; `medium`/`high` permitidos só em fase exploratória (drift detector flagga uso tardio)
+- `on_high_blast`: tool exposta; `low` auto-resolve, `medium` bufferiza, `high` interrompe
+- `off`: tool **não exposta** ao modelo; tudo vira `assumptions[]` retrospectivo
+
+### 2.6.6 Justificativa do teto (22 vs 10)
 
 Tools agrupam-se em **4 famílias** que economizam slots conceituais:
 
 - **`task_*`** (4 tools, `§2.6.4`): família de subagent — uma palette, não 4 decisões independentes. Peso ~1.5.
 - **Code retrieval simbólica** (4 tools, `§2.6.5c`): família de queries sobre code index — schema homogêneo (read-only, struct output), modelo escolhe direção. Peso ~2.
 - **Background coordination** (5 tools, `§2.6.5d`): lifecycle (`bash_*`) + coordenação sem-LLM (`wait_for`/`monitor`). Lifecycle conta como ~1.5 (família mental), wait/monitor como ~1 (par primitivo). Peso conjunto ~2.5.
-- **Demais** (8 tools): contam 1:1.
+- **Demais** (9 tools): contam 1:1 — incluindo `clarify` (`§2.6.5e`), interação anti-presumption.
 
 Orçamento conceitual:
 
 ```
-read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) + code retrieval family (~2) + bg coordination family (~2.5) ≈ 14
+read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) + code retrieval family (~2) + bg coordination family (~2.5) + clarify (1) ≈ 15
 ```
 
 Acima de 10 ± 2 — **revisão deliberada do teto**. Justificativa:

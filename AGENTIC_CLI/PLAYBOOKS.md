@@ -56,6 +56,7 @@ context_recipe:               # shaping de contexto (ver CONTEXT_TUNING.md)
   fewshot_count: int
   memory_filter: [string]     # filtra memory index por type/tag
   step_reflection: enum [off, terse, full]   # default off; opt-in (CONTEXT_TUNING.md §13.10)
+  clarify_mode: enum [off, on_high_blast, pre_execution]   # default on_high_blast (STATE_MACHINE.md §12)
 prompt_version: int           # bump em mudança de prompt OR sampling
 context_recipe_version: int   # bump em mudança de recipe
 phases:                       # opt-in; auto-emite push/pop em goal_stack (STATE_MACHINE.md §2.3)
@@ -491,6 +492,8 @@ references:
   - IDEMPOTENCY.md
   - IMMUTABLE.md
 slash: refactor
+context_recipe:
+  clarify_mode: pre_execution      # blast radius alto; perguntar na fase exploratória paga (STATE_MACHINE.md §12)
 output_schema:
   summary: string
   scope:
