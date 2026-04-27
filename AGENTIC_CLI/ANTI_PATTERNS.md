@@ -175,7 +175,7 @@ Cada item: **o que é → por que rejeita → quando reconsiderar**.
 **O que é:** "este diretório é confiável → tudo dentro dele é confiável".
 
 **Por que rejeita:**
-- `CLAUDE.md` é input não-confiável (princípio 11) mesmo dentro de diretório confiado — pode vir de fork, paste, supply chain.
+- `AGENTS.md` é input não-confiável (princípio 11) mesmo dentro de diretório confiado — pode vir de fork, paste, supply chain.
 - Trust em `AGENTIC_CLI` é por **superfície** (FS read, FS write, network, exec), não por path.
 
 **Substituição:** policy YAML com globs explícitos (`SECURITY_GUIDELINE.md`).
@@ -310,7 +310,119 @@ auth = { kind = "bearer", env = "GITHUB_MCP_TOKEN" }
 
 ---
 
-## 7. Quando este doc muda
+## 7. Feature flags
+
+> **Spec consolidada:** [`FEATURE_FLAGS.md`](./FEATURE_FLAGS.md). Esta seção é **só** o que **não** fazer.
+
+### 7.1 Forever-flag
+
+**O que é:** flag em `experimental` por > 6 meses sem decisão de promover (`staged`) ou remover.
+
+**Por que rejeita:**
+- Vira default acidental: usuários adotam, dependem, mas spec diz "experimental, sem promessa de estabilidade".
+- Audit poluído: `feature_flags_active` cresce sem ganho.
+- Bloqueia decisões reais — flag-as-shim disfarçada (ver §7.3).
+
+**Substituição:** TTL hard de 6 meses; `agent doctor` flagga; PR forçando decisão. Excedeu TTL sem PR de promoção → remoção é default.
+
+**Quando reconsiderar:** flag complexa cuja avaliação de eval-driven leva > 6 meses (raro). Extensão **explícita** via PR com justificativa, não derive silenciosa.
+
+### 7.2 Flag-as-config
+
+**O que é:** toggle estável (não muda há 12+ meses) virou CLI flag em vez de config TOML.
+
+**Por que rejeita:**
+- CLI flag implica mudança per-sessão; toggle estável não muda per-sessão.
+- Force user a relembrar `--no-color --no-llm-render --simple` toda invocação.
+- Categoria errada: config é pra estável, flag é pra ephemeral (`FEATURE_FLAGS.md §1`).
+
+**Substituição:** quando flag promove a `stable` no `§2`, revisar se default mudou — se sim, vai pra config; CLI flag fica como override pontual ou some.
+
+**Detecção:** flag em `feature_flags_active` com `set_by = 'init'` (=== "user passou na CLI") em > 80% das sessões → promover a config default.
+
+### 7.3 Flag-as-shim
+
+**O que é:** flag escondendo decisão de design adiada — "decidiremos quando virar problema".
+
+**Por que rejeita:**
+- Decisão postergada é decisão tomada (default vence).
+- Flag fica como artefato de indecisão que ninguém limpa.
+- Acumula com o tempo: 5 flags-shim viram 5 caminhos de código não-testados.
+
+**Sintoma:** flag introduzida sem `cleanup_target`; sem eval que diferencie ON vs OFF; sem owner ativo.
+
+**Substituição:** decidir o default agora; remover ou completar a feature. Se decisão real exige tempo, criar issue de design **antes** de flag.
+
+**Quando reconsiderar:** se eval mostra trade-off real (flag X melhora Y mas piora Z, decisão depende de workload do user), flag legítima — mas precisa lifecycle declarado.
+
+### 7.4 Flag duplicada
+
+**O que é:** mesma intent expressa em CLI **e** config **e** slash. Ex: `--strict` + `[generation] strict = true` + `/strict on`.
+
+**Por que rejeita:**
+- Precedência fica confusa: qual ganha em conflito?
+- Audit triplica rows em `feature_flags_active`.
+- Mantenedor precisa atualizar 3 lugares ao mudar comportamento.
+
+**Substituição:** cada flag tem **um** mecanismo canônico. Se precisa de override pontual + persistência + mid-session toggle, defina precedência canônica (CLI > slash > config) e documente.
+
+**Excepção legítima:** `--strict` (CLI sticky) + `/strict on|off` (slash mid-session) — diferentes use cases. Config TOML não-redundante seria errado: já é feature stable, default-on em alguns playbooks.
+
+### 7.5 Flag não-auditada
+
+**O que é:** flag muda comportamento mas não está em registry → não aparece em `feature_flags_active`.
+
+**Por que rejeita:**
+- Replay diverge: sessão A com flag ON ≠ sessão B sem flag, sem rastro de qual era qual.
+- Forensics impossível: bug atribuído a "comportamento esquisito" sem ângulo de flag.
+- Princípio 7 (`AGENTIC_CLI.md`, "trace tudo") fere.
+
+**Substituição:** CI check — diff entre flag registry e `feature_flags_active` schema. Flag em código ausente em registry → erro de build.
+
+### 7.6 Flag sem dono
+
+**O que é:** flag introduzida no PR; PR autor saiu do projeto; ninguém mantém.
+
+**Por que rejeita:**
+- Ninguém promove (fica forever-flag).
+- Ninguém remove (custo invisível).
+- Decisões dependentes da flag ficam reféns.
+
+**Substituição:** registry exige `owner` field. Quando owner sai, flag entra automaticamente em `deprecated` com warning até novo owner ou remoção.
+
+### 7.7 Default invisível
+
+**O que é:** flag default-on que muda comportamento materialmente, mas usuário não sabe que existe.
+
+**Por que rejeita:**
+- Comportamento "mágico" sem affordance.
+- Debug fica caro: "por que minha sessão se comporta de X?".
+- Princípio 11 (`AGENTIC_CLI.md`, "confiança explícita") fere.
+
+**Sintoma:** `agent --list-flags --active` mostra flag default-on que usuário nunca tocou.
+
+**Substituição:** flags default-on aparecem em `agent doctor` como **sumário** com link pra doc; primeira sessão de um cwd novo lista as relevantes (similar ao trust prompt).
+
+### 7.8 Escape hatch sem audit visual
+
+**O que é:** flag de bypass de segurança (`--dangerous`, `--auto-approve-mcp`, `--no-pipeline`, `--allow-large-fetch`) ativa sem que `<ModeBadges>` (`UI.md §3.2`) mostre, ou sem evento em `failure_events` informacional.
+
+**Por que rejeita:**
+- Bypass silencioso = vulnerabilidade UX. Usuário esquece que ativou; vira default acidental em sessões CI.
+- Princípio 11 fere (confiança implícita).
+- Scenario real: PR malicioso em CI passa `--auto-approve-mcp *` → sem warning visual, vira backdoor.
+
+**Substituição:**
+1. Toda flag de bypass aparece como **badge alarmante** no header (`<ModeBadges>` cor vermelha).
+2. Toda sessão com flag de bypass gera `failure_event` informacional `flag.bypass_active`.
+3. `agent doctor` lista bypass flags ativos por session_id como linha de risco.
+4. Em CI, output de qualquer comando do agente inclui linha "⚠ session ran with: --auto-approve-mcp postgres" no fim.
+
+**Detecção:** flag classificada como `bypass: true` no registry; pipeline de validação verifica que cada bypass tem todos os 4 sinais acima.
+
+---
+
+## 8. Quando este doc muda
 
 Este doc é deliberadamente **append-mostly**. Remover anti-pattern requer:
 1. PR com motivo (eval, mudança de premissa, ou bug do anti-pattern original).

@@ -226,8 +226,8 @@ Repete `AGENTIC_CLI.md §6` com detalhamento:
 │  identity + date + metadata + format + constraints + (playbook?)
 ├─ [tool_schemas] ───────────────── cache #2 (stable enquanto tools fixas)
 │  JSON Schema de cada tool exposta
-├─ [project_context] ────────────── cache #3 (stable até CLAUDE.md mudar)
-│  CLAUDE.md content
+├─ [project_context] ────────────── cache #3 (stable até AGENTS.md mudar)
+│  AGENTS.md content
 ├─ [memory_index] ───────────────── cache #4 (stable até memory_event)
 │  index from MEMORY.md (~150 linhas)
 ├─ [repo_map] ───────────────────── stable até FS write
@@ -246,7 +246,7 @@ Repete `AGENTIC_CLI.md §6` com detalhamento:
 |---|---|
 | system | 500-1000 |
 | tool_schemas | 2000-4000 |
-| project_context (CLAUDE.md) | 1000-3000 |
+| project_context (AGENTS.md) | 1000-3000 |
 | memory_index | 1500-2500 |
 | repo_map | 1500-3000 |
 | compacted_history | 0-3000 |

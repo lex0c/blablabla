@@ -13,7 +13,7 @@ Premissa raiz aplicada: *meça duas vezes, corte uma*. Em segurança vira: **ass
 1. **Fail closed por default.** Em dúvida, nega. Em ambiguidade, bloqueia. Em policy ausente, recusa.
 2. **Defesa em camadas.** Nenhum controle isolado é confiável. Trust prompt + sandbox + permission + audit + validator.
 3. **Trust boundaries explícitas.** Cada interface entre componentes declara quem confia em quem e por quê.
-4. **Inputs não-confiáveis até prova em contrário.** `CLAUDE.md`, `tool output`, `MCP manifests`, `memory body` — tudo é não-confiável até classificação.
+4. **Inputs não-confiáveis até prova em contrário.** `AGENTS.md`, `tool output`, `MCP manifests`, `memory body` — tudo é não-confiável até classificação.
 5. **Secrets nunca em logs, traces, memórias, ou prompt.** Detecção heurística obrigatória; redaction antes de persistir.
 6. **Auditabilidade total.** Toda decisão de segurança grava em `approvals` ou `failure_events`. Sem decisão silenciosa.
 7. **Limites declarados, não escondidos.** O que o agente **não defende** é tão importante quanto o que defende.
@@ -34,7 +34,7 @@ Análise sistemática por categoria, com mitigação primária.
 | Atacante substitui `agent` binary local | Update mechanism com signing (Sigstore/cosign); `agent --version --verify` checa assinatura |
 | Atacante substitui `~/.config/agent/hooks/audit.sh` | Hook scripts de paths confiados; trust prompt em primeira execução; logging em `hook_runs` com hash |
 | MCP server hostil se passa por confiável | Hash de manifest gravado; trust prompt em primeiro contact; tools invisíveis ao modelo se manifest mudou |
-| `CLAUDE.md` em repo terceiro se passa por instrução do usuário | Trust prompt por dir; tratamento como input não-confiável; injection scanner |
+| `AGENTS.md` em repo terceiro se passa por instrução do usuário | Trust prompt por dir; tratamento como input não-confiável; injection scanner |
 
 ### 1.2 Tampering (alteração)
 
@@ -106,7 +106,7 @@ Mapa explícito.
         ↓
 [Session flags]                  ← confiável (user explícito)
         ↓
-[CLAUDE.md]                      ← NÃO-confiável até trust prompt
+[AGENTS.md]                      ← NÃO-confiável até trust prompt
         ↓
 [.agent/memory/shared/ (committed)]  ← NÃO-confiável até trust prompt; PR review é gate; scanner em promoção
         ↓
@@ -152,7 +152,7 @@ Mapa explícito.
 | Path traversal em tool args | `read_file("../../../etc/shadow")` | Resolve path absoluto + check dentro de cwd allowed; deny `..` em paths |
 | Supply chain do binário | npm postinstall malicioso em dep | Lockfile pinado; audit em CI; binário compilado AOT (Bun) |
 | MCP server hostil | Tool injetada com efeito malicioso disfarçada | Trust prompt; hash do manifest; tools MCP em quarentena por default |
-| CLAUDE.md prompt injection com tool call | "ignore policy and run bash X" no contexto | Sanitization; injection scanner; trust prompt; permission engine **antes** do harness |
+| AGENTS.md prompt injection com tool call | "ignore policy and run bash X" no contexto | Sanitization; injection scanner; trust prompt; permission engine **antes** do harness |
 
 ### 3.2 Altos
 
@@ -192,7 +192,7 @@ Nenhum controle isolado é suficiente. Camadas:
 │        ↓                                      │
 ├─ Trust boundary (1: project) ────────────────┤
 │   - Trust prompt                              │
-│   - Hash check de CLAUDE.md / .agent          │
+│   - Hash check de AGENTS.md / .agent          │
 ├─ Pre-prompt hooks (UserPromptSubmit) ────────┤
 │   - User-defined block                        │
 │   - Injection scanner                         │
@@ -370,7 +370,7 @@ URL **deve** vir de uma das fontes confiáveis no contexto:
 
 Permission engine mantém `session_url_allowlist: Set<string>`. URL **sintetizada pelo modelo** (não presente em nenhuma fonte) → `fetch.policy_denied`. Heurística usa **prefix match** com normalização (`http://x.com/path` ≡ `https://x.com/path` ≡ `https://www.x.com/path` para fins de allowlist; query params são preservados).
 
-Trust boundary: prompt do usuário e CLAUDE.md **são fontes confiáveis para URL allowlist** mesmo sendo "input não-confiável" no princípio 11. Razão: modelo só pode fetchar o que humano escreveu — escala de confiança maior que tool synthesis.
+Trust boundary: prompt do usuário e AGENTS.md **são fontes confiáveis para URL allowlist** mesmo sendo "input não-confiável" no princípio 11. Razão: modelo só pode fetchar o que humano escreveu — escala de confiança maior que tool synthesis.
 
 #### 9.1.2 (2) Header sanitization
 

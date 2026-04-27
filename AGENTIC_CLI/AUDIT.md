@@ -25,7 +25,7 @@ Sem audit consolidado, "compliance" e "debug forense" viram intenção sem entre
 
 ## 1. Tables canônicas
 
-Lista canônica das **17 tabelas de audit**, com escopo, retention, sensitivity, e regra de redaction.
+Lista canônica das **18 tabelas de audit**, com escopo, retention, sensitivity, e regra de redaction.
 
 | Tabela | Escopo | Retention default | Sensitivity | Redaction |
 |---|---|---|---|---|
@@ -46,6 +46,7 @@ Lista canônica das **17 tabelas de audit**, com escopo, retention, sensitivity,
 | `todos` | plano stream-parsed do modelo (ver §1.4) | 90d | low | nenhuma |
 | `mcp_servers` | estado e config de MCP servers (ver §1.5) | mantido enquanto server em config | low | redact env values |
 | `mcp_manifest_history` | versões de manifest MCP (ver §1.5) | **forever** (no auto-cleanup) | low | nenhuma (manifest é spec) |
+| `feature_flags_active` | flags ativas per-sessão (ver §1.6) | 90d (cascade com sessions) | low | nenhuma |
 | `traces` (NDJSON) | OTEL spans | 90d | medium | redact attrs |
 | `redaction_events` | NEW — audit de redactions | 365d | low | nenhuma (sem o conteúdo redacted) |
 
@@ -478,6 +479,130 @@ Permite query: "quando esse server estava nesse manifest, quais tools foram cham
 - **Hash de manifest, não de comportamento.** Server pode ter mesmo manifest mas comportamento diferente (mudou implementação interna). Trust é em manifest, não em binary; documented.
 - **`source` do server pode mudar entre sessões.** Mesmo `<name>` aparecendo em fontes diferentes (user → project → local) não é detectado como event; rastrear via git/config diff.
 - **Sem audit de `prompts/get` ou `resources/read`.** v1 só consome `tools/*` (ver `MCP.md §11`).
+
+### 1.6 Feature flags ativas (`feature_flags_active`)
+
+Cobre o gap de auditabilidade declarado em [`FEATURE_FLAGS.md §4`](./FEATURE_FLAGS.md). Flag muda comportamento de uma sessão; sem capturar quais estavam ON, replay diverge silenciosamente e regressão fica inrastreável a um toggle.
+
+#### 1.6.1 Schema
+
+```sql
+CREATE TABLE feature_flags_active (
+  session_id TEXT NOT NULL,
+  flag_name TEXT NOT NULL,                -- ex: 'strict', 'no_pipeline', 'code_index.watch'
+  flag_kind TEXT NOT NULL CHECK (flag_kind IN ('cli','config','slash','state')),
+  flag_value TEXT NOT NULL,               -- 'on' | 'off' | string serializado (lista, número)
+  set_at INTEGER NOT NULL,                -- unix ts
+  set_by TEXT NOT NULL,                   -- 'user' | 'config:<path>' | 'slash:/strict' | 'init' | 'env:<var>'
+  audit_schema_version INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (session_id, flag_name),
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_flags_session ON feature_flags_active(session_id);
+CREATE INDEX idx_flags_name ON feature_flags_active(flag_name, set_at);
+```
+
+Sensitivity: **low**. Redaction: nenhuma — flag names e values são spec, não dado de usuário. Retention: 90d (mesmo que `sessions`; cascade delete).
+
+#### 1.6.2 Pipeline canônico
+
+```
+SessionStart
+   │
+   ▼ resolve flags (precedência: CLI > slash > config > defaults)
+   │
+   ▼ INSERT em feature_flags_active per flag não-default
+       set_by = 'init' / 'config:<path>' / 'env:<var>'
+   ▼
+sessão prossegue
+   │
+   ▼ slash command muda flag mid-session:
+       UPDATE feature_flags_active SET flag_value=?, set_at=?, set_by='slash:/strict'
+       audit_timeline registra event 'feature_flag_changed'
+```
+
+Flags **default** (não-explicitamente-set) **não aparecem** em `feature_flags_active`. Tabela representa **delta vs default**, não estado completo. Razão: 25+ flags em sessão típica geraria 25 rows constantes; só interessante o que diverge do default.
+
+Para audit completo de "estado efetivo": query joins com registry de defaults (em código).
+
+#### 1.6.3 Append + update (exceção declarada)
+
+Conforme `§4.1` (regra geral append-only), audit é INSERT-only. `feature_flags_active` é a **terceira exceção** (após `todos` §1.4 e `mcp_servers` §1.5). Razão: representa **estado efetivo**, não history; history vai em `audit_timeline` events.
+
+Trigger restritivo:
+
+```sql
+CREATE TRIGGER ffa_immutable_keys BEFORE UPDATE ON feature_flags_active
+WHEN OLD.session_id != NEW.session_id OR OLD.flag_name != NEW.flag_name
+BEGIN
+  SELECT RAISE(ABORT, 'feature_flags_active: PK immutable');
+END;
+```
+
+#### 1.6.4 Integração com `audit_timeline`
+
+Adicionar UNION na view §2.1:
+
+```sql
+UNION ALL
+SELECT 'feature_flag_set' AS kind, set_at AS ts, session_id,
+       json_object('flag', flag_name, 'kind', flag_kind, 'value', flag_value, 'by', set_by)
+FROM feature_flags_active
+```
+
+Mudanças mid-session geram nova row de event (não substituem a anterior em timeline) — permite reconstruir transições.
+
+#### 1.6.5 Queries canônicas
+
+```sql
+-- "Sessões com escape hatches ativos (auditoria de risco)"
+SELECT session_id, flag_name, set_at, set_by
+FROM feature_flags_active
+WHERE flag_name IN ('no_pipeline', 'dangerous', 'auto_approve_mcp', 'allow_large_fetch')
+  AND flag_value = 'on'
+ORDER BY set_at DESC;
+
+-- "Adoption de flag experimental (pra promoção)"
+SELECT flag_name,
+       COUNT(DISTINCT session_id) AS unique_sessions,
+       MIN(set_at) AS first_seen,
+       MAX(set_at) AS last_seen
+FROM feature_flags_active
+WHERE flag_value = 'on'
+  AND set_at > unixepoch('now', '-90 days')
+GROUP BY flag_name
+ORDER BY unique_sessions DESC;
+
+-- "Cross-flag × prompt regression"
+SELECT pv.hash AS prompt, ffa.flag_name, ffa.flag_value,
+       AVG(CASE WHEN fe.classe = 'quality_regression' THEN 1.0 ELSE 0.0 END) AS regression_rate
+FROM messages m
+JOIN prompt_versions pv ON m.prompt_hash = pv.hash
+JOIN feature_flags_active ffa ON m.session_id = ffa.session_id
+LEFT JOIN failure_events fe ON fe.session_id = m.session_id
+WHERE m.created_at > unixepoch('now', '-30 days')
+GROUP BY pv.hash, ffa.flag_name, ffa.flag_value
+HAVING regression_rate > 0.05
+ORDER BY regression_rate DESC;
+
+-- "Flags introduzidas e ainda em experimental por > 6 meses (TTL)"
+-- (registry de stage vive em código; query exemplo se snapshot de stage estiver em memory)
+SELECT flag_name, MIN(set_at) AS first_seen,
+       (unixepoch('now') - MIN(set_at)) / 86400 AS days_old
+FROM feature_flags_active
+WHERE flag_value = 'on'
+GROUP BY flag_name
+HAVING days_old > 180
+ORDER BY days_old DESC;
+```
+
+#### 1.6.6 Limites
+
+- **Não captura defaults.** Tabela é delta, não estado efetivo. Reconstrução completa requer registry.
+- **State flags imutáveis durante sessão** (`profile`, `mcp_servers.state`) — gravados em outras tabelas; `feature_flags_active` reflete só user-controlled toggles.
+- **Sem versionamento de registry.** Se `experimental` → `staged` muda mid-session, `feature_flags_active` não captura — `set_by` registra origem, não stage histórico.
+- **Cleanup cascateia com sessão.** Sessão deletada por retention (`§1.2`) leva flags junto. Para análise long-term, agregação periódica em tabela separada (`flag_metrics`) é v2.
 
 ---
 

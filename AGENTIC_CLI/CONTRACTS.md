@@ -921,7 +921,7 @@ Direção: B → A (read), A → B (push de memórias auto-trigger)
 
 - **Não cacheia** índice fora de uma assembly; sempre re-pede em sessão nova
 - **Não muta** conteúdo recebido — read-only
-- Carrega índice em **posição fixa** do prompt (após CLAUDE.md, antes de tool schemas)
+- Carrega índice em **posição fixa** do prompt (após AGENTS.md, antes de tool schemas)
 - Loga toda leitura via `memory_events(action: "read")`
 
 ### Failure semantics:

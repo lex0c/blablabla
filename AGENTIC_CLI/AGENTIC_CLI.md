@@ -48,6 +48,7 @@ Este documento (`AGENTIC_CLI.md`) é a spec arquitetural de alto nível. Detalhe
 | [`MCP.md`](./MCP.md) | Spec consolidada de MCP — lifecycle, transport (stdio/SSE/HTTP), capability negotiation, manifest format e hash, namespacing, per-server budget, sandbox, cache impact, slash commands, observabilidade | Ao integrar MCP server novo; ao implementar cliente MCP; ao auditar trust history |
 | [`CODE_INDEX.md`](./CODE_INDEX.md) | Subsistema de indexação de código — schema SQLite (symbols/references/imports), pipeline (initial scan + incremental + FS watcher opt-in), API queryable, multi-language tree-sitter, integração com repo map, tools simbólicas candidatas, invalidação, privacy | Ao implementar code index; ao adicionar tool simbólica nova; ao tunar repo map ou estratégia de retrieval |
 | [`CODE_GENERATION.md`](./CODE_GENERATION.md) | Pipeline canônico de geração — generate → format → lint → test → checkpoint → accept; modos de strictness; integração com playbooks; per-language config; audit footprint; anti-patterns | Ao implementar PostToolUse hooks de generation; ao definir strict mode em playbook; ao debugar pipeline failure |
+| [`FEATURE_FLAGS.md`](./FEATURE_FLAGS.md) | Governance mínima de flags — categorias (CLI/config/slash/state), lifecycle (experimental→staged→stable→deprecated), inventário canônico, audit (`feature_flags_active`), discovery (`agent --list-flags`, `/flags`), eval integration, anti-patterns | Ao introduzir flag nova; ao promover/depreciar; ao auditar bypass flags em CI |
 
 Spec arquitetural sem esses docs é descrição de uma implementação. **Com** esses docs vira protocolo que múltiplas implementações respeitam.
 
@@ -71,7 +72,7 @@ Spec arquitetural sem esses docs é descrição de uma implementação. **Com** 
 8. **Permissões e hooks como dado, não como `if`.** Política e extensão declarativas, versionadas, diff-able.
 9. **Pipeable por padrão.** `cat prompt.txt | agent` funciona. Output JSON via flag.
 10. **Reversível por design.** Toda escrita tem checkpoint. `/undo` é cidadão de primeira classe.
-11. **Confiança explícita, nunca implícita.** Diretório novo = pergunta. `CLAUDE.md` é input não-confiável até prova em contrário.
+11. **Confiança explícita, nunca implícita.** Diretório novo = pergunta. `AGENTS.md` é input não-confiável até prova em contrário.
 12. **Sem cargo cult.** Sem vector DB no v1. Sem multi-model router *por task*. Adicionar quando dor existir, não quando blog post existir.
     *Asterisco honesto:* "sem planner explícito" vale para profile `autonomous` (frontier orquestra). Para profile `orchestrated` (modelo local), planner DAG-based **é necessário** — modelo pequeno não decompõe sozinho de forma confiável. A regra geral vira: *sem cargo cult, mas com escolhas conscientes por capability do modelo.*
 
@@ -242,7 +243,7 @@ Tudo em arquivo. Nada de GUI de config.
   checkpoints/                   # ✗ gitignored (refs locais)
   .gitignore                     # auto-gerado pela primeira vez
 
-./CLAUDE.md                      # ✓ committed (contexto do projeto, não-confiável!)
+./AGENTS.md                      # ✓ committed (contexto do projeto, não-confiável!)
 ```
 
 XDG Base Dir respeitado. Override por env var (`AGENT_CONFIG_DIR`).
@@ -576,7 +577,7 @@ Estrutura do prompt **fixa, ordem importa, cache breakpoints conscientes**:
 ```
 [system]            estável        ← cache breakpoint #1
 [tool schemas]      estável        ← cache breakpoint #2
-[project context]   CLAUDE.md      ← cache breakpoint #3
+[project context]   AGENTS.md      ← cache breakpoint #3
 [compacted history] resumo turns antigos
 [recent turns]      últimos N na íntegra
 [current turn]      mensagem + tool results pendentes
@@ -893,7 +894,7 @@ Cada decisão vai pra tabela `approvals` (auditoria).
 
 Vetores de ataque óbvios:
 
-- `CLAUDE.md` malicioso em repo terceiro → prompt injection
+- `AGENTS.md` malicioso em repo terceiro → prompt injection
 - MCP server hostil → tool envenenada
 - Scripts em `~/.config/agent/commands/` adulterados
 - Output de `bash` com sequências ANSI maliciosas
@@ -907,7 +908,7 @@ Primeira vez que o agente abre num diretório novo:
 ⚠ Diretório não-confiável detectado: /path/to/repo
 
 Este é seu primeiro acesso. O agente vai ler:
-  - CLAUDE.md                    (12 KB)
+  - AGENTS.md                    (12 KB)
   - .agent/config.toml           (não existe)
   - .agent/permissions.yaml      (8 KB)
   - .agent/playbooks/            (3 arquivos)
@@ -917,7 +918,7 @@ Continuar? [y/N/inspecionar]
 ```
 
 Diretórios confiados ficam em `~/.config/agent/trusted_dirs` com **hash agregado** do conteúdo crítico:
-- `CLAUDE.md`
+- `AGENTS.md`
 - `.agent/config.toml`
 - `.agent/permissions.yaml`
 - `.agent/hooks.toml`

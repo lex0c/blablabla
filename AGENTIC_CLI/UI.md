@@ -589,7 +589,7 @@ Atalhos: `a/y/Enter` accept (com double-confirm se non-reversible), `r/n/Esc` re
 ```ts
 interface TrustPromptProps {
   cwd: string
-  filesToRead: string[]   // CLAUDE.md, .agent/config.toml, etc
+  filesToRead: string[]   // AGENTS.md, .agent/config.toml, etc
   changedSinceLastTrust?: { file: string; lastHash: string; newHash: string }[]
   onResolve: (decision: 'trust' | 'reject' | 'inspect') => void
 }
@@ -602,7 +602,7 @@ Microcopy primeira vez:
   /home/lex/work/some-repo
 
   Vou ler:
-    CLAUDE.md         (12 KB)
+    AGENTS.md         (12 KB)
     .agent/config.toml (não existe)
 
   [t]rust  [r]eject  [i]nspect  [w]hy?
@@ -614,7 +614,7 @@ Microcopy re-prompt (mudança detectada):
 
   /home/lex/work/some-repo
 
-  CLAUDE.md mudou desde último trust:
+  AGENTS.md mudou desde último trust:
     + 47 lines added
     - 3 lines removed
 

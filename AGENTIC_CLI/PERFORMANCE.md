@@ -510,7 +510,7 @@ CI roda noturno; regressão de + 50MB em RSS pico = bloqueia merge.
 | O quê | Por quê |
 |---|---|
 | Memory index (`MEMORY.md` + frontmatters) | Modelo precisa ver pra decidir relevance; ~2k tokens, cheap |
-| `CLAUDE.md` (project context) | Modelo precisa pra orientar comportamento |
+| `AGENTS.md` (project context) | Modelo precisa pra orientar comportamento |
 | Tool schemas | Modelo precisa pra decidir invocação |
 | Permission policy | Cada tool call consulta |
 | System prompt | Sempre |
