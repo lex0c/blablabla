@@ -647,11 +647,17 @@ interface Tool<I, O> {
 - `bash_output` — lê stdout/stderr novo desde último read
 - `bash_kill` — SIGTERM com fallback SIGKILL
 
+**Monitoring & wait**
+- `wait_for(condition, options)` — bloqueia até condition met OR timeout; **zero LLM calls durante o wait**
+- `monitor(condition, options)` — streaming events durante observação; LLM só ao fim
+
 **Rede**
 - `web_fetch` — com cache e deny_hosts
 
 **Coordenação**
-- `task` — spawn subagent
+- `task` — spawn subagent (alias `task_sync`)
+- `task_async` — spawn subagent paralelo, retorna handle
+- `task_await` — coleta output de subagent async
 - `todo_write` — task tracking interno (visível ao usuário)
 
 **Memória (cross-session)**
@@ -680,6 +686,102 @@ Para processos longos (`npm run dev`, `pytest --watch`, builds), tools dedicadas
 Estado dos processos: tabela `background_processes`. Persistido entre steps. Limpo no fim da sessão (ou via `/bg cleanup`).
 
 UI mostra `<BackgroundProcessTray>` no rodapé com status de cada processo.
+
+### 7.3.1 Wait & Monitor primitives
+
+Background processes precisam de **coordenação eficiente** sem polling em loop (custo LLM em cada step). Duas tools dedicadas:
+
+#### `wait_for` (synchronous, blocking)
+
+```ts
+wait_for(condition: WaitCondition, options: {
+  timeout_ms: number,
+  poll_interval_ms?: number             // default 500ms para non-streaming sources
+}): WaitResult
+
+type WaitCondition =
+  | { kind: 'process_output'; process_id: string; pattern: string | regex }
+  | { kind: 'process_exit'; process_id: string }
+  | { kind: 'file_exists'; path: string }
+  | { kind: 'file_change'; path: string }                  // mtime change
+  | { kind: 'port_open'; host: string; port: number }
+  | { kind: 'http_response'; url: string; status?: number }
+  | { kind: 'sleep'; duration_ms: number }                  // timed sleep
+  | { kind: 'all_of'; conditions: WaitCondition[] }         // AND, todas precisam matchar
+  | { kind: 'any_of'; conditions: WaitCondition[] }         // OR, primeira que match retorna
+
+interface WaitResult {
+  matched: boolean
+  condition_met: 'timeout' | 'process_output' | 'process_exit' | 'file_exists' | ...
+  elapsed_ms: number
+  payload?: any                                              // match groups, file content, http body, etc
+}
+```
+
+**Comportamento:**
+- Tool **bloqueia** até condition met OR timeout
+- **LLM não é chamado** durante o wait — zero LLM cost; só wall-clock
+- Wall-clock conta pra `maxWallClockMs`
+- Cancellable via Ctrl+C / Esc Esc (AbortSignal cascateia)
+- `process_output`: subscribe ao stream do bg process; match pattern incremental
+- `file_*`: filesystem watch (chokidar / `fs.watch`)
+- `port_open`: TCP probe com poll
+- `http_response`: HEAD/GET com poll
+- `sleep`: `setTimeout`
+- Composição via `all_of`/`any_of` (race conditions possíveis em `any_of`)
+
+**Exemplo:**
+
+```
+[step 3] tool: bash_background "npm run dev" → pid 12345
+[step 4] tool: wait_for { kind: process_output, process_id: 12345, pattern: "ready on port" }, timeout=60s
+  ⏳ waiting... (12s)
+  ✓ matched at 12.3s · payload: { match: "ready on port 3000" }
+[step 5] tool: bash "curl http://localhost:3000/api" → ...
+```
+
+Sem `wait_for`: 4-5 steps de polling em loop, ~$0.40 em LLM calls. Com: 3 steps, ~$0.10.
+
+#### `monitor` (streaming observation)
+
+```ts
+monitor(condition: MonitorCondition, options: {
+  duration_ms?: number,                  // max duration; null = until cancelled
+  max_events?: number                    // stop após N eventos
+}): MonitorResult
+
+type MonitorCondition =
+  | { kind: 'process_output_lines'; process_id: string }
+  | { kind: 'process_output_pattern'; process_id: string; pattern: regex }
+  | { kind: 'file_changes'; path: string | glob }
+```
+
+**Comportamento:**
+- Tool **streama eventos** durante a duração
+- Cada evento aparece em `<ToolCallCard>` UI ou hook `Notification`
+- LLM **não é chamado** entre eventos — apenas UI atualiza
+- LLM roda no fim (max_events hit, duration end, ou cancellation)
+- Útil em: watch builds, log tailing, file watching
+
+**Exemplo:**
+
+```
+[step 3] tool: bash_background "npm run watch" → pid 99999
+[step 4] tool: monitor { kind: process_output_pattern, process_id: 99999, pattern: /WARN|ERROR/ }, max_events=10
+  📡 monitoring... (max 10 events)
+  → WARN: deprecated import in src/foo.ts:12
+  → WARN: unused variable in src/bar.ts:45
+  → ERROR: type mismatch in src/baz.ts:88
+  ...
+  ✓ 10 events captured
+[step 5] modelo decide o que fazer com warnings
+```
+
+#### Hibernation (deferred v2)
+
+V1: synchronous wait (agent live durante o wait). Pra waits longos (hours), agent ocupa process.
+
+V2 considerar: agent process exit; daemon monitora condition; hook `Notification` dispara em wakeup; `agent --resume` reataca. Complexidade de daemon + multi-instance issues fica pra quando demanda real chegar.
 
 ### 7.4 TodoList
 
@@ -1345,6 +1447,8 @@ Componentes:
 - `<PlanReview>` — modal renderizado ao sair de plan mode; mostra plan YAML estruturado + risks + assumptions; atalhos `[a]ccept [e]dit [r]eject`
 - `<LoopStatusLine>` — rodapé granular durante step ativo: `[step 7/50 · 2m31s · validating output · compaction in 3 steps]`; substitui rodapé default quando loop em estado não-trivial
 - `<ThinkingIndicator>` — indicador discreto durante eventos `thinking_delta` (extended thinking): `🧠 thinking... (12s)`; some quando output começa
+- `<WaitIndicator>` — durante `wait_for` ativo, mostra condition + elapsed + timeout remaining; substitui `<LoopStatusLine>` temporariamente
+- `<MonitorStream>` — container streaming de eventos durante `monitor` ativo; cada match aparece como linha conforme chega
 - `<Interrupt>` — Ctrl+C com confirmação dupla se tool em execução
 
 Sem TUI "modal" complicado. Linha simples > Vim mode mal feito.
@@ -1396,6 +1500,7 @@ Features que ficam pra depois, **com motivo claro de adiamento e sinal de quando
 | **DAG marketplace / sharing** | comunidade não existe ainda | acumular DAGs úteis localmente primeiro |
 | **Local model fine-tuning helper** | Ollama/llama.cpp já cobrem inference | demanda específica e datasets prontos |
 | **Speculative decoding entre local e frontier** | complexidade enorme | custo de fallback virar gargalo |
+| **Agent hibernation** (sleep + wake-on-event via daemon) | complexidade de daemon + multi-instance | demanda real de waits longos (hours) sem ocupar process |
 
 ---
 

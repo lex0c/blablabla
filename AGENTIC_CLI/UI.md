@@ -569,6 +569,58 @@ Render:
 └────────────────────────────────────────────────────────────┘
 ```
 
+#### `<WaitIndicator>`
+
+Indicador discreto durante `wait_for` ativo. Mostra condition + elapsed + timeout remaining.
+
+```ts
+interface WaitIndicatorProps {
+  condition: WaitCondition
+  elapsedMs: number
+  timeoutMs: number
+}
+```
+
+Renders por kind:
+
+```
+⏳ waiting for: process_output (npm run dev) · pattern "ready on port" · 12s · timeout in 48s
+⏳ waiting for: process_exit (pid 12345) · 1m23s · timeout in 8m37s
+⏳ waiting for: file_exists (/tmp/build/done) · 5s · timeout in 1m55s
+⏳ waiting for: port_open (localhost:3000) · 2s · timeout in 28s
+⏳ waiting for: http_response (https://api.example.com/health, status=200) · 8s · timeout in 22s
+⏳ waiting for: sleep · 30s remaining
+⏳ waiting for: any_of (port_open OR file_exists) · 5s · timeout in 55s
+```
+
+Substitui `<LoopStatusLine>` durante wait_for ativo. Volta ao normal quando wait completa.
+
+#### `<MonitorStream>`
+
+Container que mostra eventos de `monitor` ativo conforme chegam. Cada evento renderiza como linha.
+
+```ts
+interface MonitorStreamProps {
+  condition: MonitorCondition
+  events: MonitorEvent[]
+  capturedCount: number
+  maxEvents?: number
+  durationMs?: number
+}
+```
+
+Render:
+
+```
+📡 monitor: process_output_pattern (npm run watch, /WARN|ERROR/) · 3/10 events · 12s
+  → WARN: deprecated import in src/foo.ts:12
+  → WARN: unused variable in src/bar.ts:45
+  → ERROR: type mismatch in src/baz.ts:88
+  (waiting for more...)
+```
+
+Cancellable via Ctrl+C.
+
 #### `<ThinkingIndicator>`
 
 Indicador discreto durante eventos `thinking_delta` (extended thinking em Anthropic Opus 4.x ou OpenAI o1/o3).

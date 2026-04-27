@@ -784,6 +784,8 @@ Resumo dos limites operacionais:
 | Validators sequential per node | 5 | 20 | sim |
 | Critique calls em flight | 1 | 1 (sequencial) | não |
 | Compaction calls em flight | 1 | 1 (atomic) | não |
+| `wait_for` em flight (per session) | 3 | 8 | sim |
+| `monitor` em flight (per session) | 2 | 5 | sim |
 
 ---
 

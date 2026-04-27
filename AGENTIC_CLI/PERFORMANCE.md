@@ -555,6 +555,7 @@ Diferentes workloads têm perfis distintos. Tunings recomendados:
 | **CI / batch** | `audit.mode=minimal`; trace sampling 10%; storage budget 50GB; sessions retention 7d; sandbox obrigatório |
 | **Local-first orchestrated** | `keep_alive=-1` (modelo pinned em GPU); memory index pré-warmed; tool palette mínima por DAG node; per-node max_retries 1 |
 | **Hybrid** | planner cache muito quente (extended TTL); aggressive prompt caching no frontier; rotation pra fallback frequente |
+| **Watch** (build watching, log tailing, dev servers) | `wait_for` / `monitor` agressivo; `bash_background` keep_alive longo; HTTP keepalive 5min (SSH-friendly); `monitor` max_events alto (50+); reduzir polling LLM |
 
 ### 17.2 Aplicação via flag
 

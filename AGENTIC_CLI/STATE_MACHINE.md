@@ -319,6 +319,24 @@ Sequencial por default; paralelo opt-in via `parallel_safe: true` em tool defini
 
 **Invariante:** todos os tool_use+tool_result do step ficam na **mesma transação SQLite**. Crash mid-multi-tool: rollback do step inteiro; resume re-gera.
 
+### 3.3.1 Wait & Monitor sub-states
+
+Step com `wait_for` ou `monitor` ativos: estado canônico continua `executing` (mesmo de tool comum), mas com **sub-state visualizado** em UI:
+
+| Sub-state | Quando | UI render |
+|---|---|---|
+| `executing.waiting_for` | tool `wait_for` em flight | `<WaitIndicator>` com condition + elapsed + timeout |
+| `executing.monitoring` | tool `monitor` em flight | `<MonitorStream>` com events conforme chegam |
+
+**Características:**
+- LLM **não é chamado** durante o wait/monitor (zero LLM cost)
+- Wall-clock conta pra `maxWallClockMs`
+- Cancellable via Ctrl+C / Esc Esc (AbortSignal cascateia ao subsystem do wait)
+- Hooks `Notification` podem disparar em eventos de `monitor`
+- Step finaliza normalmente em `done` quando wait/monitor retorna
+
+Não há transição de top-level state — `executing` engloba ambos.
+
 ### 3.4 Invariantes globais
 
 1. Cada step tem **exatamente um** assistant message persistido (em `done`)
