@@ -167,6 +167,8 @@ Latência sem custo é metade da história. SLOs de custo:
 
 ## 5. Performance regression strategy
 
+> **Escopo:** este §5 cobre regressão de **latência, throughput e custo**. Regressão de **qualidade do output** quando system prompt ou playbook muda fica em [`TOKEN_TUNING.md §13.4`](./TOKEN_TUNING.md). Os dois rodam em CI; gates separados, corpus separados.
+
 ### 5.1 Bench dataset
 
 `evals/bench/perf/` contém:

@@ -25,7 +25,7 @@ Sem audit consolidado, "compliance" e "debug forense" viram intenção sem entre
 
 ## 1. Tables canônicas
 
-Lista canônica das **13 tabelas de audit**, com escopo, retention, sensitivity, e regra de redaction.
+Lista canônica das **15 tabelas de audit**, com escopo, retention, sensitivity, e regra de redaction.
 
 | Tabela | Escopo | Retention default | Sensitivity | Redaction |
 |---|---|---|---|---|
@@ -42,6 +42,8 @@ Lista canônica das **13 tabelas de audit**, com escopo, retention, sensitivity,
 | `pending_decisions` | modal state | 7d (transient) | low | nenhuma |
 | `recap_cache` | rendered recaps | 1h TTL | medium | nenhuma (output já passou por redaction) |
 | `background_processes` | bg processes metadata | 30d | low | redact `cmd` |
+| `prompt_versions` | versões de system prompt e playbooks | **forever** (no auto-cleanup) | low | nenhuma (conteúdo é o ponto) |
+| `todos` | plano stream-parsed do modelo (ver §1.4) | 90d | low | nenhuma |
 | `traces` (NDJSON) | OTEL spans | 90d | medium | redact attrs |
 | `redaction_events` | NEW — audit de redactions | 365d | low | nenhuma (sem o conteúdo redacted) |
 
@@ -64,9 +66,225 @@ failure_events = 365
 memory_events = 365
 recap_cache = "1h"      # TTL especial
 pending_decisions = 7
+prompt_versions = "forever"   # nunca limpar; rastreabilidade load-bearing
 ```
 
 Cleanup via cron user-side (`agent gc`) ou hook `Stop` (configurable).
+
+### 1.3 Prompt versioning (`prompt_versions`)
+
+Princípio 8 ("permissões e hooks como dado") se estende a prompts. Sem versionamento de system prompt e playbooks, regressão de qualidade não é rastreável a um commit — exato problema que o leak da Anthropic em 2026 expôs publicamente.
+
+#### 1.3.1 Schema
+
+```sql
+CREATE TABLE prompt_versions (
+  hash TEXT PRIMARY KEY,                  -- SHA256(canonical(content))
+  kind TEXT NOT NULL,                     -- 'system' | 'playbook' | 'workflow_section'
+  name TEXT NOT NULL,                     -- 'system.autonomous' | 'playbook.code-review' | ...
+  content TEXT NOT NULL,                  -- prompt literal
+  parent_hash TEXT,                       -- hash da versão imediatamente anterior (mesmo `name`)
+  author TEXT NOT NULL,                   -- git user que criou (best-effort)
+  created_at INTEGER NOT NULL,            -- unix ts
+  source_commit TEXT,                     -- git sha onde apareceu (nullable se ad-hoc)
+  eval_run_id TEXT,                       -- referência a eval que validou (FK soft)
+  notes TEXT                              -- changelog 1-line
+);
+
+CREATE INDEX idx_prompt_versions_name ON prompt_versions(name, created_at);
+```
+
+Conteúdo é o ponto da tabela; **sem redaction** (princípio: prompt é spec, não dado de usuário).
+
+#### 1.3.2 Referência em `tool_calls` e `messages`
+
+Adicionar coluna `prompt_hash` em ambas:
+
+```sql
+ALTER TABLE messages ADD COLUMN prompt_hash TEXT;       -- hash do system prompt ativo
+ALTER TABLE tool_calls ADD COLUMN prompt_hash TEXT;     -- mesmo, redundante por joins rápidos
+```
+
+Toda invocação ao modelo registra o hash do system prompt usado. Replay sem hash = replay sem garantia de fidelidade.
+
+#### 1.3.3 Fluxo de write
+
+1. Sessão inicia; harness materializa system prompt final (CONTEXT_TUNING §1.8).
+2. `hash = SHA256(canonical(content))`.
+3. `INSERT OR IGNORE INTO prompt_versions (...)` — idempotente por hash.
+4. `messages.prompt_hash = hash` para todo turn da sessão.
+5. Se prompt mudar mid-session (raro: troca de playbook), novo hash, novo registro, mensagens subsequentes referenciam o novo.
+
+#### 1.3.4 Append-only e immutability
+
+`prompt_versions` segue regras de §4.1: INSERT-only, sem UPDATE, sem DELETE de retention (`forever`). Tampering = quebra de chain (§4.2).
+
+#### 1.3.5 Queries canônicas
+
+```sql
+-- "Quais versões de system prompt rodaram nos últimos 30 dias?"
+SELECT pv.name, pv.hash, pv.created_at, COUNT(DISTINCT m.session_id) AS sessions
+FROM prompt_versions pv
+JOIN messages m ON m.prompt_hash = pv.hash
+WHERE m.created_at > unixepoch('now', '-30 days')
+GROUP BY pv.hash
+ORDER BY sessions DESC;
+
+-- "Regressão começou em qual versão de prompt?"
+-- (assume failure_events com classe='quality_regression' tagged manualmente)
+SELECT pv.name, pv.hash, pv.notes, COUNT(*) AS failures
+FROM failure_events f
+JOIN messages m ON f.session_id = m.session_id
+JOIN prompt_versions pv ON m.prompt_hash = pv.hash
+WHERE f.classe = 'quality_regression'
+GROUP BY pv.hash
+ORDER BY failures DESC;
+
+-- "Diff entre duas versões"
+SELECT a.content, b.content
+FROM prompt_versions a, prompt_versions b
+WHERE a.hash = ? AND b.hash = ?;
+```
+
+#### 1.3.6 CLI
+
+```
+agent audit prompts list                  # versões registradas, ordenado por uso
+agent audit prompts show <hash>           # conteúdo de uma versão
+agent audit prompts diff <hash1> <hash2>  # diff entre versões
+agent audit prompts trace <hash>          # sessões/turns que usaram esta versão
+```
+
+#### 1.3.7 Integração com eval
+
+Eval de regressão (`PERFORMANCE.md` / `TOKEN_TUNING.md`) toma `prompt_hash` como input dimension. Resultado: matriz `(prompt_hash × workflow × metric)`. Mudança em `prompt_versions` sem eval correspondente = warning em CI.
+
+#### 1.3.8 Limites
+
+- **Não captura provider-side prompts.** Anthropic adiciona instructions internas fora do nosso controle (`CONTRACTS.md §4`). Documentado, fora de escopo.
+- **Não captura mid-stream injection do harness.** Goal re-injection (`CONTEXT_TUNING.md §6`) é registrado em `messages` separadamente, não em `prompt_versions`.
+- **Best-effort em author.** Se sessão roda em CI sem git user configurado, `author = 'ci'`.
+
+### 1.4 Todos (`todos`)
+
+Endereça audit gap declarado em `CONTRACTS.md §2.6.8` decisão B. `todo_write` foi **rejeitado** como tool de modelo (princípio "meta-cognição não é tool"); o plano emitido em prosa pelo modelo é capturado via stream parser e persistido aqui — auditabilidade igual à de uma tool, sem custo de slot no catálogo.
+
+#### 1.4.1 Schema
+
+```sql
+CREATE TABLE todos (
+  id INTEGER PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,        -- mensagem do modelo onde o item foi extraído
+  step_index INTEGER NOT NULL,     -- step da sessão (ordering)
+  content TEXT NOT NULL,           -- texto canônico do item
+  status TEXT NOT NULL CHECK (status IN ('pending','in_progress','completed','cancelled')),
+  parent_todo_id INTEGER,          -- subtask (FK soft pra todos.id)
+  created_at INTEGER NOT NULL,
+  completed_at INTEGER,
+  source_offset_start INTEGER,     -- offset no message body onde apareceu
+  source_offset_end INTEGER,
+  parse_confidence REAL NOT NULL,  -- 0.0-1.0 do parser
+  prompt_hash TEXT,                -- system prompt ativo (FK soft pra prompt_versions)
+  audit_schema_version INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX idx_todos_session ON todos(session_id, step_index);
+CREATE INDEX idx_todos_status ON todos(status) WHERE status IN ('pending','in_progress');
+```
+
+Sensitivity: **low** (texto curto, sem PII esperada — itens são "rodar testes", "ler src/auth.ts"). Retention: 90d (segue default).
+
+#### 1.4.2 Pipeline canônico
+
+```
+modelo emite plano em prosa
+    │
+    ▼
+stream parser (harness)
+    │ regex/state machine procura formato canônico
+    │ (definido em CONTEXT_TUNING.md §6.x — checklist markdown)
+    ▼
+extrai itens + status
+    │
+    ▼ INSERT/UPDATE em todos
+SQLite todos
+    │
+    ▼ UI lê via SELECT
+TodoList live em UI
+```
+
+Fonte de verdade é a tabela, **não o stream**. UI não parse de novo — lê de SQLite. Garante consistência entre o que audit registra e o que usuário vê.
+
+#### 1.4.3 Formato canônico de checklist
+
+Documentado em `CONTEXT_TUNING.md` (constraint do system prompt). Modelo deve emitir:
+
+```
+- [ ] item pendente
+- [/] item em progresso
+- [x] item completo
+- [-] item cancelado
+```
+
+Outras formas (`* [ ]`, `1. [ ]`, emoji, prosa) são tolerantes mas geram `parse_confidence < 0.8` e warning em audit. Confidence < 0.5 → item **não persiste**, `failure_event` classe `parse.todo_low_confidence` é registrado.
+
+#### 1.4.4 Append + update
+
+Excepcional dentro de `AUDIT.md §4.1` (regra geral: append-only). `todos` permite UPDATE em `status` e `completed_at` apenas. Razão: estado do plano evolui durante sessão; replay precisa do estado final, não da progressão. Progressão fica em `audit_timeline` via events `todo_added`, `todo_status_changed`.
+
+Restrição de UPDATE enforced via trigger:
+
+```sql
+CREATE TRIGGER todos_no_content_update BEFORE UPDATE ON todos
+WHEN OLD.content != NEW.content OR OLD.session_id != NEW.session_id
+BEGIN
+  SELECT RAISE(ABORT, 'todos: content/session_id immutable');
+END;
+```
+
+#### 1.4.5 Integração com `audit_timeline`
+
+Adicionar UNION na view §2.1:
+
+```sql
+UNION ALL
+SELECT 'todo_added' AS kind, created_at AS ts, session_id,
+       json_object('todo_id', id, 'content', content, 'parent_todo_id', parent_todo_id)
+FROM todos
+UNION ALL
+SELECT 'todo_status_changed', completed_at, session_id,
+       json_object('todo_id', id, 'status', status)
+FROM todos WHERE completed_at IS NOT NULL
+```
+
+#### 1.4.6 Queries canônicas
+
+```sql
+-- "Plano final da sessão"
+SELECT step_index, content, status FROM todos
+WHERE session_id = ? ORDER BY step_index;
+
+-- "Sessões com plano abandonado (todos pending no fim)"
+SELECT session_id, COUNT(*) AS pending
+FROM todos WHERE status = 'pending'
+GROUP BY session_id HAVING pending > 0;
+
+-- "Failure rate do parser"
+SELECT
+  AVG(CASE WHEN parse_confidence < 0.8 THEN 1.0 ELSE 0.0 END) AS warn_rate,
+  AVG(CASE WHEN parse_confidence < 0.5 THEN 1.0 ELSE 0.0 END) AS fail_rate
+FROM todos
+WHERE created_at > unixepoch('now', '-7 days');
+```
+
+A última query é o **gatilho de reconsideração** declarado em `CONTRACTS.md §2.6.8`: se `fail_rate > 5%` em janela móvel de 7d, abrir issue pra reconsiderar promoção a tool.
+
+#### 1.4.7 Limites
+
+- **Não captura "intent" do modelo, só o que ele declarou.** Plano implícito (sem checklist) fica invisível. Aceitável: mesma limitação de Claude Code com `todo_write` opcional.
+- **Parser confidence é heurística.** False positives (UI list markdown que não é todo) são possíveis; mitigado por contexto (parser só ativa em respostas pós-prompt do tipo "plan", "list steps", ou explicit slash command).
+- **Modelos locais podem ter alta `fail_rate`.** Se inviável em `LOCAL_MODELS.md`, profile `orchestrated` pode promover `todo_write` a tool **só nesse profile**. Decisão deferida pra v1.1.
 
 ---
 

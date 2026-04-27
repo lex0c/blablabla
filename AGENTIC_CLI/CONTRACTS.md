@@ -105,6 +105,285 @@ Direção: A → B (A invoca tool)
 
 ---
 
+## 2.5 Ergonomics rubric — o que conta como "tool bem desenhada"
+
+Princípio 3 do `AGENTIC_CLI.md` ("10 tools bem desenhadas vencem 40 genéricas") é load-bearing mas vazio sem rubric. Sem critério, "ergonomics" vira gosto pessoal.
+
+Toda tool nova passa pelo checklist abaixo antes de entrar no catálogo §2.6. Falha em ≥ 2 critérios = redesenhar antes de PR.
+
+| # | Critério | Operacionalização | Falha típica |
+|---|---|---|---|
+| 1 | **Input determinístico** | Schema fechado, sem campos "extras" interpretados | `bash` aceitando flags inferidas de prosa |
+| 2 | **Output estruturado** | JSON Schema ou união discriminada; sem string livre como contrato | Tool retorna `string` que modelo precisa parsear |
+| 3 | **Idempotência declarada** | Metadata `idempotent: true \| false`; quando true, retry é seguro | `write_file` sem hash do conteúdo prévio (race condition) |
+| 4 | **Side effects declarados** | `writes: bool`, `network: bool`, `exec: bool` em metadata | Tool que silenciosamente faz request HTTP |
+| 5 | **Failure modes enumerados** | Lista finita de error codes; `unknown_error` é bug, não default | Tool que retorna `{ error: <stack trace> }` cru |
+| 6 | **Custo aproximado** | Latência típica + tokens-por-output em metadata | Tool que pode retornar 50KB sem warning |
+| 7 | **Composability** | Output de uma tool é input válido de outra (ou explicitamente terminal) | `search_*` que retorna formato incompatível com `read_file` |
+| 8 | **Reversibilidade** | Se `writes: true`, checkpoint é criado antes (harness garante via §2) | Tool que escreve em FS mas declara `writes: false` |
+| 9 | **Audit footprint** | Input/output mínimos pra reproduzir o call em replay | Tool que depende de variável de ambiente não capturada |
+| 10 | **Erro como dado** | Falha vira tool_result, não exception (ver §2 cláusula 7) | Tool que crash leva harness junto |
+
+Tool que passa em 10/10 entra no catálogo. Tool que passa em 8-9/10 entra com TODO declarado em metadata. Tool que passa em ≤ 7/10 não entra.
+
+**Anti-rubric:** "tool é genérica, então cobre mais casos" — ver `ANTI_PATTERNS.md` (princípio 3 contradiz). Genérico é o que vira `bash` (escape hatch), não o que vira API.
+
+---
+
+## 2.6 Tool catalog canônico v1
+
+Conjunto fechado para v1. Adições requerem PR contra este doc + eval de regressão. **Total: 12 tools** — acima do teto sugerido de 10, mas justificado em §2.6.6. Decisões revisitadas (incluindo a aceitação de `fetch_url` que levou de 11 → 12) ficam em §2.6.8.
+
+### 2.6.1 Filesystem (read)
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `read_file` | `{ path, offset?, limit? }` | `{ content, total_lines, truncated }` | nenhum | sim | ~5ms; até `limit` linhas |
+| `glob` | `{ pattern, cwd? }` | `{ matches: string[], truncated }` | nenhum | sim | ~10-50ms; cap 1000 matches |
+| `grep` | `{ pattern, path?, type?, -A?, -B? }` | `{ matches: { file, line, text }[], truncated }` | nenhum | sim | ~50-500ms; cap 200 matches |
+
+### 2.6.2 Filesystem (write)
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `write_file` | `{ path, content }` | `{ bytes_written, checkpoint_id }` | `writes: true` | não (sobrescreve) | ~5ms + checkpoint |
+| `edit_file` | `{ path, old_string, new_string, replace_all? }` | `{ changes: number, checkpoint_id }` | `writes: true` | não | ~10ms + checkpoint |
+
+`old_string` deve ser único no arquivo (ou `replace_all: true`); senão tool retorna `{ error: "ambiguous_match" }`. Sem `old_string` = chamar `write_file`, não `edit_file`.
+
+### 2.6.3 Execução
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `bash` | `{ cmd, timeout_ms?, cwd?, read_only? }` | `{ stdout, stderr, exit_code, duration_ms, truncated }` | `writes: true` (default), `exec: true` | não (default) | varia; cap default 30s, 4MB output |
+
+`read_only: true` é declaração do **chamador**, não da tool. Permission engine pode validar contra allowlist (`SECURITY_GUIDELINE.md`).
+
+### 2.6.4 Subagent / orquestração
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `task_sync` | `{ playbook, prompt, budget? }` | `SubagentOutput` (ver §5) | depende do playbook | não | varia; cap por budget |
+| `task_async` | `{ playbook, prompt, budget? }` | `{ handle }` | spawna processo filho | não | ~50ms (spawn) |
+| `task_await` | `{ handle, timeout_ms? }` | `SubagentOutput` | nenhum (block) | sim | varia |
+| `task_cancel` | `{ handle }` | `{ cancelled: bool }` | mata subprocess | sim (idempotente em handle morto) | ~10ms |
+
+### 2.6.5 Memory
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `memory_search` | `{ query, scope? }` | `{ hits: MemoryHit[] }` | nenhum (read) | sim | ~20-100ms (lexical) |
+
+`memory_write` **não é tool exposta ao modelo** — escrita de memória passa por confirmação humana via slash command (ver `MEMORY.md §5`). Modelo não escreve memória diretamente.
+
+### 2.6.5b Network (escopado)
+
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `fetch_url` | `{ url, max_bytes?, timeout_ms? }` | `{ status, content_type, body, truncated, redirected_to? }` | `network: true` | sim (GET) | ~100ms-2s; cap default 256KB |
+
+URL deve estar na **allowlist da sessão** (extraída do prompt do usuário ou de arquivos lidos no turno). URL sintetizada pelo modelo → `fetch.policy_denied`. Decisão completa, policy obrigatória, e gatilho de implementação em §2.6.8 / decisão C.
+
+### 2.6.6 Justificativa do teto (12 vs 10)
+
+`task_*` é uma **família** (4 tools) servindo um conceito (subagent). Modelo trata como uma palette, não 4 decisões independentes. Contado como "1.5" no orçamento conceitual:
+
+```
+read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) ≈ 9.5
+```
+
+Ainda dentro do princípio. Adicionar `todo_write`, `checkpoint_*`, ou `recap_*` como tools expostas ao modelo **estouraria** o teto — por isso ficam em domínios separados:
+- `todo_write` é UI affordance (ver `UI.md`), não tool de modelo (escreve via stream parsing). Audit gap endereçado por tabela `todos` em vez de promoção a tool — ver §2.6.8 decisão B.
+- `checkpoint` é operação do harness, exposta via slash command.
+- `recap` é projeção SQL, exposto via CLI.
+
+Cargo-cult check: nenhuma das tools acima foi adicionada porque "Claude Code tem". Cada uma resolve uma falha enumerada em `FAILURE_MODES.md` ou um caso de uso documentado em §2.6.8.
+
+### 2.6.7 Tools deliberadamente ausentes
+
+Anti-pattern check rápido — por que estas **não** estão no catálogo:
+
+| Tool ausente | Motivo |
+|---|---|
+| `web_search` | Provider-specific; vai como capability opcional, não tool canônica. Latência + custo + reproduzibilidade ruim em replay |
+| `web_fetch` (open-ended) | Mesmo motivo + risco de prompt injection (ver `SECURITY_GUIDELINE.md`). Variante **escopada** `fetch_url` é diferente — ver §2.6.8 |
+| `code_execution` (sandbox cloud) | Concorre com `bash` local; complica replay; v2 |
+| `database_query` | Domínio do user; expõe via custom tool ou MCP |
+| `vector_search` | Ver `ANTI_PATTERNS.md §2.2` |
+
+MCP é a porta para extensão controlada — qualquer das ausentes acima é **adicionável pelo usuário** sem mudar o catálogo canônico.
+
+### 2.6.8 Decisões revisitadas (leak-driven review)
+
+O leak da Anthropic em 2026 expôs as categorias de tools que outras CLIs agentic implementam. Três delas mereceram revisão explícita contra o catálogo canônico. Esta sub-seção registra cada decisão, motivo, e gatilho de reconsideração — modelo ADR (Architecture Decision Record).
+
+**Princípio guia:** *meta-cognição não é tool*. Modelo decide ações **no mundo** (FS, shell, subagent, memory_search, fetch). Decisões **sobre o modelo** (planejar, lembrar, comprimir contexto, gerenciar atenção) são responsabilidade do harness, não do catálogo. Sem essa fronteira, o tool budget é consumido por ferramentas que não mexem em nada — e auditabilidade não compensa o bloat.
+
+Esta posição é uma **inversão deliberada** vs Claude Code, onde o modelo invoca `todo_write`, planeja explicitamente, e é responsável por sumarizar a própria história. As três decisões abaixo aplicam o princípio.
+
+| # | Tool proposta | Decisão | Tool count após |
+|---|---|---|---|
+| A | `apply_patch` (unified diff) | **deferred → v2** | 11 (sem mudança) |
+| B | `todo_write` como tool de modelo | **rejected** (audit gap endereçado de outro modo) | 11 (sem mudança) |
+| C | `fetch_url` escopado | **accepted** | 12 |
+
+#### A. `apply_patch` — deferred
+
+**Proposta:** tool que recebe unified diff e aplica em um ou mais arquivos. Reduz tokens em multi-hunk edits.
+
+**Decisão:** deferred. `edit_file` cobre v1; eficiência de tokens em arquivos com ≥ 3 hunks é otimização real, mas não load-bearing.
+
+**Por que não rejeitar:**
+- Token cost em refactors grandes é mensurável (multi-hunk edit hoje = N chamadas com conteúdo duplicado).
+- Formato é padrão (POSIX `patch`); há tokenizadores, parsers, e testes prontos.
+- Modelos pós-2024 emitem unified diff com fidelidade alta.
+
+**Por que não aceitar agora:**
+- `edit_file` é mais auditável (input/output óbvios; diff resultante reconstruível por harness).
+- Falha parcial de hunk (algum aplica, outro não) introduz novo failure mode (ver `FAILURE_MODES.md`).
+- Sem eval mostrando ganho > 20% em algum workflow, otimização prematura.
+
+**Gatilho de reconsideração:**
+- Eval (`PERFORMANCE.md §5` ou `TOKEN_TUNING.md §13.4`) mostra que ≥ 30% das sessões de `/refactor` gastam ≥ 20% dos tokens de output em conteúdo duplicado de `edit_file` adjacentes.
+- OU: usuário reporta padrão concreto onde `edit_file` falha (ex.: edits em arquivo com whitespace inconsistente).
+
+**Quando reconsiderado, design preliminar:**
+
+```yaml
+name: apply_patch
+input:
+  patches:
+    - path: string
+      diff: string  # unified diff format, sem header git
+output:
+  applied: { path, hunks_applied, hunks_failed }[]
+metadata:
+  writes: true
+  idempotent: false
+  failure_modes:
+    - patch.malformed
+    - patch.context_mismatch        # hunk não bate com arquivo
+    - patch.partial_apply           # alguns hunks aplicaram
+```
+
+#### B. `todo_write` como tool de modelo — rejected
+
+**Proposta:** modelo invoca `todo_write({ items: [...] })` para registrar plano; UI renderiza checklist live.
+
+**Decisão:** rejected como tool. Mantém-se como **UI affordance via stream parsing** (`AGENTIC_CLI.md §2.6`).
+
+**Por que rejeitar:**
+- Princípio guia (§2.6.8 acima): meta-cognição não é tool.
+- Plan ≠ ação. Modelo emite plano em prosa; UI extrai. Tool budget fica preservado pra ações que mexem em alguma coisa.
+- Tool count entraria em pressão: somar `todo_write` (1) + `fetch_url` (1) sem rever `task_*` (4) estoura o teto conceitual de princípio 3.
+- Adicionar como tool não traz benefício mensurável de qualidade — só traz **auditabilidade**, que é endereçável de outro jeito (abaixo).
+
+**Mas o audit gap é real.** Se planning é invisível ao audit log, princípio 7 ("Trace tudo") tem buraco. Endereçamento:
+
+#### B.1 Endereçamento do audit gap (sem promover a tool)
+
+Adicionar tabela `todos` em `AUDIT.md §1`:
+
+```sql
+CREATE TABLE todos (
+  id INTEGER PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,        -- mensagem do modelo onde o todo foi extraído
+  step_index INTEGER NOT NULL,     -- step da sessão
+  content TEXT NOT NULL,           -- texto do item
+  status TEXT NOT NULL,            -- 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  parent_todo_id INTEGER,          -- subtask
+  created_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+```
+
+Pipeline:
+1. Modelo emite plano em prosa (formato canônico documentado em `CONTEXT_TUNING.md` — checklist markdown).
+2. Stream parser do harness extrai itens, escreve em `todos`.
+3. UI renderiza a partir da tabela (não do stream cru).
+4. `audit_timeline` (§2.1) inclui events `todo_added`, `todo_completed`.
+
+Resultado: auditabilidade igual à de uma tool, sem custo de slot no catálogo. O parser é responsabilidade do harness; falha de parse vira `failure_event` classificado, não silenciosa.
+
+**Gatilho de reconsideração:**
+- Stream parser falha em > 5% das sessões (medido).
+- OU: modelos locais (`LOCAL_MODELS.md`) emitem formato instável demais pra parser. Nesse caso, `todo_write` vira tool **apenas no profile `orchestrated`**, mantendo simetria do princípio guia (DAG já é meta-cognição harness-side).
+
+#### C. `fetch_url` escopado — accepted
+
+**Proposta:** tool que faz GET HTTP de uma URL específica fornecida pelo usuário, com policy estrita.
+
+**Decisão:** accepted como **tool 12**.
+
+**Por que aceitar:**
+- Caso de uso é comum e legítimo: "lê esse RFC", "olha esse stackoverflow", "abre essa doc do MDN".
+- Hoje, sem a tool, modelo cai em `bash curl ...` — pior em todo eixo (PII em shell history, sem redaction, output não-estruturado, audit poluído).
+- Diferença categórica vs `web_search` / `web_fetch` open-ended: URL **explícita no prompt do usuário**, não inferida.
+
+**Por que não é o `web_fetch` rejeitado em §2.6.7:**
+- `web_fetch` open-ended permite modelo browser sem supervisão — vetor de prompt injection wide.
+- `fetch_url` exige URL no prompt do usuário (ou em arquivo lido); permission engine bloqueia URLs sintetizadas pelo modelo.
+
+**Schema:**
+
+```yaml
+name: fetch_url
+input:
+  url: string                      # MUST match permission allowlist (ver below)
+  max_bytes?: number               # default 256KB; cap 2MB
+  timeout_ms?: number              # default 10s; cap 30s
+output:
+  status: number                   # HTTP status
+  content_type: string
+  body: string                     # truncado a max_bytes
+  truncated: boolean
+  redirected_to?: string
+metadata:
+  writes: false
+  network: true
+  idempotent: true                 # GET; provider-side caching
+  failure_modes:
+    - fetch.timeout
+    - fetch.size_exceeded
+    - fetch.network_error
+    - fetch.policy_denied          # URL não na allowlist
+    - fetch.injection_suspect      # heurística pós-fetch (ver below)
+```
+
+**Policy obrigatória** (em `SECURITY_GUIDELINE.md`, ver gatilho abaixo):
+
+1. **URL allowlist por sessão.** Permission engine extrai URLs do prompt do usuário e de arquivos lidos no turno; só essas são fetcháveis. URL sintetizada pelo modelo → `fetch.policy_denied`.
+2. **Sem `Authorization` ou cookies.** Header limpo; tool não acessa segredos.
+3. **PII redaction no body.** Mesmo redactor de `read_file` (`AUDIT.md §3.2`).
+4. **Size cap default agressivo** (256KB). Override requer flag explícito.
+5. **Heurística anti-injection.** Body é escaneado por padrões de prompt injection conhecidos (`Ignore previous`, `<system>`, etc); match → tag `fetch.injection_suspect`, modelo recebe warning prepended ao output.
+6. **Domínios bloqueados.** Localhost, private IP ranges (RFC 1918), `metadata.google.internal`, `169.254.169.254` (cloud metadata) — bloqueio incondicional.
+
+**Gatilho de implementação:**
+- Antes do merge desta tool: `SECURITY_GUIDELINE.md` ganha §dedicada de `fetch_url policy` cobrindo os 6 pontos acima.
+- Antes do release de v1: eval de regressão (`TOKEN_TUNING.md §13.4`) ganha 3 itens de prompt injection via fetch — prompt do usuário aponta pra URL controlada do test corpus que retorna body com tentativa de injection; modelo deve **não** seguir as instruções injetadas.
+
+**Catalog count update:** §2.6.6 vai de 11 para 12. O cálculo conceitual passa a:
+
+```
+read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) ≈ 9.5
+```
+
+Ainda dentro do princípio 3.
+
+#### 2.6.8.x Resumo das 3 decisões
+
+| Tool | Status | Próximo passo concreto |
+|---|---|---|
+| `apply_patch` | deferred | adicionar item de eval mensurando token waste em multi-hunk; reabrir quando ≥ 30% sessões `/refactor` |
+| `todo_write` (modelo) | rejected | criar tabela `todos` em `AUDIT.md §1`; documentar formato canônico de checklist em `CONTEXT_TUNING.md` |
+| `fetch_url` | accepted | escrever `SECURITY_GUIDELINE.md` policy section; adicionar 3 corpus items de injection em `evals/regression/prompts`; bump catalog para 12 |
+
+Decisões aqui são **append-mostly**: revogar uma requer PR com motivo + eval que justifique mudança de premissa. Reasoning preservado é mais útil que decisão atual silenciosa.
+
+---
+
 ## 3. Hook ↔ Harness
 
 A: **Hooks Dispatcher**

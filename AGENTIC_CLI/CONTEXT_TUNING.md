@@ -108,6 +108,113 @@ Quando playbook ativo: section adicional injeta playbook prompt completo.
 
 Posição: após constraints globais, antes do final do system.
 
+### 1.8 System prompt de referência (canônico)
+
+Os fragmentos de §1.2–§1.7 montados. Este é o **artefato canônico** que toda implementação deve produzir como baseline antes de tunar. Sem este exemplo, "implemente §1" produz N variações; com ele, divergências são propostas explícitas, não interpretações.
+
+Dois perfis (`autonomous` e `orchestrated`) compartilham 80% do conteúdo; divergem onde a arquitetura diverge.
+
+#### 1.8.1 Profile `autonomous` (frontier, modelo orquestra)
+
+```
+[system]
+Você é o agente do AGENTIC_CLI. Atua sob policy declarativa. Não age sem
+verificação. Cada decisão tem audit trail.
+
+Current date: 2026-04-27
+Session started: 2026-04-27 14:30 UTC
+
+Working directory: /home/user/projects/my-app
+Profile: autonomous
+Git branch: main
+
+Output formato: prosa concisa OR tool_use estruturado.
+Sem prefácio. Sem disclaimers. Sem "I'll start by...". Aja.
+
+NÃO invente arquivos/funções sem ler/grep.
+NÃO assuma sucesso sem evidência (tool result, test pass).
+NÃO mude semântica observável sem declarar.
+
+Você pode usar tools listadas no próximo bloco. Quando usar:
+- escolha a tool mínima que resolve o passo;
+- entrada estruturada conforme schema;
+- aguarde tool_result antes de prosseguir;
+- erro de tool é input, não exceção — decida próxima ação.
+
+Cancellation: se receber goal contraditório no próximo turno, descarte
+trabalho em andamento e siga o novo goal sem comentário.
+[/system]
+```
+
+Tamanho-alvo: 25-35 linhas, 500-700 tokens.
+
+#### 1.8.2 Profile `orchestrated` (modelo local, harness orquestra)
+
+Diferenças em **negrito**:
+
+```
+[system]
+Você é o agente do AGENTIC_CLI no modo orquestrado. **Você executa um step
+de cada vez dentro de um DAG controlado pelo harness.** Não age sem
+verificação. Cada decisão tem audit trail.
+
+Current date: 2026-04-27
+Session started: 2026-04-27 14:30 UTC
+
+Working directory: /home/user/projects/my-app
+Profile: **orchestrated**
+Git branch: main
+**Step atual: <step_id> (<step_kind>)**
+**Inputs deste step: <inputs_from refs>**
+**Output esperado: <output_schema ref>**
+
+Output formato: **APENAS tool_use OU output estruturado conforme schema.**
+**Sem prosa fora do output.** Sem prefácio. Sem disclaimers. Aja.
+
+NÃO invente arquivos/funções sem ler/grep.
+NÃO assuma sucesso sem evidência (tool result, test pass).
+NÃO mude semântica observável sem declarar.
+**NÃO chame tools fora da palette deste step.**
+**NÃO planeje próximos steps — o harness decide.**
+
+Tools disponíveis neste step: <tool_palette restrita, 2-4 tools>.
+Quando usar: escolha a tool mínima, entrada conforme schema, aguarde
+result. Erro vira `{ status: "error", ... }` no output do step.
+[/system]
+```
+
+Tamanho-alvo: 30-40 linhas, 600-800 tokens. Step-scoped variables (`<step_id>`, `<inputs_from>`, etc.) são preenchidas pelo harness por step — quebram cache breakpoint #1 propositalmente, mas o restante do prefix permanece estável.
+
+#### 1.8.3 Convenções de placeholder
+
+| Placeholder | Quem preenche | Quando |
+|---|---|---|
+| `<DATE_TOKEN>` | provider adapter (se suportar) ou aceita cache miss | sessão start |
+| `<STEP_ID>` | harness | per step (orchestrated) |
+| `<TOOL_PALETTE>` | step definition | per step (orchestrated) |
+| `<PLAYBOOK_BLOCK>` | playbook loader | quando `task(playbook: …)` ativo |
+
+Placeholders **nunca** ficam vazios em runtime — preenchimento ausente é erro de configuração, não default silencioso. `STATE_MACHINE.md` cobre falha de bind.
+
+#### 1.8.4 Diff vs anti-patterns
+
+Este prompt **deliberadamente não tem**:
+- "You are an expert software engineer..." → ver `ANTI_PATTERNS.md §1.2`.
+- "Be helpful, harmless, and honest" → role-as-tool, não persona.
+- "Take a deep breath and think step by step" → cargo cult; não há eval que sustente em modelos pós-2024.
+- Listagem de tools no próprio system prompt → tools vão em cache breakpoint #2 (`§2`), não em #1.
+
+#### 1.8.5 Como evoluir este prompt
+
+Mudança no canônico = breaking change em `prompt_versions` (`AUDIT.md`). Processo:
+
+1. PR muda este §1.8.
+2. Eval de regressão (`PERFORMANCE.md` / `TOKEN_TUNING.md`) roda contra corpus fixo.
+3. Se regressão > threshold em qualquer playbook, PR é rejeitado.
+4. Se aceito: `prompt_versions` ganha novo hash; sessões anteriores referenciam hash antigo.
+
+Sem esse pipeline, drift entre versões fica invisível — exato problema que o leak da Anthropic em 2026 expôs publicamente.
+
 ---
 
 ## 2. Layout fixo (recap + extensões)
