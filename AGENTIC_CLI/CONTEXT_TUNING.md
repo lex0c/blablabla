@@ -357,19 +357,21 @@ Modelo só vê o que pode usar. Confusão de tool selection cai dramaticamente.
 
 ### 5.2 Tool ordering em schemas
 
-Em `[tool_schemas]`, tools listadas em ordem **canônica fixa** (não alfabética; semântica). Catálogo canônico v1 em `CONTRACTS.md §2.6` (12 tools):
+Em `[tool_schemas]`, tools listadas em ordem **canônica fixa** (não alfabética; semântica). Catálogo canônico v1 em `CONTRACTS.md §2.6` (21 tools):
 
-1. `read_file` (mais usada)
-2. `grep`, `glob`
-3. `edit_file`, `write_file`
-4. `bash`, `bash_background`
-5. `fetch_url` (escopado; ver `CONTRACTS.md §2.6.5b` + `SECURITY_GUIDELINE.md §9.1`)
-6. `task_sync`, `task_async`, `task_await`, `task_cancel`
-7. `memory_search`
-8. `wait_for`, `monitor` (background process coordination — `AGENTIC_CLI.md §7.3.1`)
-9. **MCP tools** — sempre por último; ver §5.4 abaixo
+1. **Filesystem read** — `read_file`, `grep`, `glob`
+2. **Code retrieval simbólica** (gated por `CODE_INDEX.md`; gap when index unavailable) — `read_symbol`, `find_references`, `outline_file`, `code_graph`
+3. **Filesystem write** — `edit_file`, `write_file`
+4. **Execução** — `bash`
+5. **Background coordination** — `bash_background`, `bash_output`, `bash_kill`, `wait_for`, `monitor`
+6. **Network escopado** — `fetch_url` (ver `CONTRACTS.md §2.6.5b` + `SECURITY_GUIDELINE.md §9.1`)
+7. **Subagent / orquestração** — `task_sync`, `task_async`, `task_await`, `task_cancel`
+8. **Memory** — `memory_search`
+9. **MCP tools** — sempre por último; ver §5.5 abaixo
 
-Ordem afeta probabilidade de seleção (modelos atendem mais nas primeiras posições). `todo_write` **não está nesta lista** — é UI affordance via stream parsing, não tool de modelo (decisão B em `CONTRACTS.md §2.6.8`).
+Ordem afeta probabilidade de seleção (modelos atendem mais nas primeiras posições). Princípio: tools de **leitura barata** primeiro (read/symbolic), **edits** no meio, **side effects expansivos** (bash, network) depois, **orquestração e coordenação** ao final.
+
+`todo_write` **não está nesta lista** — é UI affordance via stream parsing, não tool de modelo (decisão B em `CONTRACTS.md §2.6.8`).
 
 ### 5.3 Tool description cuidadoso
 

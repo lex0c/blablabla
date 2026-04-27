@@ -132,7 +132,7 @@ Tool que passa em 10/10 entra no catálogo. Tool que passa em 8-9/10 entra com T
 
 ## 2.6 Tool catalog canônico v1
 
-Conjunto fechado para v1. Adições requerem PR contra este doc + eval de regressão. **Total: 16 tools** — acima do teto sugerido de 10, mas justificado em §2.6.6. Decisões ADR: §2.6.8 (leak-driven: apply_patch/todo_write/fetch_url) e §2.6.9 (code-index-driven: read_symbol/find_references/outline_file/code_graph).
+Conjunto fechado para v1. Adições requerem PR contra este doc + eval de regressão. **Total: 21 tools** — acima do teto sugerido de 10, mas justificado em §2.6.6 via 4 famílias conceituais. Decisões ADR: §2.6.8 (leak-driven: apply_patch/todo_write/fetch_url) e §2.6.9 (code-index-driven: read_symbol/find_references/outline_file/code_graph).
 
 ### 2.6.1 Filesystem (read)
 
@@ -197,21 +197,84 @@ Família de retrieval que opera sobre o subsistema de [`CODE_INDEX.md`](./CODE_I
 
 `index.unavailable` é failure mode comum às 4: subsistema de index não inicializado ou em rebuild. Modelo recai em `read_file`/`grep` quando vê esse erro.
 
-### 2.6.6 Justificativa do teto (16 vs 10)
+### 2.6.5d Background coordination
 
-Tools agrupam-se em **3 famílias** que economizam slots conceituais:
+Família para processos de longa duração e coordenação não-blocking. Tools especificadas em `AGENTIC_CLI.md §7.3` (background processes) e `§7.3.1` (wait/monitor primitives); aqui ficam sumarizadas no contrato canônico.
 
-- **`task_*`** (4 tools): família de subagent — uma palette, não 4 decisões independentes. Peso ~1.5.
+| Tool | Input | Output | Side effects | Idempotente | Custo típico |
+|---|---|---|---|---|---|
+| `bash_background` | `{ cmd, label }` | `{ process_id, started_at }` | `writes: true`, `exec: true`, spawna processo | não | ~10ms (spawn) |
+| `bash_output` | `{ process_id, since? }` | `{ stdout, stderr, cursor, exit_code? }` | nenhum (leitura) | sim (cursor avança) | ~5ms |
+| `bash_kill` | `{ process_id, signal? }` | `{ killed: bool, exit_code }` | mata subprocess | sim (idempotente em pid morto) | ~10ms graceful, +5s SIGKILL |
+| `wait_for` | `{ condition, timeout_ms, poll_interval_ms? }` | `{ matched, condition_met, elapsed_ms, payload? }` | bloqueia loop (sem LLM call); cancellable | sim | varia; bound por `timeout_ms` |
+| `monitor` | `{ condition, duration_ms?, max_events? }` | `{ events[], reason: 'duration'|'max_events'|'cancelled' }` | streama eventos durante duração | sim | varia; bound por args |
+
+**Razão da família:**
+
+- `bash_background`/`bash_output`/`bash_kill` formam um **lifecycle** (spawn → read → terminate); modelo trata como uma palette mental, não 3 decisões independentes.
+- `wait_for`/`monitor` são **coordenação sem LLM** — bloqueiam wall-clock mas **não consomem tokens**. Razão da existência: substituem padrão "polling loop com 5 LLM calls" por uma chamada bloqueante (custo `$0.40 → $0.10` no exemplo de `AGENTIC_CLI.md §7.3.1`).
+
+**Conditions enumeradas (`wait_for`):**
+
+| `kind` | Use case |
+|---|---|
+| `process_output` | "espera 'ready on port' aparecer no stdout do dev server" |
+| `process_exit` | "espera npm install terminar" |
+| `file_exists` / `file_change` | "espera build artifact aparecer" |
+| `port_open` | "espera porta 3000 abrir" |
+| `http_response` | "espera /health retornar 200" |
+| `sleep` | timed sleep determinístico |
+| `all_of` / `any_of` | composições AND/OR |
+
+**Conditions enumeradas (`monitor`):**
+
+| `kind` | Use case |
+|---|---|
+| `process_output_lines` | tail completo de bg process |
+| `process_output_pattern` | regex match (ex: `WARN|ERROR`) |
+| `file_changes` | watch glob de paths |
+
+**Failure modes comuns:**
+- `bash_bg.spawn_failed` — comando inválido, ENOENT
+- `bash_bg.process_not_found` — `process_id` desconhecido (já killed? cleanup?)
+- `wait.timeout` — condição não satisfeita em `timeout_ms`
+- `wait.cancelled` — Ctrl+C/Esc Esc cascateando AbortSignal
+- `monitor.cancelled` — mesmo
+
+UI integration: `<BackgroundProcessTray>` mostra `bash_*` ativos; `<WaitIndicator>` substitui `<LoopStatusLine>` durante `wait_for`; `<MonitorStream>` durante `monitor` (todos em `UI.md §3.2`).
+
+**Hibernation:** `wait_for` bloqueia o agente process. Daemon-based hibernation (agente sai durante wait, daemon dispara hook em wakeup) é **deferred v2** (`AGENTIC_CLI.md §7.3.1`).
+
+### 2.6.6 Justificativa do teto (21 vs 10)
+
+Tools agrupam-se em **4 famílias** que economizam slots conceituais:
+
+- **`task_*`** (4 tools, `§2.6.4`): família de subagent — uma palette, não 4 decisões independentes. Peso ~1.5.
 - **Code retrieval simbólica** (4 tools, `§2.6.5c`): família de queries sobre code index — schema homogêneo (read-only, struct output), modelo escolhe direção. Peso ~2.
+- **Background coordination** (5 tools, `§2.6.5d`): lifecycle (`bash_*`) + coordenação sem-LLM (`wait_for`/`monitor`). Lifecycle conta como ~1.5 (família mental), wait/monitor como ~1 (par primitivo). Peso conjunto ~2.5.
 - **Demais** (8 tools): contam 1:1.
 
 Orçamento conceitual:
 
 ```
-read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) + code retrieval family (~2) ≈ 11.5
+read (3) + write (2) + exec (1) + task family (~1.5) + memory (1) + fetch (1) + code retrieval family (~2) + bg coordination family (~2.5) ≈ 14
 ```
 
-Ainda dentro do princípio (10 ± 2 é faixa aceitável). Promoções futuras precisam justificar via redução de slots existentes ou demonstração de família.
+Acima de 10 ± 2 — **revisão deliberada do teto**. Justificativa:
+
+1. **Background coordination resolve uma falha enumerada**: padrão de polling em loop custa $0.40+ por workflow (`§7.3.1`); sem `wait_for`/`monitor`, modelo trabalha em torno do limite, gerando code mais frágil.
+2. **Famílias não são fungíveis**: subagent (concurrency lógica) ≠ code retrieval (queries de FS) ≠ bg coordination (wall-clock). Mental models distintos; combinar reduziria clareza.
+3. **Teto suave, não rígido**: princípio 3 fala em "10 bem desenhadas vencem 40 genéricas" — espírito é fewness com qualidade, não número absoluto.
+
+Tools que **estouraria o teto** se promovidas (mantidas em domínios separados):
+
+- `todo_write` é UI affordance (ver `UI.md`), não tool de modelo (escreve via stream parsing). Audit gap endereçado por tabela `todos` em vez de promoção a tool — ver §2.6.8 decisão B.
+- `checkpoint_*` são operações do harness, expostas via slash command.
+- `recap_*` é projeção SQL, exposto via CLI.
+- `memory_write` exige confirmação humana — slash command, não tool.
+- `format_file` / `lint_file` / `test` são gates do `CODE_GENERATION.md` pipeline, rodados em `PostToolUse`, não decididos pelo modelo.
+
+Cargo-cult check: nenhuma tool do catálogo foi adicionada porque "Claude Code tem". Cada uma resolve uma falha enumerada em `FAILURE_MODES.md` ou um caso de uso documentado em §2.6.8 / §2.6.9 / §7.3 do `AGENTIC_CLI.md`.
 
 Adicionar `todo_write`, `checkpoint_*`, ou `recap_*` como tools expostas ao modelo **estouraria** o teto — por isso ficam em domínios separados:
 - `todo_write` é UI affordance (ver `UI.md`), não tool de modelo (escreve via stream parsing). Audit gap endereçado por tabela `todos` em vez de promoção a tool — ver §2.6.8 decisão B.
