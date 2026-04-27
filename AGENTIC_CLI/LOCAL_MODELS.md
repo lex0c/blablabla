@@ -839,7 +839,276 @@ Resultados por tier publicados; user vê o que esperar.
 
 ---
 
-## 15. Anti-patterns
+## 15. Small Model Strategy (defense in depth)
+
+Modelo pequeno (7B-14B) **alucina mais**, **esquece mais**, **erra format mais** que frontier. Spec tem mecanismos espalhados pra mitigar; esta seção é o **mapa de como compõem** em sistema de defesa em profundidade.
+
+A regra raiz: **substitua confiança no modelo por verificação externa**. Cada layer transforma "modelo decidiu X" em "modelo propôs X, externamente confirmamos viabilidade".
+
+### 15.1 Defense in depth — visão estratégica
+
+```
+Modelo gera output
+  ↓
+[Layer 1] Constrained generation (token-level)
+   GBNF / JSON mode / tools / adapter regex
+  ↓
+[Layer 2] Schema validation (output-level)
+   JSON Schema check via validators
+  ↓
+[Layer 3] Fact-checking (semantic-level)
+   FileExists, GrepValidator, ASTValidator
+  ↓
+[Layer 4] Permission (policy-level)
+   Allow/deny/confirm — bloqueia ações fora do esperado
+  ↓
+[Layer 5] Test gate (behavior-level, em refactor)
+   Roda testes; falha = revert
+  ↓
+[Layer 6] Self-critique opt-in (peer-review level)
+   Segundo modelo crítica antes de persist
+  ↓
+[Layer 7] Hybrid fallback (model-level)
+   Escala pra frontier em N falhas consecutivas
+  ↓
+Output validado → persist
+```
+
+Layer 1 é o mais barato (zero LLM call extra). Layers 5-7 são caros mas alta confiança. Composição = qualidade aceitável em modelo small.
+
+### 15.2 State maintenance — 5 mecanismos
+
+Modelo small **esquece** rápido. Spec mantém estado externalizado em 5 lugares:
+
+| Mecanismo | Onde mora | Re-injetado quando |
+|---|---|---|
+| **Goal re-injection** | `current_turn` bottom (`CONTEXT_TUNING §10`) | A cada 5 steps em sessão > 15 turns; sempre após critique abort/interrupt resume; literal byte-by-byte |
+| **TodoList tool state** | tabela `todo_items` + UI live (`AGENTIC_CLI §7.4`) | Visível no contexto sempre; modelo lê/escreve via `todo_write` |
+| **DAG step_outputs** | tabela `step_outputs` em SQLite (`ORCHESTRATION §2`) | Cada node consome via `inputs_from`; estado entre nodes nunca em memória do modelo |
+| **Memory eager index** | `memory_index` section (cache breakpoint #4, `MEMORY §4`) | Sempre presente; preferências não dependem de "lembrar" |
+| **Repo map eager** | `repo_map` section em orchestrated (`AGENTIC_CLI §6`) | Sempre presente; estrutura do código externalizada |
+
+**Princípio:** o que o modelo "precisa lembrar" mora no prompt, não na sua atenção.
+
+### 15.3 Anti-hallucination — layers concretas
+
+Tabela de defesas por tipo de alucinação:
+
+| Tipo de alucinação | Defesa primária | Defesa secundária |
+|---|---|---|
+| Inventa arquivo/função inexistente | Repo map eager + `FileExistsValidator` + `GrepValidator` (§15.6) | Permission engine bloqueia path traversal |
+| Inventa tool name | Tool palette restrita + tool schemas eager | Adapter regex parser detecta + retry com hint |
+| Args malformados (JSON) | Constrained generation (GBNF/JSON mode) | Validator parse + retry com hint |
+| Esquece goal mid-session | Goal re-injection literal | Compaction preserva goal sem resumir |
+| Esquece constraint mid-step (multi-tool) | Re-injection no tool result observation (§15.5) | Constraints negativas em system prompt |
+| Output format drift | Output schema obrigatório com `not_checked` + `assumptions` | Self-critique pass detecta |
+| "Cargo cult fix" (consertar sem entender) | Test gate em refactor | `confidence: speculation` exposto |
+| Renomeia exportado sem listar callers | Constraint negativa + `GrepValidator` antes do edit | Checkpoint permite revert |
+| Inventa import path | `ImportValidator` (§15.6) | Test gate pega em runtime |
+| Recomenda baseado em memória stale | `verify-before-act` em memory factual | Memory expires + re-prompt |
+
+### 15.4 Output quality preservation
+
+Pra modelo small entregar qualidade frontier-acceptable:
+
+1. **Constraints negativas explícitas** (não positivas) — "NÃO faça X" mais robusto que "Faça Y"
+2. **Output schema com `confidence`** — força modelo a admitir incerteza em vez de chutar
+3. **Output schema com `not_checked`** — força modelo a declarar limites do que viu
+4. **Retry com hint específico** — falha vira input pro próximo (não generic "try again")
+5. **Test gate** em workflows write-heavy — comportamento observável > opinião do modelo
+6. **Few-shot por workflow** — formato consistente reduz drift
+7. **Per-model sampling** (`TOKEN_TUNING §11`) — top_k 40 em llama, repetition_penalty 1.1 em base llama
+8. **Per-step max_tokens** — output budget enxuto reduz divagação
+
+### 15.5 State within multi-tool step (gap-fill)
+
+Spec original: goal re-injection é **entre steps**. Mas modelo small em step com múltiplos `tool_use` esquece **dentro do step**:
+
+```
+Step N:
+  tool_use_A → tool_result_A → ✓
+  tool_use_B → ??? (modelo já esqueceu constraints?)
+```
+
+**Estratégia:** re-state goal/constraint compacto no início de **cada tool result observation**:
+
+```
+[tool_result do tool_use_A]
+─
+Goal (reminder): {goal_compact}
+Constraints in scope: NÃO {top 3 constraints}
+─
+[próximo turn do modelo]
+```
+
+Custo: ~50-100 tokens por observação. Ganho: drift mid-step cai dramaticamente.
+
+Configurável:
+
+```toml
+[orchestrated.multi_tool_step]
+inject_reminder_per_tool_result = true     # default true em local
+reminder_format = "compact"                 # compact | full
+```
+
+Anti-pattern: re-state goal **completo** a cada observação — bloat absurdo. Use `goal_compact` (1-line summary).
+
+### 15.6 Fact-checking validators (gap-fill)
+
+Validators atuais (`§7.5` AGENTIC_CLI) cobrem schema/file/AST. Pra modelo small, precisa **fact-checking semântico** específico de código:
+
+```ts
+// Novos validators built-in:
+
+GrepValidator(pattern, path?): {
+  ok: bool,
+  matches: string[],
+  hint?: string                  // ex: "símbolo `validateToken` não existe em src/auth.ts"
+}
+
+TypeValidator(typeName, file): {
+  ok: bool,
+  found_in?: string,
+  hint?: string                  // ex: "type `Session` não exportado de @/types"
+}
+
+ImportValidator(importPath, fromFile): {
+  ok: bool,
+  resolved_to?: string,
+  hint?: string                  // ex: "import path `@/lib/queue` não resolve"
+}
+
+SchemaReferenceValidator(ref, schemaFile): {
+  ok: bool,
+  found?: object,
+  hint?: string
+}
+```
+
+Aplicação:
+- Em qualquer tool com `writes: true`: validators rodam **antes** do checkpoint
+- Falha → retry com hint específico (não generic "try again")
+- Confirmed via grep/AST = modelo não pode inventar
+
+Custo: < 100ms por validation (deterministic, sem LLM).
+
+### 15.7 Slot-filling output forcing (gap-fill)
+
+Pra schema rígido, modelo small ainda alucina campos. Strategy: **slot-filling** — gera campo a campo, schema enforced em cada.
+
+Em vez de:
+
+```
+Generate output matching this schema: {...}
+[modelo gera tudo de uma vez; alucina campo]
+```
+
+Usa:
+
+```
+Step 1: Generate `summary` field (string, ≤ 200 chars):
+[gera apenas summary; validate]
+
+Step 2: Generate `findings` array:
+[gera findings; validate cada item]
+
+Step 3: Generate `not_checked` array:
+[gera; validate]
+
+Step 4: Compose final output:
+[montagem deterministic em código TS, não no modelo]
+```
+
+3-4× chamadas LLM, mas:
+- Cada chamada é **muito mais simples** (modelo small acerta facilmente)
+- Schema enforced em cada slot via constrained generation
+- Composição final é deterministic (não pode alucinar)
+
+**Quando usar:**
+- Modelo < 14B
+- Schema com 5+ campos
+- Workflow crítico (audit, refactor plan)
+- Eval mostra schema violation > 10% sem slot-filling
+
+Configurável:
+
+```toml
+[orchestrated.slot_filling]
+enabled = true                              # default em modelo small
+threshold_field_count = 5                   # slot-fill se schema tem ≥ 5 campos
+```
+
+Não usado em frontier (caro sem ganho).
+
+### 15.8 Decision tree — quando usar qual estratégia
+
+```
+Modelo escolhido?
+  ├─ Frontier (Sonnet+ class) → autonomous profile; layers 1-2 suficientes
+  ├─ Mid-tier (Haiku, gpt-4o-mini) → autonomous + layer 3 (validators)
+  ├─ Local 30B+ (Qwen-32B) → orchestrated; layers 1-4 + DAG
+  ├─ Local 14B (Qwen-coder-14B) → orchestrated; layers 1-5 + slot-filling em workflows críticos
+  ├─ Local 7B → orchestrated; layers 1-7 obrigatórios + hybrid fallback
+  └─ Local < 7B → hybrid only (planner frontier, executor local em tasks triviais)
+
+Workflow crítico (security, refactor multi-arquivo)?
+  ├─ Sempre layer 5 (test gate) onde aplicável
+  ├─ Layer 6 (self-critique) opt-in fortemente recomendado
+  └─ Layer 7 (hybrid fallback) com threshold baixo (1 falha = escala)
+
+Eval mostra hallucination rate alta em workflow X?
+  ├─ Adicionar validator específico (GrepValidator se inventando funções)
+  ├─ Aumentar threshold de retry
+  ├─ Considerar slot-filling se schema-related
+  └─ Considerar hybrid fallback se persistente
+```
+
+### 15.9 Hybrid escalation — last-resort declarado
+
+Quando layers 1-6 falham, layer 7 (hybrid) escala pra frontier.
+
+Triggers default:
+
+```toml
+[hybrid.escalation]
+on_validator_failure_count = 2              # 2 retries falhados em layer 2/3
+on_format_drift = true                      # output schema violation persistente
+on_stale_state = true                       # modelo emitiu mesma tool 3× (degenerate loop)
+on_explicit_request = true                  # user pode forçar via /escalate
+```
+
+Comportamento:
+- Step atual aborta no executor local
+- Frontier model pega o **mesmo input** + hint do que falhou
+- Output do frontier vira novo step
+- Audit registra `failure_events.escalation` com motivo
+
+**Não é falha; é design.** Modelo small + frontier supervisão > frontier puro em alguns workflows (custo).
+
+### 15.10 Métrica de saúde
+
+`agent stats --small-model-health`:
+
+```
+Small model strategy health (last 7d):
+  Sessions in orchestrated:        47
+  Layer 1 (constrained gen):       100% applied
+  Layer 2 (validators):            failures 12% → retry success 89%
+  Layer 3 (fact-checking):         caught 8 hallucinations (file/function inventados)
+  Layer 4 (permission denies):     3 (path traversal attempts)
+  Layer 5 (test gate):             24 runs, 19 pass first try, 5 reverted
+  Layer 6 (self-critique):         disabled in 38, enabled in 9 (caught 2 issues)
+  Layer 7 (hybrid escalation):     fired 4× (8.5% of sessions)
+
+Hallucination rate: 4.2% (target < 5%)
+Cost vs autonomous-frontier: -67%
+```
+
+Threshold > 5% hallucination rate sustained = warning; revisar layers ou modelo.
+
+---
+
+## 16. Anti-patterns
 
 | Anti-pattern | Por quê ruim |
 |---|---|
@@ -857,7 +1126,7 @@ Resultados por tier publicados; user vê o que esperar.
 
 ---
 
-## 16. Insight final
+## 17. Insight final
 
 Local não é "frontier mais barato". É **trade-off explícito** com perfil distinto:
 
