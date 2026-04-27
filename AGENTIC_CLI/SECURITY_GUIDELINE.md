@@ -348,6 +348,128 @@ Profile mínimo:
 - `traces/*.ndjson` → `0600`
 - Hooks scripts → `0700` esperado; warning se world-readable
 
+### 8.4 Sensitive path deny-list (canonical)
+
+> **Razão:** redaction (`§6`) protege conteúdo *após* leitura. Mas leitura já cria `tool_calls.output` no DB e *qualquer write subsequente* gera checkpoint que precisa preservar conteúdo literal pra `/undo` funcionar. Deny-list bloqueia **antes** de qualquer um desses caminhos.
+
+Paths nessa lista são bloqueados de:
+1. `read_file` / `outline_file` / `read_symbol` (qualquer tool de leitura)
+2. `write_file` / `edit_file` (qualquer tool de write)
+3. Inclusão em worktrees de subagents (cópia de árvore filtra esses paths)
+
+**Patterns canônicos (default):**
+
+```
+.env
+.env.*
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_dsa*
+id_ecdsa*
+.ssh/
+.gnupg/
+.aws/credentials
+.aws/config
+.netrc
+.npmrc
+.pypirc
+*.kdbx                    # KeePass
+*credentials*.json        # GCP service accounts
+**/secrets.yml
+**/secrets.yaml
+.git-credentials
+```
+
+Match → tool retorna erro `path.deny_listed` com texto:
+
+```
+Path "<path>" matches sensitive pattern "<pattern>" (defense in depth — see SECURITY_GUIDELINE.md §8.4).
+If you genuinely need to access this path, user must explicitly add it to allow_paths in playbook frontmatter or use /trust path <path>.
+```
+
+**Override hierarchy:**
+
+1. **User explicit per-session:** `/trust path <path>` adiciona ao session allowlist (não persiste). Modal com warning antes.
+2. **Playbook explicit:** `tool_restrictions.<tool>.allow_paths: [<path>]` em frontmatter — escopo limitado ao playbook.
+3. **Project config:** `agent.toml` com `sensitive_paths.allow: [...]` — mais durável, exige PR. Cobre caso "esse projeto tem `.env` no escopo legítimo (template public)".
+4. **Global config:** modificar deny-list só via `~/.config/agent/security.toml` com warning em CLI startup.
+
+Sem nenhum override = bloqueado.
+
+**Heurística adicional:** files com `0600` ou `0400` em path com keyword (`secret`, `credential`, `private`, `key`) → **warning** (não bloqueio) com sugestão de adicionar à deny-list local.
+
+**Por que isso não vira redaction:** checkpoint precisa conteúdo literal pra restore. Redactar `.env` quebra `/undo`. Solução é não tocar — ou exigir trust explícito que documenta o risco.
+
+**Anti-pattern do user:** desabilitar deny-list global pra "deixar o agent trabalhar sem fricção". Eval em CI cobre que deny-list está ativa em config canônica do projeto público.
+
+### 8.5 Ephemeral session mode (`--ephemeral`)
+
+> **Cross-refs:** redaction em `§6`; deny-list em `§8.4`; encryption posture em `§8.6` (deferred — ver `§16` limites).
+
+Sessão one-shot pra workflow sensível. Nada toca disco. Crash = perda total (esperado).
+
+**Comportamento:**
+
+| Subsistema | Modo normal | Em `--ephemeral` |
+|---|---|---|
+| SQLite | `~/.local/share/agent/sessions.db` | `:memory:` (RAM) |
+| Checkpoints | `.agent/checkpoints/<id>/` | desabilitados; `/undo` indisponível |
+| Memory writes | hook `MemoryWrite` modal → grava em `~/.config/agent/memory/` | bloqueado; modelo recebe `memory.disabled_in_ephemeral` |
+| Auto-rehydrate (`STATE_MACHINE.md §7.6`) | injeta na resume | desabilitado (não há resume; sessão é stateless) |
+| Recap cache | `recap_cache` table | em RAM apenas; perdido em exit |
+| Traces NDJSON | `traces/*.ndjson` | desabilitado por default; opt-in via `--ephemeral --traces=stderr` |
+| Subagent worktrees | `~/.cache/agent/worktrees/<id>/` | usa `tmpfs` (`/dev/shm` ou equivalente) |
+| Background processes | persistem até kill | mortos em exit junto com sessão |
+
+**Disponível ao modelo:** todas tools normais funcionam (read_file, edit_file, bash). A diferença é só persistência. Modelo não precisa saber que está em ephemeral; harness apenas não grava.
+
+**O que o user perde:**
+- Sem `/resume` (esperado)
+- Sem `/recap session <id>` post-hoc (esperado; pode `/recap json --out` antes de exit)
+- Sem `/undo` (esperado)
+- Sem memory cross-session
+- Sem audit trail persistente — `failure_events` em RAM apenas
+
+**O que continua funcionando:**
+- Todas as tools de execução
+- Drift detector (`STATE_MACHINE.md §11`) e clarification gate (`§12`) — usam estado in-memory, não dependem de persistência
+- Hooks
+- Permission engine
+- Compaction (LLM ou fallback determinístico — ambos operam em buffer)
+
+**UI indicator:** banner `⚠ EPHEMERAL — nada será persistido. Salve resultados antes de exit.` no header da sessão; cor distinta.
+
+**Export antes de exit:**
+
+```bash
+/recap json --out /tmp/session-recap.json   # snapshot do recap em arquivo
+/transcript --out /tmp/transcript.md         # mensagens completas (sem redaction; user decide)
+```
+
+Em exit (`/exit` ou Ctrl+D), banner de confirmação:
+
+```
+⚠ Ephemeral session ending. All state will be lost.
+Exported: [recap.json, transcript.md]   ← se user fez exports
+Continue? [y/N]
+```
+
+`Ctrl+C` direto não pede confirmação (interrupt brutal).
+
+**Crash em ephemeral:** SQLite `:memory:` morre com o processo; resume impossível. `failure_events` perdidos. Caso esperado; spec não tenta recuperar.
+
+**Anti-patterns:**
+
+- `--ephemeral` em workflow longo. Sessão de 4h em RAM = sem checkpoint = sem `/undo`. Use sandbox temporário (worktree em `tmpfs`) com persist normal em vez.
+- `--ephemeral --traces=file`. Defeats o ponto. Eval em CI cobre que combinação é rejected com erro claro.
+- Memory writes "esquecidos" em ephemeral. Modelo propõe memory write; harness retorna erro estruturado; modelo deve registrar em `assumptions[]` que houve preferência não persistida.
+- Ephemeral em compliance regulado. Falta audit trail — pode violar requirement. Documenta-se como **incompatível com auditoria forense** (`§10`).
+
 ---
 
 ## 9. Network egress control
