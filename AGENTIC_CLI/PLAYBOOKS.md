@@ -760,7 +760,621 @@ confidence: high
 
 ---
 
-## 7. Como adicionar um playbook novo
+## 7. Playbook: `threat-model`
+
+Slash command: `/threat-model`. Subagent isolado. **Proativo**: input é design/arquitetura/diff de feature antes de mergear; output é threat model estruturado. Distinto de `security-audit` (reativo: input é código já escrito).
+
+```yaml
+---
+name: threat-model
+description: Threat model STRIDE-driven de design/arquitetura (proativo, antes de implementar)
+tools:
+  - read_file
+  - grep
+  - glob
+  - outline_file
+  - find_references
+  - code_graph
+  - read_symbol
+tool_restrictions:
+  read_file: { allow_paths: ['**/*.md', '**/*.toml', '**/*.yaml', '**/*.yml', 'src/**', 'docs/**'] }
+budget:
+  max_steps: 25
+  max_cost_usd: 1.5
+references:
+  - THREAT_MODELING.md
+  - ZERO_TRUST.md
+  - SECURITY_GUIDELINE.md
+  - AGENTS.md
+output_schema:
+  type: object
+  required: [summary, scope, trust_boundaries, threats, assumptions, not_checked]
+  properties:
+    summary: { type: string, maxLength: 500 }
+    scope:
+      type: object
+      properties:
+        in_scope: { type: array, items: string }
+        out_of_scope: { type: array, items: string }
+    trust_boundaries:
+      type: array
+      items:
+        type: object
+        required: [name, between, direction, controls]
+        properties:
+          name: string
+          between: { type: array, minItems: 2 }
+          direction: { enum: [unidirectional, bidirectional] }
+          controls: { type: array, items: string }
+    threats:
+      type: array
+      items:
+        type: object
+        required: [id, category, target, attack, severity, mitigation]
+        properties:
+          id: { pattern: '^T-\\d{3}$' }
+          category: { enum: [spoofing, tampering, repudiation, info_disclosure, dos, elevation] }
+          target: string
+          attack: string
+          severity: { enum: [critical, high, medium, low] }
+          mitigation:
+            type: object
+            required: [proposal, residual_risk]
+            properties:
+              proposal: string
+              residual_risk: string
+              owner_hint: string
+          confidence: { enum: [high, medium, speculation] }
+    assumptions:
+      type: array
+      items:
+        type: object
+        required: [item, why]
+    not_checked:
+      type: array
+      items:
+        type: object
+        required: [area, reason]
+slash: threat-model
+sampling:
+  temperature: 0.2
+  max_tokens: 4096
+  thinking_budget: 4096
+  seed_in_eval: true
+context_recipe:
+  include_repo_map: eager
+  include_diff: true
+  include_callers: false
+  goal_reinjection_every_n_steps: 4
+  fewshot_count: 1
+  memory_filter: ['security', 'architecture', 'reference']
+prompt_version: 1
+context_recipe_version: 1
+---
+```
+
+# Threat Model
+
+Modela ameaças de design **antes** da implementação. Cobre as 6 categorias STRIDE de forma sistemática; produz threats com proposta de mitigação e risco residual declarado.
+
+Não escreve código. Não roda testes. Não toca FS além de leitura.
+
+## NÃO faça
+
+- Não invente trust boundaries que não estão no design ou código existente.
+- Não confunda **threat** (cenário) com **vulnerability** (instância concreta de bug). Vulnerabilidade é `security-audit`.
+- Não declare uma ameaça `critical` sem identificar o vetor concreto.
+- Não proponha mitigação que pressupõe stack que o projeto não usa.
+- Não trate categorias STRIDE como checklist a preencher por preencher; só registre quando a ameaça for plausível.
+- Não invente CVEs ou referências a CVE inexistentes.
+- Não revele PII de design (credenciais em config, etc.) na descrição da ameaça — substitua por placeholder.
+
+## Faça
+
+- Identifique trust boundaries primeiro; ameaças derivam delas.
+- Para cada boundary, walk-through de cada categoria STRIDE; registre só o que é plausível.
+- Toda mitigação tem `residual_risk` declarado — proposta perfeita não existe; honestidade epistêmica.
+- Severidade calibrada: `critical` = breach total + dado sensível + prob >= 0.5; `high` = breach parcial OU prob >= 0.3; medium/low caem dali.
+- Quando um threat depende de assumption (ex: "usuário não compartilha credenciais"), declarar em `assumptions[]`.
+
+## STRIDE — quando cada categoria importa
+
+| Categoria | Foco | Exemplo |
+|---|---|---|
+| **S**poofing | identidade falsificada | tokens previsíveis; sem auth em endpoint admin |
+| **T**ampering | dados alterados em trânsito/repouso | sem checksum em config; mutação de body de request |
+| **R**epudiation | usuário nega ter feito algo | sem audit log; logs sem chain |
+| **I**nfo disclosure | vazamento de info confidencial | error messages com stack trace; cache aberto |
+| **D**os | indisponibilidade | unbounded loops; sem rate limit; recursos ilimitados |
+| **E**levation | escalation de privilégio | path traversal; SSRF pra metadata; injection |
+
+Cobertura inteira não é obrigatória; **plausibilidade** é. Threat fabricado pra preencher categoria é ruído.
+
+## Heurísticas de hunting
+
+- Cada **input do usuário** vira threat candidate (tampering/elevation).
+- Cada **persistência** vira candidate (info_disclosure/tampering).
+- Cada **trust boundary cross-network** vira candidate (spoofing/info_disclosure).
+- Cada **componente externo** (API, MCP server, dependência) vira candidate (todas as 6 categorias).
+- Cada **operação async/background** vira candidate (race conditions → tampering/elevation).
+
+## Output
+
+Schema completo. Threats vazia é resultado válido **se** scope justificar (ex: refactor puro sem mudança de surface). Vazio sem justificativa em `not_checked` é violação.
+
+## Exemplo de output mínimo
+
+```yaml
+summary: |
+  Threat model do design de "fetch_url tool" (CONTRACTS.md §2.6.5b). Trust
+  boundary chave é input do modelo → URL allowlist; 6 ameaças identificadas,
+  4 críticas/altas com mitigação proposta.
+scope:
+  in_scope:
+    - "fetch_url tool input/output path"
+    - "URL allowlist resolution"
+    - "Body redaction pipeline"
+  out_of_scope:
+    - "TLS handshake (assumido correto)"
+    - "DNS rebinding mitigation (já em SECURITY_GUIDELINE.md §9.1.6)"
+trust_boundaries:
+  - name: "model → harness URL extraction"
+    between: ["LLM model output", "Permission engine"]
+    direction: unidirectional
+    controls: ["URL allowlist regex match against prompt+files", "fetch.policy_denied on miss"]
+  - name: "harness → external HTTP"
+    between: ["Permission engine", "Network"]
+    direction: bidirectional
+    controls: ["deny_hosts (RFC 1918, cloud metadata)", "TLS pinning?", "max_bytes cap"]
+threats:
+  - id: T-001
+    category: elevation
+    target: "URL allowlist (§9.1.1)"
+    attack: |
+      Modelo emite URL prefixada com URL legítima do user mas com path/query
+      modificado pra exfil (ex: user-url=docs.example.com; modelo emite
+      docs.example.com.attacker.tld).
+    severity: high
+    mitigation:
+      proposal: "Allowlist por host normalizado, não por prefix string match"
+      residual_risk: "Subdomínio attacker.docs.example.com ainda passa se hostname normalization for ingênua"
+      owner_hint: "Permission engine"
+    confidence: high
+  - id: T-002
+    category: info_disclosure
+    target: "Body redaction (§9.1.3)"
+    attack: |
+      Secret em base64 ou ofuscado dentro de body retornado bypassa regex
+      do redactor; secret chega ao modelo cru.
+    severity: medium
+    mitigation:
+      proposal: "Documentado como limit aceito; reforçar via warning [PII?] em flagged patterns"
+      residual_risk: "Aceito: redactor é heurístico, não cryptographic"
+    confidence: high
+assumptions:
+  - item: "TLS handshake é correto"
+    why: "Out of scope; coberto por kernel/openssl"
+  - item: "DNS resolver respeita /etc/hosts override do sandbox"
+    why: "Documentado em SECURITY_GUIDELINE.md §8.1"
+not_checked:
+  - area: "Hibernation v2 (deferred)"
+    reason: "Fora de escopo do design v1"
+  - area: "fetch_url + MCP combo (cross-tool injection)"
+    reason: "Plausible threat mas exige design hipotético; em backlog"
+```
+
+---
+
+## 8. Playbook: `perf-investigate`
+
+Slash command: `/perf`. Subagent isolado com tools de profiler. Variante de `debug` focada em **performance** — identifica hot path, mede, formula hipóteses, valida via repro. **Não aplica fixes** (modelo normal ou `refactor` faz).
+
+```yaml
+---
+name: perf-investigate
+description: Investigação de performance com profiler; hot path → hipótese → validação
+tools:
+  - read_file
+  - grep
+  - glob
+  - outline_file
+  - read_symbol
+  - find_references
+  - code_graph
+  - bash
+  - bash_background
+  - bash_output
+  - bash_kill
+  - wait_for
+  - monitor
+tool_restrictions:
+  bash:
+    allow_patterns:
+      - 'time *'
+      - 'hyperfine *'
+      - 'node --prof *'
+      - 'node --cpu-prof *'
+      - 'py-spy *'
+      - 'perf stat *'
+      - 'perf record *'
+      - 'perf report *'
+      - 'flamegraph *'
+      - 'cargo flamegraph *'
+      - 'npm run *bench*'
+      - 'pytest --benchmark *'
+      - 'go test -bench *'
+      - 'wc *'
+      - 'find *'
+      - 'cat /proc/*'
+      - 'ps *'
+      - 'top -b -n 1'
+      - 'free -h'
+budget:
+  max_steps: 30
+  max_cost_usd: 2.0
+  max_wall_clock_ms: 600000  # 10min — profiling é wall-clock-pesado
+references:
+  - PROFILING.md
+  - PREMATURE_OPTIMIZATION.md
+  - PERFORMANCE.md
+  - AGENTS.md
+output_schema:
+  type: object
+  required: [summary, baseline, hot_path, hypotheses, evidence, suggestions, assumptions, not_checked]
+  properties:
+    summary: { type: string }
+    baseline:
+      type: object
+      required: [metric, value, source]
+      properties:
+        metric: { enum: [latency_p50, latency_p99, throughput_rps, cpu_pct, memory_mb, allocs_per_op] }
+        value: number
+        source: string                # comando que mediu + ambiente
+    hot_path:
+      type: array
+      items:
+        type: object
+        required: [function, file, share_pct, evidence]
+        properties:
+          function: string
+          file: string
+          line_range: { type: array, minItems: 2, maxItems: 2 }
+          share_pct: { type: number, minimum: 0, maximum: 100 }
+          evidence: string             # "perf report mostra 47% em validateOrder"
+    hypotheses:
+      type: array
+      items:
+        type: object
+        required: [hypothesis, validates_with, status]
+        properties:
+          hypothesis: string
+          validates_with: string       # comando ou benchmark que prova/desprova
+          status: { enum: [confirmed, refuted, untested] }
+          delta:
+            type: object
+            properties:
+              metric: string
+              before: number
+              after: number
+    suggestions:
+      type: array
+      items:
+        type: object
+        required: [target, intervention, expected_gain, risk]
+        properties:
+          target: string
+          intervention: string         # "extrair loop pra Vec; usar Cow<>"
+          expected_gain: string        # "p99: 120ms → ~40ms (3×)"
+          risk: { enum: [low, medium, high] }
+          requires: { type: array }    # quais tradeoffs aceitar (ex: "perde clarity")
+    assumptions: { type: array }
+    not_checked: { type: array }
+slash: perf
+sampling:
+  temperature: 0.1
+  max_tokens: 4096
+  thinking_budget: 4096
+  seed_in_eval: true
+context_recipe:
+  include_repo_map: eager
+  include_diff: false
+  include_callers: true                # callers explicam pq função é hot
+  goal_reinjection_every_n_steps: 5
+  fewshot_count: 1
+  memory_filter: ['perf', 'reference']
+prompt_version: 1
+context_recipe_version: 1
+---
+```
+
+# Performance Investigate
+
+Investigação **disciplinada** de performance: medir → identificar hot path → hipotetizar → validar → sugerir. Sem aplicar mudança; output é relatório.
+
+Não escreve código. Não aplica patch. Profiler roda em `bash_background`; aguarda via `wait_for`.
+
+## NÃO faça
+
+- Não otimize sem medir baseline. Sem baseline, "antes/depois" é mito.
+- Não atribua hot path a "intuição". Sempre cite profile output como evidence.
+- Não confunda **micro-benchmark** (latência de função) com **macro-benchmark** (throughput end-to-end). Saiba qual está medindo.
+- Não declare "fix óbvio" sem rodar profiler. Hot path quase sempre não é onde a intuição diz.
+- Não compare runs em ambientes diferentes (laptop vs CI vs cloud). `baseline.source` precisa identificar o ambiente.
+- Não ignore variance. 1 run pode ser ruído; mínimo 5 runs em hyperfine ou similar.
+- Não sugira "rewrite em Rust" como intervention de primeira ordem — heurística é sempre cara.
+- Não execute profilers que escrevem em paths arbitrários. `bash_restrictions` enforça.
+
+## Faça
+
+- Estabeleça `baseline` primeiro com pelo menos 1 medição declarada.
+- Use profiler apropriado: tempo wall-clock → `hyperfine`; CPU → `perf` ou `py-spy`/`node --prof`; alocs → linguagem-específico.
+- Hot path identification: **share_pct** absoluto, não relativo. "47% do tempo em X" > "X parece lento".
+- Hipótese vira `confirmed`/`refuted` via medição, não via leitura de código.
+- Sugestões com **expected_gain** quantificado (ordem de magnitude OK; "10% faster" sem evidência não).
+
+## Fluxo recomendado (não obrigatório)
+
+1. Medir baseline (`hyperfine`, `time`, ou benchmark do projeto).
+2. Profile (1 run grande: `perf record`, `node --cpu-prof`, etc).
+3. Identificar funções com share_pct ≥ 5% — esse é o hot path.
+4. Hipotetizar causa (algoritmo? alloc? syscall? lock contention?).
+5. Validar via benchmark micro (modificar localmente OR rodar variante).
+6. Output report.
+
+## Anti-patterns que vai sentir tentação de cometer
+
+- **"O código parece ineficiente"** — é se o profile diz; senão é cosmético.
+- **Sugerir "cachear isso"** sem medir hit rate esperado.
+- **Aplicar paralelização** sem provar que CPU é gargalo (vs I/O ou alocs).
+- **Premature SIMD/intrinsics**. Profile primeiro.
+- **Benchmark cold cache**. Real workloads são warm; aquecer caches antes de medir.
+
+## Quando NÃO conseguir terminar
+
+Output com `hypotheses[].status='untested'` + `not_checked` justificando. Honestidade > completude.
+
+## Output
+
+Schema completo. Hipóteses sem validação são aceitáveis em sessão curta — declarar como `untested` no schema. Suggestions sem evidência (`expected_gain` vazio) violam.
+
+## Exemplo de output mínimo
+
+```yaml
+summary: |
+  validateOrder em src/orders.ts é 47% do CPU em workload típico (10k orders).
+  Causa primária: re-parse de JSON Schema a cada chamada (cacheable). Suggestion:
+  cache compilado de schema; gain esperado p99 120ms → 30-40ms.
+baseline:
+  metric: latency_p99
+  value: 120
+  source: "hyperfine 'node bench/orders.js' --runs 10 (laptop M1, node 20.10)"
+hot_path:
+  - function: validateOrder
+    file: src/orders.ts
+    line_range: [42, 95]
+    share_pct: 47
+    evidence: "node --cpu-prof; ProcessTicksAndRejections → validateOrder → ajv.compile"
+  - function: ajv.compile
+    file: node_modules/ajv/lib/compile/index.js
+    line_range: [1, 200]
+    share_pct: 31
+    evidence: "subset de validateOrder; chamado a cada call"
+hypotheses:
+  - hypothesis: "Schema compilation acontece a cada validateOrder call"
+    validates_with: "console.time em ajv.compile vs cached"
+    status: confirmed
+    delta:
+      metric: latency_p99
+      before: 120
+      after: 38
+suggestions:
+  - target: validateOrder
+    intervention: "Compilar schema uma vez no module load; reusar"
+    expected_gain: "p99 120ms → ~38ms (3.2×)"
+    risk: low
+    requires: ["validar que schema é estático (não muda em runtime)"]
+assumptions:
+  - item: "Workload de bench reflete prod (10k orders, mix uniforme)"
+    why: "Sem trace de prod disponível"
+not_checked:
+  - area: "Memory profile"
+    reason: "Bottleneck é CPU (47%); memory não foi gargalo no run baseline"
+  - area: "Multi-threaded variant"
+    reason: "Out of scope — refactor playbook quando aplicar"
+```
+
+---
+
+## 9. Playbook: `git-hygiene`
+
+Slash command: `/git-hygiene`. Subagent isolado. Sugere ações de git (commit msg, branch naming, rebase strategy) **sem executar**. User aplica manualmente.
+
+```yaml
+---
+name: git-hygiene
+description: Sugestões de commit msg, branch naming, rebase, e cleanup de history (read-only)
+tools:
+  - read_file
+  - grep
+  - glob
+  - bash
+tool_restrictions:
+  bash:
+    allow_patterns:
+      - 'git log *'
+      - 'git diff *'
+      - 'git diff --stat *'
+      - 'git status *'
+      - 'git branch *'
+      - 'git rev-parse *'
+      - 'git show *'
+      - 'git blame *'
+      - 'git ls-files *'
+      - 'git remote *'
+      - 'git tag --list *'
+      - 'git config --get *'
+      - 'wc *'
+budget:
+  max_steps: 12
+  max_cost_usd: 0.30
+references:
+  - COMMIT.md
+  - AGENTS.md
+output_schema:
+  type: object
+  required: [summary, suggestions, assumptions, not_checked]
+  properties:
+    summary: { type: string }
+    branch_assessment:
+      type: object
+      properties:
+        current_branch: string
+        naming_match: { type: boolean }
+        suggested_name: string
+        reason: string
+    suggestions:
+      type: array
+      items:
+        type: object
+        required: [kind, action, command, why]
+        properties:
+          kind: { enum: [commit_message, branch_rename, rebase, squash, split_commit, amend, cleanup_history] }
+          action: string                    # descrição curta do que fazer
+          command:                          # comando(s) literal(is) pro user rodar
+            type: array
+            items: string
+          why: string
+          risk: { enum: [low, medium, high] }
+          reversible: { type: boolean }
+    commit_drafts:
+      type: array
+      items:
+        type: object
+        required: [files, subject, body, follows_convention]
+        properties:
+          files: { type: array, items: string }
+          subject: { type: string, maxLength: 72 }
+          body: string
+          follows_convention: string         # "Title Case verb (repo style)" / "conventional-commits" / etc
+    assumptions: { type: array }
+    not_checked: { type: array }
+slash: git-hygiene
+sampling:
+  temperature: 0.1
+  max_tokens: 2048
+context_recipe:
+  include_repo_map: lazy
+  include_diff: true
+  include_callers: false
+  goal_reinjection_every_n_steps: 6
+  fewshot_count: 1
+  memory_filter: ['feedback', 'reference']  # captura convenção do repo (ex: feedback_commit_style)
+prompt_version: 1
+context_recipe_version: 1
+---
+```
+
+# Git Hygiene
+
+Sugere ações de git que melhoram **legibilidade do history** e aderência a convenções do projeto. **Não executa**. Output é shopping list de comandos pro user copiar.
+
+Não cria commit. Não faz push. Não rebase. Não força nada.
+
+## NÃO faça
+
+- Não execute `git commit`, `git push`, `git rebase`, `git reset`, `git restore`, `git tag`, `git checkout` (qualquer comando que muda state). Tool restriction enforça.
+- Não invente convenção; **leia AGENTS.md / CONTRIBUTING.md / git log recente** pra inferir o padrão do projeto.
+- Não sugira "Conventional Commits" se o projeto não usa. Olhe o histórico.
+- Não sugira squash/rebase em commits já push'd a `main` ou branch protegida.
+- Não recomende `--force` push em branches compartilhadas.
+- Não invente issue numbers ou PR refs ("Closes #123") sem evidência.
+- Não declare commit message "perfect" sem ler o diff completo.
+- Não revele credenciais ou secrets que apareçam em git log/diff (raro, mas redactor falhou se aparece).
+
+## Faça
+
+- Inferir convenção do projeto via `git log --oneline -50` antes de sugerir.
+- Convenções comuns conhecidas: Title Case verb (`Create X.md, Update Y.md`), Conventional Commits (`feat:`, `fix:`), Gitmoji, ALL CAPS de 3 chars (`ADD`/`FIX`). Identifique qual e siga.
+- Commit message: subject ≤ 72 chars, imperative mood, sem ponto final (a menos que convenção diga).
+- Body só se mudança não-óbvia; explique **por quê**, não **o quê** (diff já mostra o quê).
+- Branch naming: feature/X, fix/Y, ou padrão do projeto detectado.
+- Rebase só sugerido para commits **locais** (não em remoto compartilhado).
+- Squash apropriado quando há "WIP" / "fix typo" entre commits relacionados.
+
+## Convenções comuns (reconheça-as)
+
+| Padrão | Exemplo | Sinais |
+|---|---|---|
+| Title Case verb | `Create AGENTS.md, Update CONTEXT_TUNING.md` | git log mostra "Create"/"Update" prefix consistente |
+| Conventional Commits | `feat(auth): add password reset` | `feat:`/`fix:`/`chore:` em ≥ 70% dos commits recentes |
+| Gitmoji | `:sparkles: add feature` | emojis em ≥ 50% |
+| Ticket-prefixed | `JIRA-123: fix bug` | matching `[A-Z]+-\\d+:` em ≥ 70% |
+| ALL CAPS verb | `ADD support for X` | `[A-Z]{3,}\\s` prefix consistente |
+| Free-form | sem padrão | inconsistência > 50%; sugira mas não force |
+
+## Heurísticas de detecção de issues
+
+- **Commit msg vago** ("update", "fix bug", "wip"): propor refraseamento.
+- **Commit gigante** (>20 arquivos, lotes não-relacionados): propor split.
+- **Commits encadeados de "fix"**: propor squash.
+- **Branch name genérico** ("test", "tmp", "branch1"): propor rename.
+- **Histórico com WIP/typo no meio**: propor rebase interativo (commits locais apenas).
+- **Body com info que devia estar em PR description**: propor mover.
+
+## Quando NÃO conseguir terminar
+
+Output com suggestions vazia + `not_checked` justificando ("convenção do projeto não detectável; precisa de input humano"). Não invente convenção pra preencher.
+
+## Output
+
+Schema completo. Suggestions vazia é resultado válido (history limpo, convenção seguida — nada a mexer).
+
+`commit_drafts[].follows_convention` cita explicitamente qual convenção foi seguida; vincula ao memory de `feedback_commit_style` quando aplicável.
+
+## Exemplo de output mínimo
+
+```yaml
+summary: |
+  Branch atual segue convenção (feature/*). 3 commits locais não-pushed têm
+  msgs vagas ("wip", "fix typo"); sugiro squash em commit único com msg clara
+  seguindo o padrão "Title Case verb" detectado em git log -50.
+branch_assessment:
+  current_branch: feature/auth-refactor
+  naming_match: true
+  reason: "Padrão feature/<topic> seguido em ≥ 80% das branches recentes"
+suggestions:
+  - kind: squash
+    action: "Squash 3 commits locais ('wip', 'fix typo', 'cleanup') em um único"
+    command:
+      - "git rebase -i HEAD~3"
+      - "# marcar commits 2 e 3 como 'fixup'"
+      - "git commit --amend -m 'Update src/auth.ts, src/auth.test.ts'"
+    why: |
+      Commits intermediários não agregam ao history; squash deixa diff revisável
+      em 1 commit limpo. Seguro pois commits são locais (git rev-parse @{u}
+      mostra que upstream tem só HEAD~3).
+    risk: low
+    reversible: true   # git reflog cobre se errar
+commit_drafts:
+  - files: ["src/auth.ts", "src/auth.test.ts"]
+    subject: "Update src/auth.ts, src/auth.test.ts"
+    body: |
+      Extract validateToken to pure function; preserva semântica observable.
+      8/8 testes passando; nenhum caller afetado (ver code_graph dependents).
+    follows_convention: "Title Case verb (repo style — feedback_commit_style)"
+assumptions:
+  - item: "git rev-parse @{u} confirmou upstream = HEAD~3"
+    why: "Verificou que squash não afeta commits push'd"
+not_checked:
+  - area: "Conventional Commits format"
+    reason: "Repo não usa esse padrão (git log -50 mostra Title Case verb)"
+  - area: "PR description"
+    reason: "Out of scope; gh CLI não está em allow_patterns"
+```
+
+---
+
+## 10. Como adicionar um playbook novo
 
 1. Criar `~/.config/agent/playbooks/<name>.md` com frontmatter completo.
 2. Definir output schema com `summary` + `assumptions` + `not_checked` (mínimo).
@@ -774,7 +1388,7 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 8. Anti-patterns comuns (não cometa)
+## 11. Anti-patterns comuns (não cometa)
 
 | Anti-pattern | Por que é ruim |
 |---|---|
@@ -790,28 +1404,25 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 9. Playbooks futuros (candidatos)
+## 12. Playbooks futuros (candidatos)
 
-Ordem de retorno esperado. Teto recomendado: **6 playbooks total**. Mais que isso o modelo confunde a seleção.
+Ordem de retorno esperado. Teto recomendado: **6 playbooks total**. Mais que isso o modelo confunde a seleção. **Atual: 8** — acima do teto. Decisão deliberada; gatilho de revisão: eval de slash command selection mostra confusão > 5% em sessões recentes → revisitar (deprecar `pair-coding`/`architect` é trivial — não existem; deprecar um dos 8 ativos exige PR de remoção).
 
-Atual (5): `code-review`, `security-audit`, `debug`, `refactor`, `explain`.
+Atual (8): `code-review`, `security-audit`, `debug`, `refactor`, `explain`, `threat-model`, `perf-investigate`, `git-hygiene`.
 
 | Candidato | Quando fazer | Por quê |
 |---|---|---|
-| `threat-model` | próximo natural | Proativo (input: design); distinto de `audit` (reativo: input: código). Ref: `THREAT_MODELING.md`, `ZERO_TRUST.md`. |
 | `incident-response` | quando útil em on-call | Estabiliza → diagnostica → comunica. Mindset distinto de `debug`. Ref: `INCIDENT_RESPONSE.md`, `PROD_PROBLEM.md`, `OBSERVABILITY.md`. |
-| `perf-investigate` | quando perf vira tarefa recorrente | Variante de `debug` com tools (profiler) e schema (hot path) específicos. Ref: `PROFILING.md`, `PREMATURE_OPTIMIZATION.md`. |
-| `git-hygiene` | se time tem padrão forte | Commit msg, branch naming, rebase. Ref: `COMMIT.md`. |
 | `test-add` | se cobertura é prioridade | Adiciona testes pra função/módulo. Ref: `TESTS.md`. |
 | `api-design` | se workflow é design de API | Endpoint design com constraints. Ref: `API_DESIGN.md`, `DESIGN_CONTRACT.md`. |
 | `architect` | provavelmente nunca | Vira filosofia; modelo já é bom em design quando contexto é bom |
 | `pair-coding` | nunca | Modo default já é isso |
 
-Princípio: cada playbook novo só entra se **eval mostra que modo normal falha** no workflow. Sem evidência empírica, fica em backlog.
+Princípio: cada playbook novo só entra se **eval mostra que modo normal falha** no workflow. Sem evidência empírica, fica em backlog. Promoção dos 3 mais recentes (`threat-model`, `perf-investigate`, `git-hygiene`) é decisão de design; eval-driven validation segue.
 
 ---
 
-## 10. Insight final
+## 13. Insight final
 
 Playbook bem feito não ensina o modelo a pensar — **restringe** o que ele pode fazer e **estrutura** o que ele deve devolver. O resto é o modelo já fazendo o trabalho dele.
 

@@ -166,10 +166,13 @@ Zero pressuposto de mouse. Todo fluxo navegável por teclado:
 /hooks             # lista hooks ativos
 /trust             # gerencia diretórios confiados
 /review            # playbook: code review (read-only)
-/audit             # playbook: security audit (read-only)
+/audit             # playbook: security audit (read-only, reativo: input é código)
 /debug             # playbook: hypothesis-driven debugging
 /refactor          # playbook: scope-bounded refactor preservando semântica
 /explain           # playbook: read-only explicação estruturada de código/sistema
+/threat-model      # playbook: STRIDE-driven threat model (read-only, proativo: input é design)
+/perf              # playbook: performance investigate (profiler-driven, não aplica fixes)
+/git-hygiene       # playbook: sugere commit msg/branch/rebase (read-only, não executa)
 /recap             # vista projetada da sessão atual (últimos N steps)
 /recap session     # vista de sessão específica
 /recap pr          # render como PR description
@@ -1080,9 +1083,9 @@ Diferenças vs subagent genérico:
 | Eval | opcional | **obrigatório** antes de virar `slash:` ativo |
 | References | livre | declaradas no frontmatter, lidas sob demanda (sem embed) |
 
-Definidos em `~/.config/agent/playbooks/*.md`. Disparados por slash command (`/review`, `/audit`, `/debug`, `/refactor`) ou por `task(playbook: <name>)` em código de outro agente.
+Definidos em `~/.config/agent/playbooks/*.md`. Disparados por slash command (`/review`, `/audit`, `/debug`, `/refactor`, `/explain`, `/threat-model`, `/perf`, `/git-hygiene`) ou por `task(playbook: <name>)` em código de outro agente.
 
-Templates iniciais e princípios de design em [`PLAYBOOKS.md`](./PLAYBOOKS.md). Quatro cidadãos de primeira classe na v1: `code-review`, `security-audit`, `debug`, `refactor`. Teto recomendado: 6 playbooks; mais que isso degrada seleção do modelo.
+Templates iniciais e princípios de design em [`PLAYBOOKS.md`](./PLAYBOOKS.md). **Oito** playbooks na v1: `code-review`, `security-audit`, `debug`, `refactor`, `explain`, `threat-model`, `perf-investigate`, `git-hygiene`. Acima do teto recomendado de 6 — decisão deliberada documentada em `PLAYBOOKS.md §12`; revisão eval-driven gatilho se modelo confunde seleção > 5%.
 
 ---
 

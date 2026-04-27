@@ -1000,7 +1000,102 @@ Sections:
 Few-shot: 1 exemplo de output estruturado (overview + flow + gotchas)
 ```
 
-### 13.6 Per-recipe override
+### 13.6 `threat-model`
+
+```
+Sections:
+  - system + playbook threat-model (read-only, proativo)
+  - tool_schemas (read-only + tools simbólicas — code_graph é load-bearing
+    pra walk de entry points e trust boundaries)
+  - project_context
+  - memory_index (filtered: security + architecture + reference)
+  - repo_map (eager — STRIDE walk precisa visão completa do design surface)
+  - [diff section]: git diff vs base se mudança é sobre PR de feature/design
+  - [security_refs]: SECURITY_GUIDELINE.md + THREAT_MODELING.md excerpts injetados
+    quando trust boundary identificada (lazy via reference resolution)
+  - recent_turns
+  - goal re-injection (a cada 4 steps — STRIDE é sistemático e multi-categoria;
+    fácil perder track de quais categorias já foram cobertas)
+
+Few-shot: 1 exemplo de threat completo (id + category + target + attack +
+          severity + mitigation com residual_risk declarado)
+
+Notas:
+- Sem [callers section]: trust boundaries vêm de design + code_graph entry points,
+  não de quem chama o quê. Callers seria ruído.
+- Memory filter inclui 'reference' pra capturar links pra docs de threat modeling
+  externas (OWASP, MITRE, CWE) que o user já registrou.
+- Goal canônico injetado: "STRIDE coverage; threats com residual_risk; assumptions
+  declaradas" — a cada 4 steps.
+```
+
+### 13.7 `perf-investigate`
+
+```
+Sections:
+  - system + playbook perf-investigate
+  - tool_schemas (read tools + bash com profiler whitelist + bash_background +
+    wait_for + monitor — coordenação async é load-bearing pra rodar profiler
+    sem polling em loop)
+  - project_context
+  - memory_index (filtered: perf + reference)
+  - repo_map (eager — hot path identification precisa estrutura)
+  - [callers section]: callers do target hot path (via find_references) —
+    contexto de "por que essa função é chamada tanto"
+  - [perf_refs]: PROFILING.md + PREMATURE_OPTIMIZATION.md + PERFORMANCE.md
+    excerpts (lazy via reference)
+  - [profiler_output]: stdout/stderr de bash_background com profiler ativo,
+    capturado por monitor; aparece em recent_turns como tool_result
+  - recent_turns
+  - goal re-injection (a cada 5 steps — espaçado; benchmarks consomem wall-clock,
+    re-injection frequente seria ruído)
+
+Few-shot: 1 exemplo com baseline + hot_path com share_pct + hypothesis status
+          'confirmed' com delta antes/depois
+
+Notas:
+- Sem [diff section]: perf-investigate é sobre estado atual, não sobre mudança.
+- include_callers: true é load-bearing — callers contam parte da história de
+  por que função é hot (chamada N× por loop, etc).
+- Goal canônico injetado: "baseline first; hot path com evidência; hipótese
+  validada via medição, não leitura".
+```
+
+### 13.8 `git-hygiene`
+
+```
+Sections:
+  - system + playbook git-hygiene (read-only sobre git state)
+  - tool_schemas (read_file + bash com whitelist read-only de git)
+  - project_context
+  - memory_index (filtered: feedback + reference — capturar feedback_commit_style
+    se existir)
+  - [diff section]: git diff (working tree + staged) — load-bearing pra propor
+    commit msg que reflete o que mudou
+  - [git_log_sample]: git log --oneline -50 da branch — pra inferir convenção
+    do projeto (Title Case verb / Conventional Commits / etc); injetado uma vez
+    no primeiro turn, cacheado
+  - recent_turns
+  - goal re-injection (a cada 6 steps — sessão curta; raramente precisa)
+
+Few-shot: 1 exemplo com branch_assessment + suggestions[] com commands literais
+          + commit_drafts seguindo convenção detectada
+
+Notas:
+- Sem repo_map: git-hygiene é sobre history e workflow, não estrutura de código.
+  Override: include_repo_map: lazy (sob demanda se user pedir explicação de
+  porque commit X tocou arquivos Y).
+- include_diff: true é load-bearing — sem diff, commit msg é alucinação.
+- memory_filter prioriza 'feedback' pra capturar `feedback_commit_style` se existir
+  (ver MEMORY.md exemplo: convenção Title Case do repo blablabla é memória deste
+  tipo).
+- Goal canônico injetado: "respeite convenção detectada; não execute; diff é
+  fonte de verdade".
+- Detecção de convenção é cached em `recap_cache` por sessão — não re-detectar
+  a cada turn.
+```
+
+### 13.9 Per-recipe override
 
 Em playbook frontmatter:
 
