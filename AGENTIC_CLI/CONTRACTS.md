@@ -76,6 +76,7 @@ Direção: A → B (A invoca tool)
   - `write_file`/`edit_file`: declara `writes: true` em metadata → harness cria checkpoint **antes**
   - `bash`: declara `writes: true` (pessimista) salvo `bash:read_only` flag
   - `web_fetch`: network access; respeita `deny_hosts`
+- **Display hint opcional** em metadata: `display: 'table' | 'list' | 'diff' | 'raw' | 'auto'` (default `auto`). Override do auto-detect do `<ToolCallCard>` (`UI.md §3.1`/§3.2). Tools com output `Array<object>` homogêneo se beneficiam de `display: 'table'` explícito; outputs de `bash` usam `display: 'raw'` para preservar formatação de terminal.
 - Erros são **estruturados** seguindo schema canônico (não exception bare):
   ```ts
   interface ToolError {

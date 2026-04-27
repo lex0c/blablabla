@@ -133,7 +133,7 @@ Modais (permission/trust/memory write/plan approval) **sobrepõem o Input pane**
 
 ---
 
-## 3. Catálogo de componentes (26 + 5 primitivas)
+## 3. Catálogo de componentes (26 + 6 primitivas)
 
 Para cada: **props**, **estados**, **comportamento**, **fallbacks**.
 
@@ -227,6 +227,167 @@ interface DiffProps {
 
 Render: linhas `+` em verde, `-` em vermelho, contexto neutro. Hunks separados por `─`.
 
+#### `<Table>`
+Renderização tabular para arrays de records. Resolve gap de UI quando tools simbólicas (`find_references`, `outline_file`, `code_graph`), slash commands (`/mcp list`, `/memory list`, `/cost`), e outputs de query SQL retornam dados estruturados — antes destes, fallback era dump multi-linha ou JSON cru.
+
+```ts
+interface TableProps<T> {
+  rows: T[]
+  columns: TableColumn<T>[]
+  density?: 'compact' | 'comfortable'   // default 'compact' (1 linha/row)
+  maxRows?: number                       // truncate com "[N more rows]"
+  navigable?: boolean                    // ↑↓ + Enter; default false (estático)
+  selectedIndex?: number                 // controlled cursor quando navigable
+  onRowSelect?: (row: T, index: number) => void
+  onRowHover?: (row: T, index: number) => void   // opt-in; útil pra preview pane
+  emptyMessage?: string                  // default "(no results)"
+  groupBy?: keyof T                      // opcional: section headers por valor
+  sortBy?: { key: keyof T; direction: 'asc'|'desc' }
+  caption?: string                       // descrição acima do header
+}
+
+interface TableColumn<T> {
+  key: keyof T
+  label: string                          // header text
+  width?: number | 'auto' | 'flex'       // chars fixos, auto-fit, ou consume restante
+  minWidth?: number                      // floor pra auto/flex
+  align?: 'left' | 'right' | 'center'    // default 'left'
+  truncate?: 'end' | 'middle' | 'none'   // default 'end'; 'middle' pra paths longos
+  format?: (val: any, row: T) => string  // formatter custom
+  color?: (val: any, row: T) => string   // color name por valor (ex: status)
+}
+```
+
+**Render compact (não-navigable):**
+
+```
+file                  line  kind   text
+────────────────────  ────  ─────  ──────────────────────────────
+src/api/auth.ts       42    call   await validateOrder(order)
+src/api/auth.ts       88    type   Result<typeof validateOrder>
+tests/auth.test.ts    15    call   expect(validateOrder({...}))
+tests/auth.test.ts    22    call   await validateOrder(invalid)
+                                                  [3 more rows]
+```
+
+**Render navigable (cursor + selected row destacada):**
+
+```
+file                  line  kind   text
+────────────────────  ────  ─────  ──────────────────────────────
+  src/api/auth.ts     42    call   await validateOrder(order)
+▶ src/api/auth.ts     88    type   Result<typeof validateOrder>
+  tests/auth.test.ts  15    call   expect(validateOrder({...}))
+  ↑↓ navegar  ↵ selecionar  Esc cancelar
+```
+
+**Render empty:**
+
+```
+file  line  kind  text
+────  ────  ────  ────
+                          (no results)
+```
+
+**Render com groupBy (ex: agrupar por `kind`):**
+
+```
+file                  line  text
+─── kind: call (5) ────────────────────────────────────────
+src/api/auth.ts       42    await validateOrder(order)
+tests/auth.test.ts    15    expect(validateOrder({...}))
+...
+─── kind: type (2) ────────────────────────────────────────
+src/api/auth.ts       88    Result<typeof validateOrder>
+src/types.ts          12    OrderValidator = typeof ...
+```
+
+### Auto-fit de largura
+
+Estratégia em ordem de precedência:
+
+1. Coluna com `width: number` → fixed.
+2. Coluna com `width: 'auto'` (default se omitido) → max do label + max do conteúdo medido (cap em 50 chars).
+3. Coluna com `width: 'flex'` → consome largura restante; se múltiplas, divide proporcional.
+4. Total > terminal cols: colunas `auto` shrinkam a `minWidth` (default 8); ainda excede → última `flex` (ou última `auto`) recebe truncate `end`.
+
+Cálculo é re-feito em `SIGWINCH`. Re-render < 16ms (1 frame).
+
+### Densidade
+
+| Density | Comportamento |
+|---|---|
+| `compact` | 1 linha por row, separator `─` única após header, sem padding extra. Default |
+| `comfortable` | 1 linha vazia entre rows; bordas `│` opcionais |
+
+Em `< 80 cols`: `comfortable` força `compact` (não cabe).
+
+### Truncation por célula
+
+| Mode | Resultado em 20 chars de "src/api/auth-validation.ts:42" |
+|---|---|
+| `end` (default) | `src/api/auth-valid…` |
+| `middle` | `src/api/…idation.ts` |
+| `none` | overflow horizontal (quebra layout — uso só com colunas curtas) |
+
+`middle` é o modo recomendado pra paths e identifiers longos.
+
+### Color por valor
+
+```ts
+columns: [{
+  key: 'status',
+  label: 'Status',
+  color: (val) => val === 'failed' ? 'red' : val === 'warn' ? 'yellow' : 'green'
+}]
+```
+
+NO_COLOR: `color` é ignorado; status pode ganhar prefixo via `format`:
+
+```ts
+format: (val) => val === 'failed' ? '[!]' + val : val
+```
+
+### Atalhos (modo navigable)
+
+| Tecla | Ação |
+|---|---|
+| `↑/↓` | move cursor |
+| `↵` | `onRowSelect(row)` |
+| `g` / `G` | go to first / last row |
+| `Esc` | cancela (sai sem selection) |
+| `/` | inline filter (filtra linhas em-place; Esc limpa) |
+
+### ASCII fallback
+
+```
+file               | line | kind  | text
+-------------------+------+-------+------------------------------
+src/api/auth.ts    | 42   | call  | await validateOrder(order)
+src/api/auth.ts    | 88   | type  | Result<typeof validateOrder>
+tests/auth.test.ts | 15   | call  | expect(validateOrder({...}))
+                                                   [3 more rows]
+```
+
+Cursor em ASCII: `>` ao invés de `▶`.
+
+### Performance
+
+- Render de 100 rows × 5 colunas: < 30ms.
+- Em `navigable` com 1000+ rows: virtualização (renderiza só visíveis); `↑↓` paginates automaticamente.
+- Re-flow em `SIGWINCH`: < 16ms.
+
+### Quando usar `<Table>` vs `<SessionPicker>` vs lista plana
+
+| Caso | Componente |
+|---|---|
+| 5+ campos por row, dados homogêneos | `<Table>` |
+| 1-3 campos + free-form text + expansão inline | `<SessionPicker>` (custom, não generalizado) |
+| 1-2 campos curtos | lista plana com bullet/cursor |
+| Dados de árvore (parent/child) | `<DAGProgress>` ou indented list |
+
+`<Table>` **não substitui** `<SessionPicker>` — esse é especializado pra mini-recap inline. Tabela é grid uniforme.
+
 ### 3.2 Domain components
 
 #### `<StreamingMessage>`
@@ -282,6 +443,29 @@ Render expandido:
 ```
 
 Status icons + progressive disclosure. PipelineBadges aparece **só** em tools com `pipeline_result` populado (`CODE_GENERATION.md §4.1`).
+
+**Render do output expandido — heurística por shape:**
+
+| Output shape | Render |
+|---|---|
+| `string` (multi-linha) | dump indentado dentro do card |
+| `Array<string>` | bullet list |
+| `Array<object>` com ≥ 2 campos partilhados | `<Table>` (auto-detect colunas dos campos comuns) |
+| `Array<object>` com 1 campo ou heterogêneo | bullet list ou JSON pretty |
+| `object` (single record) | key-value (mesmo padrão que `<ValidatorTrace>`) |
+| `{ diff: string, language?: string }` | `<Diff>` |
+| `{ status, content, ... }` (tool result MCP) | unwrap `content`, recursão na heurística |
+
+**Override por tool metadata** (opcional, em `CONTRACTS.md §2.6`):
+
+```yaml
+metadata:
+  display: 'table' | 'list' | 'diff' | 'raw' | 'auto'   # default 'auto'
+```
+
+`display: 'raw'` força dump cru (pra outputs de `bash` que devem aparecer como saída de terminal).
+
+Tools que se beneficiam de table render automático: `find_references`, `outline_file`, `code_graph`, `glob` (lista de paths agrupada por diretório como groupBy), `grep` (file/line/text colunas).
 
 #### `<PipelineBadges>`
 Badges inline com resultado do pipeline de geração (`CODE_GENERATION.md §1`). Renderizado por `<ToolCallCard>` em tools de write; pode ser usado standalone em recap.
