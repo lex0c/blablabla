@@ -1215,7 +1215,75 @@ context_recipe:
   include_callers: true             # auto-grep callers do target
   goal_reinjection_every_n_steps: 3
   fewshot_count: 1
+  step_reflection: terse            # ver §13.10
 ```
+
+### 13.10 Step reflection (opt-in)
+
+> **Cross-refs:** drift detector relacionado em `STATE_MACHINE.md §11`; self-critique em `ORCHESTRATION.md §6`; recap em `RECAP.md §3`.
+
+Padrão **opt-in** onde o modelo emite reflexão estruturada no fim de cada step. Útil em workflows exploratórios onde *reasoning trace é o produto* (debug em bug não-reproduzível, explain de codebase desconhecido). **Default `off`** em todos os playbooks exceto `debug` e `explain`.
+
+#### 13.10.1 Modos
+
+| Modo | Output emitido no fim de cada step | Tokens output/step | Quando usar |
+|---|---|---|---|
+| `off` | nada | 0 | refactor, code-review, git-hygiene, perf, threat-model, security-audit, gap-audit |
+| `terse` | 1 linha: `next: <descrição curta>` | ~15-30 | debug, explain (default) |
+| `full` | 3 linhas: `just_did:` / `why_advances_goal:` / `next_step_planned:` | ~80-120 | opt-in raro; sessão exploratória crítica onde trace é artefato entregável |
+
+#### 13.10.2 Format canônico
+
+**`terse`:**
+
+```
+[step_reflection]
+next: continuar pelo callsite em src/queue.ts:142 — confirmar se `pop()` segura lock
+[/step_reflection]
+```
+
+**`full`:**
+
+```
+[step_reflection]
+just_did: li src/queue.ts e identifiquei que pop() não segura lock entre check e remove
+why_advances_goal: localiza root cause da race condition reportada no goal
+next_step_planned: ler tests/queue.test.ts pra ver se há cobertura existente do path concorrente
+[/step_reflection]
+```
+
+Bloco emitido como **tail** do assistant message — depois de tool_use blocks (se houver) e antes de stop.
+
+#### 13.10.3 Persistência
+
+```sql
+-- adicionar coluna em messages
+messages.reflection TEXT NULL                -- texto cru do bloco (sem marcadores)
+```
+
+Determinístico — projeção do recap (`RECAP.md §3`) pode usar como input enriquecido pra `decisions[].why` e `timeline[].detail`.
+
+#### 13.10.4 Re-injeção
+
+- **`terse`:** últimas 3 reflections injetadas em `[recent_turns]` como continuidade explícita. Custo: ~60-90 tokens. Modelo lê o que disse que ia fazer e segue.
+- **`full`:** **NÃO** re-injetado. Body do message já está em `recent_turns` (regra padrão de §2 layout); duplicação seria bloat.
+
+#### 13.10.5 Interação com outras primitivas
+
+| Primitiva | Relação |
+|---|---|
+| Drift detector (`STATE_MACHINE.md §11`) | Independente. Detector compara `next_action.intent` (capturado no momento do tool_use) contra goal; reflection é narrativa retrospectiva. Sem overlap. |
+| Self-critique (`ORCHESTRATION.md §6`) | Roda **depois** da reflection (reflection é parte do output buffer; critique avalia output completo). Critique pode flag reflection vazia/vaga. |
+| `todo_write` | Complementar — TODOs são plano de tarefa; reflections são trace de execução. Não substitui. |
+| RECAP (`RECAP.md §3`) | Reflection enriquece `timeline[]` e `decisions[].why`. Sem reflection, recap depende só de structured decisions/approvals. |
+
+#### 13.10.6 Anti-patterns
+
+- **`full` em playbook não-exploratório.** Refactor de 30 steps com `full` = ~3k tokens só de narração; drift detector + decisions[] já cobrem, narração vira ruído.
+- **`terse` em side-effect-heavy workflow.** Refactor/git-hygiene não precisam de reflection — ação é o trace.
+- **Reflection vagueada.** `next: continuar` sem objeto específico viola o ponto. Eval cobre via grep de patterns vagos (`continuar`, `prosseguir`, `seguir adiante` sem nome de arquivo/símbolo).
+- **Re-injetar `full`.** Custo dobrado sem ganho — body já está em recent_turns.
+- **Reflection como substituto de todo_write.** TODOs são plano persistente; reflection é por-step. Misturar = perda de ambos.
 
 ---
 

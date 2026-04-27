@@ -55,6 +55,7 @@ context_recipe:               # shaping de contexto (ver CONTEXT_TUNING.md)
   goal_reinjection_every_n_steps: int
   fewshot_count: int
   memory_filter: [string]     # filtra memory index por type/tag
+  step_reflection: enum [off, terse, full]   # default off; opt-in (CONTEXT_TUNING.md §13.10)
 prompt_version: int           # bump em mudança de prompt OR sampling
 context_recipe_version: int   # bump em mudança de recipe
 phases:                       # opt-in; auto-emite push/pop em goal_stack (STATE_MACHINE.md §2.3)
@@ -365,6 +366,8 @@ references:
   - DISTRIBUTED_SYSTEMS.md          # se multi-serviço
   - OBSERVABILITY.md                # se falta de sinal é o problema
 slash: debug
+context_recipe:
+  step_reflection: terse          # debug é hipótese-driven; trace de raciocínio paga (CONTEXT_TUNING.md §13.10)
 output_schema:
   symptom: string                 # o bug como reportado
   hypotheses:
@@ -670,6 +673,8 @@ references:
   - CONCEPTUAL_INTEGRITY.md
   - HOLISTIC_VIEW.md
 slash: explain
+context_recipe:
+  step_reflection: terse             # output IS o reasoning; trace explícito vale (CONTEXT_TUNING.md §13.10)
 output_schema:
   topic: string                      # o que foi explicado (echo do prompt)
   overview: string                   # 2-4 linhas, resumo executivo
