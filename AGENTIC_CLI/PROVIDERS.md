@@ -39,6 +39,7 @@ interface ProviderCapabilities {
   vision: boolean
   streaming: boolean
   constrained: ConstrainedKind | false        // gbnf | json_mode | tools | regex | false
+  sampling: SamplingSupport                   // ver TOKEN_TUNING.md §10
   
   // Limits
   context_window: number
@@ -151,6 +152,8 @@ Provider adicionado depois faz PR atualizando esta tabela.
 
 ### 3.3 Ollama
 
+> **Detalhamento operacional:** [`LOCAL_MODELS.md`](./LOCAL_MODELS.md) — hardware detection, model lifecycle (load/warm-up/keep_alive), tool calling adapter formal, prompt template dialects, setup/bootstrap, remote LAN scenarios, failure modes específicas. Esta seção é overview de quirks.
+
 **Strengths:**
 - **Custo zero** (recurso local)
 - **Privacidade** (nada sai do host)
@@ -173,6 +176,8 @@ Provider adicionado depois faz PR atualizando esta tabela.
 - Template dialect detection via model name
 
 ### 3.4 llama.cpp
+
+> Mesma autoridade de detalhe operacional em [`LOCAL_MODELS.md`](./LOCAL_MODELS.md). Esta seção é overview.
 
 **Strengths:**
 - **GBNF grammar nativo** — constrained generation mais flexível que JSON mode

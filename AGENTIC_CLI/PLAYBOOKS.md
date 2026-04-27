@@ -40,10 +40,27 @@ budget:
   max_cost_usd: float
   max_wall_clock_ms: int      # opcional
 references: [path]            # docs lidos sob demanda
-output_schema: {...}           # schema YAML/JSON do output esperado
+output_schema: {...}          # schema YAML/JSON do output esperado
 slash: string                 # comando que invoca (sem /)
+sampling:                     # tuning de geração (ver TOKEN_TUNING.md)
+  temperature: float          # 0.0 - 2.0
+  top_p: float                # 0.0 - 1.0
+  max_tokens: int             # output budget
+  thinking_budget: int        # se Anthropic; 0 = off
+  seed_in_eval: bool          # reprodutibilidade em eval
+context_recipe:               # shaping de contexto (ver CONTEXT_TUNING.md)
+  include_repo_map: enum [eager, lazy, off]
+  include_diff: bool          # auto-incluir git diff vs base
+  include_callers: bool       # auto-grep callers do target
+  goal_reinjection_every_n_steps: int
+  fewshot_count: int
+  memory_filter: [string]     # filtra memory index por type/tag
+prompt_version: int           # bump em mudança de prompt OR sampling
+context_recipe_version: int   # bump em mudança de recipe
 ---
 ```
+
+Sampling defaults canônicos por workflow em [`TOKEN_TUNING.md`](./TOKEN_TUNING.md) §9. Context recipes canônicos por workflow em [`CONTEXT_TUNING.md`](./CONTEXT_TUNING.md) §13. Override per playbook conforme acima.
 
 ### 1.2 Output schema sempre tem
 
