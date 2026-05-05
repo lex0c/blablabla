@@ -231,6 +231,22 @@ Não escreve código. Não aplica fixes. Não aprova nem rejeita PR.
 
 `low` vai pra `nits`. `critical`/`high` vão pra `blockers`. `medium` é julgamento.
 
+## Heurísticas de busca rápida
+
+```bash
+# Uso similar no resto do código (consistency check)
+rg -nw 'similar_pattern'
+
+# Callers do símbolo mudado (raio de impacto)
+rg -nw 'changed_function|ChangedClass'
+
+# Tests cobrindo o diff
+git diff --name-only main...HEAD | rg -i 'test|spec'
+
+# Strings/literals novos (i18n drift, dup error messages)
+git diff main...HEAD | rg '^\+' | rg -nE '"[^"]{20,}"'
+```
+
 ## Exemplo de output mínimo
 
 ```yaml
@@ -498,6 +514,25 @@ Estado válido. Reporte:
 - Por que falhou
 - Hipóteses sobre **por que não reproduz** (env, timing, dado específico)
 - Marca `root_cause.confidence: speculation` e segue.
+
+## Heurísticas de busca rápida
+
+```bash
+# Mensagem de erro literal (encontra a string source, não interpretação)
+rg -nF 'literal error message text'
+
+# Stacktrace / nivel alto em logs recentes
+rg -n 'ERROR|FATAL|panic|Exception|Traceback' --max-count=20 logs/
+
+# Callers de função suspeita (escopo de impacto)
+rg -nw 'suspect_function'
+
+# Mudanças recentes na área (regression candidate)
+git log --since='14 days' --name-only --pretty=format: -- src/area/ | sort -u
+
+# Quem editou a linha suspeita por último (contexto)
+git blame -L A,B path/to/file
+```
 
 ## Output
 
@@ -796,6 +831,22 @@ Estado válido:
 - Código ofuscado / minified → reporte; sugira inspecionar source original
 - Sistema externo (3rd party closed) → `confidence: speculation`; cite docs ou reverse engineering
 - Lógica gerada por código (build artifact) → diga claramente
+
+## Heurísticas de busca rápida
+
+```bash
+# Definição (declaração, não uso)
+rg -n '^\s*(def|class|fn|function|interface|type|struct|impl)\s+X\b'
+
+# Callers (quem chama X)
+rg -nw 'X\s*\('
+
+# Imports / use sites (cross-module flow)
+rg -n 'import.*\bX\b|from\s+\S+\s+import.*X|use\s+.*\bX\b'
+
+# Tipo: onde X aparece como param ou return
+rg -n ':\s*X\b|->\s*X\b|\)\s*->\s*X'
+```
 
 ## Output
 
@@ -1537,6 +1588,25 @@ Não escreve código. Não aplica fixes. Não reescreve o artefato.
 - **Trade-off omitido.** Decisão sem custo declarado é decisão sem ponderação.
 - **Claim de "isso é seguro/correto/idempotente" sem evidência.** Vai pra `unverifiable`.
 - **Numeração inconsistente após renumeração.** Comum em spec longa editada incrementalmente.
+
+## Heurísticas de busca rápida
+
+```bash
+# Símbolo citado no artefato existe no código?
+rg -nw 'cited_symbol' src/
+
+# Cross-ref de seção (artefato cita "FOO.md §N.N" — existe?)
+rg -nE '^##+\s+N\.N\b' FOO.md
+
+# Tabela/schema mencionado bate com migrations?
+rg -niE 'CREATE TABLE\s+(IF NOT EXISTS\s+)?\bclaimed_name\b' migrations/
+
+# Numeração de seções: detectar gap ou duplicata
+rg -nE '^##\s+[0-9]+\.' artifact.md | awk -F'[. ]' '{print $3}' | sort -n | uniq -c
+
+# Cross-ref entre artefatos: linhas que mencionam outros docs
+rg -nE '\b[A-Z_]+\.md\b' artifact.md
+```
 
 ## Anti-pattern do próprio auditor (sycophancy)
 
