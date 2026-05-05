@@ -42,6 +42,7 @@ budget:
 references: [path]            # docs lidos sob demanda
 output_schema: {...}          # schema YAML/JSON do output esperado
 slash: string                 # comando que invoca (sem /)
+when_to_use: string           # uma linha; sinaliza quando o agente principal deve auto-delegar (ver §1.4)
 sampling:                     # tuning de geração (ver TOKEN_TUNING.md)
   temperature: float          # 0.0 - 2.0
   top_p: float                # 0.0 - 1.0
@@ -95,6 +96,57 @@ Sem esses três campos, o playbook está incompleto.
 
 Sem "você é", sem "passo 1 / passo 2", sem motivação inspiracional.
 
+### 1.4 Discovery e roteamento
+
+Playbooks são consumidos por **dois caminhos**, mesma engine (`task_sync`/`task_async` em [`ORCHESTRATION.md`](./ORCHESTRATION.md) §6):
+
+| Caminho | Quem invoca | Trigger |
+|---|---|---|
+| Slash command | usuário | digita `/review`, `/challenge`, etc. no CLI |
+| Auto-delegação | agente principal | reconhece padrão e chama `task_sync("<playbook>", ...)` |
+
+**Discovery (como o agente principal vê o registry):**
+
+No startup, o harness varre `~/.config/agent/playbooks/*.md`, extrai `name + description + when_to_use` e injeta no system prompt do agente principal como tabela canônica. Limite: ≤ 12 linhas, ≤ 800 tokens — cabe em qualquer modelo sem comer contexto útil. Exemplo do que o modelo vê:
+
+```
+| playbook              | when_to_use                                                              |
+|-----------------------|--------------------------------------------------------------------------|
+| code-review           | diff pronto pra revisão; mudança que precisa de gate antes de merge      |
+| challenge-assumptions | decisão com confiança alta + evidência fraca; "obviously", opção fantasma|
+| ...                   | ...                                                                      |
+```
+
+`name` é o ID que vai em `task_sync(playbook=...)`. `slash:` não aparece — é detalhe de UX, não de roteamento.
+
+**Critério de auto-delegação (constraints negativas primeiro):**
+
+NÃO delegue quando:
+- Pergunta respondível com 1-2 reads sem schema de output (ex: "onde está definida a função X?")
+- Conversa exploratória ainda formando o problema — delegar prematuramente trava em schema antes da forma estar clara
+- Tarefa não casa com nenhum `when_to_use` — não force-fit
+- Usuário pediu resposta direta, não relatório estruturado
+
+Delegue quando:
+- Tarefa cabe num schema estruturado de algum playbook (`code-review`, `challenge-assumptions`, etc.) e o usuário se beneficia do output categorizado
+- Quer **isolation de contexto** — subagent não polui o turno principal com leituras intermediárias
+- Quer **tools restritas** — ex: red-team que NÃO deve poder editar código
+- Tarefa exige **viés explícito** que conflita com o tom default (ceticismo em `gap-audit`, paranoia em `security-audit`)
+
+**Anti-pattern: auto-delegar tudo.** Subagent custa context handoff + budget + latência. Usar `task_sync` pra "que horas são" é cargo cult. Default é responder direto; delegação é exceção que paga benefício específico (isolation, schema, viés, tool restriction).
+
+**Selection eval (PR-bloqueante):** `evals/playbooks/_routing/` com 30 prompts:
+- 15 que devem disparar delegação (cada um casando com 1 playbook específico)
+- 10 que NÃO devem disparar (perguntas simples, exploratórias, off-pattern)
+- 5 ambíguos (multi-playbook plausível) — esperado: agente escolhe um e justifica em uma linha, ou pede clarification
+
+Métricas:
+- `wrong_dispatch_rate` ≤ 0.10 (delegou pro playbook errado)
+- `false_dispatch_rate` ≤ 0.10 (delegou quando não devia)
+- `missed_dispatch_rate` ≤ 0.15 (não delegou quando devia — mais tolerante; falso negativo é menos custoso que falso positivo)
+
+A combinação de `when_to_use` declarado + eval de roteamento é o que mantém a §14 honesta: se o teto de 6 estoura confusão de seleção, a métrica detecta antes de o usuário sentir.
+
 ---
 
 ## 2. Playbook: `code-review`
@@ -132,6 +184,7 @@ references:
   - IMMUTABLE.md                        # mutação compartilhada
   - PREMATURE_OPTIMIZATION.md           # complexidade sem motivo
 slash: review
+when_to_use: "diff/PR pronto pra revisão; mudança de código que precisa de gate de qualidade antes de merge"
 output_schema:
   summary: string                  # 1-3 linhas
   blockers:                        # devem ser corrigidos
@@ -247,6 +300,7 @@ references:
   - FIREWALL.md
   - ANONYMITY_NETWORKS.md
 slash: audit
+when_to_use: "varredura de código por threat categories (auth, injection, supply-chain, secrets) sem alvo específico; pré-deploy ou pós-feature sensível"
 output_schema:
   summary: string
   threat_model:
@@ -367,6 +421,7 @@ references:
   - DISTRIBUTED_SYSTEMS.md          # se multi-serviço
   - OBSERVABILITY.md                # se falta de sinal é o problema
 slash: debug
+when_to_use: "bug com sintoma reproduzível; usuário descreve falha + precisa isolar causa-raiz, não só patch"
 context_recipe:
   step_reflection: terse          # debug é hipótese-driven; trace de raciocínio paga (CONTEXT_TUNING.md §13.10)
 output_schema:
@@ -492,6 +547,7 @@ references:
   - IDEMPOTENCY.md
   - IMMUTABLE.md
 slash: refactor
+when_to_use: "mudança semantic-preserving solicitada com escopo declarado; cleanup/rename/extract com testes existentes que devem continuar passando"
 context_recipe:
   clarify_mode: pre_execution      # blast radius alto; perguntar na fase exploratória paga (STATE_MACHINE.md §12)
 output_schema:
@@ -676,6 +732,7 @@ references:
   - CONCEPTUAL_INTEGRITY.md
   - HOLISTIC_VIEW.md
 slash: explain
+when_to_use: "pergunta sobre como/por que algo funciona; usuário quer mental model estruturado, não fix nem mudança"
 context_recipe:
   step_reflection: terse             # output IS o reasoning; trace explícito vale (CONTEXT_TUNING.md §13.10)
 output_schema:
@@ -848,6 +905,7 @@ output_schema:
         type: object
         required: [area, reason]
 slash: threat-model
+when_to_use: "componente novo ou superfície de ataque sendo introduzida; pré-design ou pré-deploy de feature que toca auth, dados sensíveis, ou trust boundary"
 sampling:
   temperature: 0.2
   max_tokens: 4096
@@ -1082,6 +1140,7 @@ output_schema:
     assumptions: { type: array }
     not_checked: { type: array }
 slash: perf
+when_to_use: "regressão de latência/throughput observada; sintoma de lentidão sem causa identificada e sem hipótese ainda formada"
 sampling:
   temperature: 0.1
   max_tokens: 4096
@@ -1271,6 +1330,7 @@ output_schema:
     assumptions: { type: array }
     not_checked: { type: array }
 slash: git-hygiene
+when_to_use: "branch suja antes de PR; commits a reorganizar; histórico precisa de limpeza (squash, rebase, message rewrite)"
 sampling:
   temperature: 0.1
   max_tokens: 2048
@@ -1403,6 +1463,7 @@ budget:
 references:
   - CRITICAL_THINKING.md
 slash: gapaudit
+when_to_use: "spec/plano/PR description com claims a verificar; quero auditar claim vs evidência sem propor fix; artefato textual, não código"
 sampling:
   temperature: 0.2                 # baixo; queremos consistência cética, não criatividade
   max_tokens: 4096
@@ -1526,7 +1587,157 @@ Métrica anti-sycophancy: **`false_confirmation_rate`** = items em `confirmed_ok
 
 ---
 
-## 11. Como adicionar um playbook novo
+## 11. Playbook: `challenge-assumptions`
+
+Slash command: `/challenge`. Subagent isolado com viés de red-team. Recebe uma decisão, plano, ou cadeia de raciocínio e ataca o **raciocínio**, não o artefato. Não propõe alternativas vencedoras; expõe o que seria preciso ser verdade para a conclusão se sustentar.
+
+Distinto de `gap-audit` (audita **artefato textual** procurando claim sem evidência) e `code-review` (revisa **mudanças** de código). `challenge-assumptions` opera sobre **uma cadeia de raciocínio** — pode ser um parágrafo, um design doc, uma seção de PR description, uma decisão tomada em chat.
+
+```yaml
+---
+name: challenge-assumptions
+description: Ataca o raciocínio de uma decisão/plano/análise. Expõe premissas load-bearing, framings silenciosamente descartados e falsificadores. Não propõe alternativa vencedora.
+tools: [read_file, grep, glob]
+budget:
+  max_steps: 20
+  max_cost_usd: 0.40
+references:
+  - CRITICAL_THINKING.md
+  - GROUPTHINK_BIAS.md
+slash: challenge
+when_to_use: "decisão/plano com confiança alta + evidência fraca; raciocínio que usa 'obviously', 'sempre podemos depois', ou ignora opções óbvias (não fazer nada, comprar, deprecar)"
+sampling:
+  temperature: 0.3                 # leve divergência pra alternativas plausíveis, não fantasia
+  max_tokens: 4096
+  thinking_budget: 4000
+output_schema:
+  summary: string                  # 1-3 linhas: verdict + headline weakness
+  target:                          # o que está sendo desafiado (cite verbatim ou ref)
+    - { ref, claim_or_decision }
+  unverified_premises:             # asseridas como verdade, não verificadas
+    - { premise, why_load_bearing, how_to_verify, severity }
+  alternative_framings:            # framings descartados sem percepção
+    - { alternative, why_plausible, what_changes_if_true }
+  falsifiers:                      # o que precisaria ser verdade pra conclusão estar errada
+    - { claim, falsifier, observable }
+  confidence_gap:                  # confiança asserida > evidência apresentada
+    - { claim, asserted_confidence, evidence_strength, gap }
+  not_checked: [ { area, reason } ]
+  assumptions: [string]            # meta-assumptions do próprio challenge
+---
+```
+
+```markdown
+# Challenge Assumptions
+
+Você ataca o raciocínio de uma decisão/plano/análise.
+Sua única saída é um relatório no schema acima.
+Não escreve código. Não decide pelo usuário. Não propõe a "alternativa vencedora".
+
+## NÃO faça
+
+- NÃO faça devil's-advocacy teatral. Cada `alternative_framing` tem que ser **plausivelmente verdadeira sob alguma evidência observável** — não basta ser logicamente possível.
+- NÃO faça bothsidesing. Se a decisão é dominante (uma opção ganha em todos critérios declarados), reporta isso em `summary` e enxuga `alternative_framings`.
+- NÃO transforme `falsifiers` em "what if" hipotético sem constraint real. Falsificador útil é observável e ligado a evidência atual ou futura ("se latência p99 > 200ms, premissa quebra").
+- NÃO desafie a conclusão atacando definição de termos. "Depende do que você chama de Y" é ruído, não challenge.
+- NÃO entre em recursão — desafiar o próprio challenge até nada ser acionável. Um nível de dúvida.
+- NÃO produza lista longa de premissas triviais (`assume HTTP funciona`). Premissa vai pra `unverified_premises` só se for **load-bearing** (conclusão muda se ela for falsa).
+- NÃO recomende a alternativa. Só exponha que ela existe e o que mudaria.
+
+## Faça
+
+- Cite o `target` verbatim ou com ref (`file:line`, mensagem específica). Sem isso, virou crítica genérica.
+- Para `unverified_premises`: explique **por que load-bearing** — qual passo do raciocínio cai se ela for falsa.
+- Para `alternative_framings`: declare **o que muda** se a alternativa for adotada — escopo, custo, prazo, risco. Alternativa sem consequência é ornamento.
+- Para `falsifiers`: dê observável concreto (métrica, comportamento, evidência futura) que decidiria a questão.
+- Para `confidence_gap`: distinga "asserido com confiança alta" vs "evidência apresentada" — a lacuna é o ponto.
+- Em `summary`, comece com veredicto: "solid reasoning", "load-bearing assumptions", "frame-trapped" (decidiu dentro de framing estreito), "confidence > evidence".
+
+## Critérios de severidade (unverified_premises)
+
+| Severidade | Definição |
+|---|---|
+| `critical` | Premissa cuja falsidade inverte a decisão |
+| `high` | Premissa cuja falsidade muda escopo/custo materialmente |
+| `medium` | Premissa cuja falsidade afeta edge case importante |
+| `low` | Premissa cuja falsidade muda detalhe — quase nunca reportar; vai pra `not_checked` |
+
+## Heurísticas (sinais de raciocínio frágil)
+
+- **Marcadores de intuição** — "obviously", "claramente", "óbvio que", "of course". Sinaliza premissa não examinada.
+- **Confiança assimétrica** — claim forte com evidência fraca ("vai escalar", "é seguro", "usuário vai gostar") sem benchmark/threat model/data.
+- **Opção fantasma** — alternativa óbvia não mencionada. Especialmente: "não fazer nada", "comprar em vez de construir", "matar a feature", "voltar à versão N-1".
+- **"Sempre podemos X depois"** — custo de reversão sendo ignorado. Geralmente não-trivial.
+- **Falácia conjuntiva** — argumento requer N coisas verdadeiras simultaneamente; cada uma ~80%, joint << 80%. Liste os N e multiplique.
+- **Anchor a um framing** — decisão entre A e B quando C existe. Frame-trap.
+- **Sycophancy social** — "todos concordam", "consensus do time" (ver `GROUPTHINK_BIAS.md`). Concordância não é evidência.
+- **Generalização de N=1** — "vimos isso funcionar antes" sem condições controladas.
+
+## Anti-pattern do próprio challenger
+
+Modelo default tende a OU concordar OU produzir contrarianismo barato. Sintomas:
+
+- `alternative_framings` vazio em decisão não-trivial → provavelmente sycophancy.
+- `alternative_framings` com 6+ alternativas, várias implausíveis → contrarian theater.
+- `falsifiers` sem observável (`"se a premissa estiver errada"` ≠ falsificador).
+- `confidence_gap` vazio em raciocínio que usa "obviously" — não checou.
+
+Se o output parece "concordo no geral, mas...", **revise** — provavelmente faltou ataque real.
+
+## Quando NÃO conseguir desafiar
+
+- Target é trivial (decisão sem stake real, escolha estética): retorna `summary` "low-stakes, no challenge warranted" + `not_checked` honesto.
+- Target já vem com análise de alternativas e falsificadores explícitos: spot-check 1-2 itens, retorna `summary` "reasoning robust where checked" + escopo em `not_checked`.
+- Target é fato verificável, não decisão (ex.: "a função X retorna Y"): redirecione — esse é trabalho de `gap-audit` ou leitura direta.
+
+## Exemplo de output mínimo
+
+\`\`\`yaml
+summary: "frame-trapped — decisão entre rewrite e refactor ignora opção 'kill feature'. Duas premissas load-bearing sem evidência."
+target:
+  - ref: "design_doc.md §3 (linha 42-58)"
+    claim_or_decision: "vamos refatorar o módulo de billing em vez de rewrite"
+unverified_premises:
+  - premise: "código atual de billing é >70% reusável"
+    why_load_bearing: "se < 50% reusável, refactor custa mais que rewrite — inverte decisão"
+    how_to_verify: "rodar análise de complexidade ciclomática + identificar dead code"
+    severity: critical
+  - premise: "feature continua relevante nos próximos 18 meses"
+    why_load_bearing: "ambas opções pressupõem que vale o investimento"
+    how_to_verify: "revisar roadmap + churn de billing nos últimos 6 meses"
+    severity: high
+alternative_framings:
+  - alternative: "deprecar feature e migrar usuários pra integração externa (Stripe Billing)"
+    why_plausible: "doc menciona que 80% dos casos de uso já cabem em Stripe nativo"
+    what_changes_if_true: "elimina ambos refactor e rewrite; esforço vira migração + comunicação"
+falsifiers:
+  - claim: "refactor é mais barato que rewrite"
+    falsifier: "se métrica de cobertura de testes < 40%, refactor sem rede de segurança custa mais"
+    observable: "coverage report do módulo billing"
+confidence_gap:
+  - claim: "código é mantível"
+    asserted_confidence: "alta (palavra 'sólido' no doc)"
+    evidence_strength: "nenhuma — sem métrica, sem review citado"
+    gap: "asserção forte sem evidência"
+not_checked:
+  - area: "custo de migração assumindo opção 'deprecar'"
+    reason: "fora do escopo; só sinalizando que opção existe"
+assumptions:
+  - "tratei design_doc.md como completo; pode haver análise em outro lugar não referenciado"
+\`\`\`
+```
+
+**Eval acoplado:** `evals/playbooks/challenge-assumptions/` com fixtures:
+- 3 decisões com framing estreito deliberado (esperado: detector recall de `alternative_framings` ≥ 0.7)
+- 3 decisões com premissa load-bearing semeada (esperado: aparece em `unverified_premises` com severity ≥ high)
+- 2 decisões robustas (alternativas e falsificadores já explícitos) — esperado: `summary` reconhece + `alternative_framings` curto
+- 2 decisões triviais — esperado: retorna "low-stakes" sem inflar output
+
+Métrica anti-contrarian-theater: **`implausible_alternative_rate`** = `alternative_framings` que não passam em revisão humana de plausibilidade / total. Threshold: ≤ 0.15. PR-bloqueante.
+
+---
+
+## 12. Como adicionar um playbook novo
 
 1. Criar `~/.config/agent/playbooks/<name>.md` com frontmatter completo.
 2. Definir output schema com `summary` + `assumptions` + `not_checked` (mínimo).
@@ -1540,7 +1751,7 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 12. Anti-patterns comuns (não cometa)
+## 13. Anti-patterns comuns (não cometa)
 
 | Anti-pattern | Por que é ruim |
 |---|---|
@@ -1556,13 +1767,13 @@ Sem (5)-(6), o playbook regride silenciosamente quando o prompt do system mudar.
 
 ---
 
-## 13. Playbooks futuros (candidatos)
+## 14. Playbooks futuros (candidatos)
 
-Ordem de retorno esperado. Teto recomendado: **6 playbooks total**. Mais que isso o modelo confunde a seleção. **Atual: 9** — acima do teto. Decisão deliberada; gatilho de revisão: eval de slash command selection mostra confusão > 5% em sessões recentes → revisitar (deprecar `pair-coding`/`architect` é trivial — não existem; deprecar um dos 9 ativos exige PR de remoção).
+Ordem de retorno esperado. Teto recomendado: **6 playbooks total**. Mais que isso o modelo confunde a seleção. **Atual: 10** — acima do teto. Decisão deliberada; gatilho de revisão: eval de slash command selection mostra confusão > 5% em sessões recentes → revisitar (deprecar `pair-coding`/`architect` é trivial — não existem; deprecar um dos 10 ativos exige PR de remoção).
 
-Atual (9): `code-review`, `security-audit`, `debug`, `refactor`, `explain`, `threat-model`, `perf-investigate`, `git-hygiene`, `gap-audit`.
+Atual (10): `code-review`, `security-audit`, `debug`, `refactor`, `explain`, `threat-model`, `perf-investigate`, `git-hygiene`, `gap-audit`, `challenge-assumptions`.
 
-`gap-audit` é meta — opera sobre artefatos, não código. Distinto dos outros 8 por escopo de input (texto/spec) e ausência de domain heuristics. Trade-off aceito: mais um playbook em troca de primitiva canônica anti-sycophancy reusável (audit de spec, plano, PR description, threat model com mesmo schema).
+Os dois meta-playbooks (`gap-audit`, `challenge-assumptions`) operam sobre input não-código e formam um par complementar: `gap-audit` ataca **artefato** (claim vs evidência), `challenge-assumptions` ataca **raciocínio** (premissa load-bearing, framing estreito, falácia conjuntiva). Trade-off aceito: 2 playbooks acima do teto em troca de primitivas canônicas anti-sycophancy / anti-frame-trap reusáveis (audit de spec, plano, PR description, decisão em chat, threat model com schema unificado).
 
 | Candidato | Quando fazer | Por quê |
 |---|---|---|
@@ -1576,7 +1787,7 @@ Princípio: cada playbook novo só entra se **eval mostra que modo normal falha*
 
 ---
 
-## 14. Insight final
+## 15. Insight final
 
 Playbook bem feito não ensina o modelo a pensar — **restringe** o que ele pode fazer e **estrutura** o que ele deve devolver. O resto é o modelo já fazendo o trabalho dele.
 
