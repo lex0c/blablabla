@@ -183,6 +183,8 @@ references:
   - IDEMPOTENCY.md                      # endpoints/jobs sem essa propriedade
   - IMMUTABLE.md                        # mutação compartilhada
   - PREMATURE_OPTIMIZATION.md           # complexidade sem motivo
+  # Eficiência operacional
+  - TOOL_ERGONOMICS.md                  # padrões de leitura/busca eficiente
 slash: review
 when_to_use: "diff/PR pronto pra revisão; mudança de código que precisa de gate de qualidade antes de merge"
 output_schema:
@@ -420,6 +422,8 @@ references:
   - CONCURRENCY.md                  # se sintomas indicam race
   - DISTRIBUTED_SYSTEMS.md          # se multi-serviço
   - OBSERVABILITY.md                # se falta de sinal é o problema
+  # Eficiência operacional
+  - TOOL_ERGONOMICS.md              # padrões de leitura/busca eficiente
 slash: debug
 when_to_use: "bug com sintoma reproduzível; usuário descreve falha + precisa isolar causa-raiz, não só patch"
 context_recipe:
@@ -731,6 +735,7 @@ references:
   - SOFTWARE_ARCHITECTURE.md
   - CONCEPTUAL_INTEGRITY.md
   - HOLISTIC_VIEW.md
+  - TOOL_ERGONOMICS.md
 slash: explain
 when_to_use: "pergunta sobre como/por que algo funciona; usuário quer mental model estruturado, não fix nem mudança"
 context_recipe:
@@ -1088,6 +1093,7 @@ references:
   - PREMATURE_OPTIMIZATION.md
   - PERFORMANCE.md
   - AGENTS.md
+  - TOOL_ERGONOMICS.md
 output_schema:
   type: object
   required: [summary, baseline, hot_path, hypotheses, evidence, suggestions, assumptions, not_checked]
@@ -1462,6 +1468,7 @@ budget:
   max_cost_usd: 0.50
 references:
   - CRITICAL_THINKING.md
+  - TOOL_ERGONOMICS.md
 slash: gapaudit
 when_to_use: "spec/plano/PR description com claims a verificar; quero auditar claim vs evidência sem propor fix; artefato textual, não código"
 sampling:
