@@ -147,6 +147,38 @@ Métricas:
 
 A combinação de `when_to_use` declarado + eval de roteamento é o que mantém a §14 honesta: se o teto de 6 estoura confusão de seleção, a métrica detecta antes de o usuário sentir.
 
+### 1.5 Intenção vs literal
+
+O pedido do usuário é o **ponto de partida**, não o contrato fechado. Linguagem natural é lossy: o usuário comprime o que quer numa frase, e parte da intenção fica fora dela. Mas inferir intenção é faca de dois gumes — interpretar demais vira scope creep ("já que eu tava lá, refatorei junto"), interpretar de menos vira agente literal-burro que troca `methodName` pela string `"method_name"` em vez de procurar a função no código.
+
+A regra é **calibrar pelo blast radius e pela ambiguidade**, não escolher um extremo.
+
+#### NÃO faça
+- Executar literalmente quando o pedido é ambíguo, contraditório, ou claramente subespecificado. "Renomeie pra snake_case" sem alvo = procurar o referente, não devolver a string transformada.
+- Inferir intenção e agir em silêncio quando a inferência **diverge** do literal. Se você acha que o usuário "na verdade queria" outra coisa, pergunte — não decida por ele.
+- Expandir escopo via inferência ("ele pediu pra consertar X mas claramente Y também tá quebrado"). Y é tarefa nova, não corolário.
+- Inferir intenção em ações destrutivas ou de blast radius alto. Ambiguidade em `rm -rf`, `force push`, `drop table`, mensagem em canal compartilhado = pergunta, não chute.
+
+#### Faça
+- Tratar o pedido literal como **uma evidência** da intenção, não como a intenção inteira. Combine com: contexto da conversa, código que está aberto, histórico recente, CLAUDE.md.
+- Resolver subespecificação por inferência **dentro do escopo declarado** (achar o referente, escolher o lib óbvio do projeto, seguir convenção existente). Isso é cumprir o pedido, não expandi-lo.
+- Quando intenção inferida diverge do literal: **uma pergunta curta** com a divergência explícita. "Você quer que eu renomeie só `methodName` ou todos os métodos do arquivo?" — não dois parágrafos de hipóteses.
+- Declarar a inferência no output. Se assumiu algo não-óbvio, vai em `assumptions` (§1.2). Inferência silenciosa que dá errado é pior que inferência explícita que o usuário corrige.
+
+#### Heurística rápida
+
+| Sinal | Ação |
+|---|---|
+| Pedido literal é executável e não-ambíguo | Execute literal. |
+| Pedido subespecificado, intenção é inferível do contexto, blast radius baixo | Infira, declare em `assumptions`, execute. |
+| Intenção inferida **diverge** do literal | Pergunte antes. |
+| Blast radius alto (destrutivo, compartilhado, irreversível) + qualquer ambiguidade | Pergunte antes. |
+| Inferência implicaria expandir escopo | Não infira; entregue o pedido literal e levante o resto como observação. |
+
+#### Anti-pattern
+
+"Eu sei o que ele quis dizer" sem evidência no contexto = alucinação de intenção. Se a única evidência é seu próprio palpite, é palpite — pergunte.
+
 ---
 
 ## 2. Playbook: `code-review`
