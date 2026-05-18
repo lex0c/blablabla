@@ -1,0 +1,1306 @@
+# PERMISSION_ENGINE
+
+Implementação **v2** da permission engine do `AGENTIC_CLI` — evolução do contrato v1 (`CONTRACTS.md` §9). Este doc é a especificação implementável: gramáticas formais, resolvers concretos, state machine, conformance suite, threat model da própria engine.
+
+> **Premissa raiz:** o modelo é processo parcialmente confiável. A engine não autoriza *intenção* (LLMs não têm intenção estável entre turnos) — autoriza **ações isoladas dentro de capabilities pré-declaradas**, com decisão determinística e auditável.
+
+---
+
+## 0. O que muda da v1
+
+| Aspecto | v1 | v2 |
+|---|---|---|
+| Modelo de regra | allowlist de comando string (`Bash(npm test)`) | **capability-based** + allowlist como camada superficial |
+| Decisão | `allow` / `deny` / `confirm` | mesma + `score` (0–1) + `reason_chain` |
+| Escopo temporal | session | session + **TTL explícito** + `once` + `pattern` |
+| Audit | tabela `approvals` plana | append-only com **hash chain** + sealing externo opcional |
+| Credenciais | implícito | **env scrubbing** declarativo por capability |
+| Risco | binário | **score determinístico** + classifier opcional como hint (±0.2) |
+| Sandbox | flag `bwrap` opcional | **integrado no pipeline**: profile selecionado pela engine |
+| Subagent | herda regras (texto) | herda **e** restringe (subset-only formal) |
+| Concorrência | indefinida | mutex por sessão + TOCTOU resolvido por snapshot |
+| Reload de policy | indefinido | file-watch + validate-then-swap |
+| Bootstrap de chain | indefinido | genesis derivado de `install_id` |
+| Conformance | inexistente | suite YAML obrigatória, ≥100 casos pra GA |
+
+V1 segue válido como **contrato externo** (Tool Registry ↔ Engine). V2 detalha o **interno**.
+
+---
+
+## 1. Princípios não-negociáveis
+
+1. **Fail closed sempre.** Erro de carga, ambiguidade, classifier offline (em modo strict), sandbox indisponível, hash chain quebrada → deny / refuse.
+2. **Determinismo antes de inferência.** Caminho determinístico decide. ML só ajusta score, jamais decide.
+3. **Capability > comando.** Allowlist textual é frágil. Decisão final é em capabilities efetivas.
+4. **Sem decisão silenciosa.** Cada decisão grava em `approvals_log` antes da execução.
+5. **TTL obrigatório.** "Allow forever" não existe.
+6. **Subagent é subset, nunca expansão.** Permissão é interseção, não união.
+7. **Explicability first-class.** Toda decisão produz `reason_chain` legível.
+8. **Reprodutibilidade auditável.** Toda decisão é replay-able dado: inputs + policy hash + classifier hash.
+
+---
+
+## 2. State machine da engine
+
+A engine tem estados explícitos. Harness consulta `engine.state()` antes de qualquer tool call.
+
+```
+                    ┌──────────────────────────────────┐
+                    │             init                  │
+                    └────────────┬──────────────────────┘
+                                 ↓ load_install_id()
+                    ┌──────────────────────────────────┐
+                    │       loading-policy              │
+                    └────────────┬──────────────────────┘
+                         valid ─┤├─ invalid
+                                │└──────→ refusing (fatal)
+                                ↓
+                    ┌──────────────────────────────────┐
+                    │       validating-chain            │
+                    └────────────┬──────────────────────┘
+                       intact ──┤├── broken
+                                │└──────→ refusing (until --accept-broken-chain or --rotate-chain)
+                                ↓
+                    ┌──────────────────────────────────┐
+                    │           ready                   │
+                    └────────────┬──────────────────────┘
+            classifier offline ──┤
+            sandbox unavailable ─┤
+            sealing target down ─┤
+                                 ↓
+                    ┌──────────────────────────────────┐
+                    │          degraded                 │
+                    └──────────────────────────────────┘
+```
+
+| Estado | Comportamento |
+|---|---|
+| `init` | rejeita toda chamada |
+| `loading-policy` | rejeita toda chamada |
+| `validating-chain` | rejeita toda chamada |
+| `ready` | pipeline normal |
+| `degraded` | pipeline com restrição: toda decisão `allow` automática vira `confirm` (ML offline, sandbox down, etc) |
+| `refusing` | rejeita toda chamada com erro fatal; harness deve abortar sessão ou exigir override explícito do user |
+
+Transição `ready ↔ degraded` é dinâmica (subsystem health). Transição pra `refusing` é **fatal e logada** — só sai com ação humana.
+
+---
+
+## 3. Modelo de recurso: capabilities
+
+A engine não decide sobre "comandos". Decide sobre **capabilities** que o comando consumiria.
+
+### 3.1 Capabilities canônicas
+
+| Capability | Significado | Exemplos |
+|---|---|---|
+| `read-fs:<scope>` | Leitura | `read_file`, `grep`, `ls` |
+| `write-fs:<scope>` | Escrita/criação/append | `write_file`, `edit`, `mv` |
+| `delete-fs:<scope>` | Remoção | `rm`, `rmdir`, `git clean` |
+| `exec:<class>` | Execução de processo (`shell`, `python`, `node`, `arbitrary`) | `bash` |
+| `net-egress:<host>` | Saída de rede | `curl`, `web_fetch` |
+| `net-ingress:<port>` | Listen local | servers |
+| `secret-access:<store>` | Secret store (`aws`, `ssh`, `gpg`, `kube`, `env`) | tool específico |
+| `git-write:<repo>` | Mutação git de estado (commit, push, branch -D) | `git_*` |
+| `env-mutate` | Alterar `~/.bashrc`, `~/.config/*` | edits em paths protegidos |
+| `agent-mutate` | Alterar `.agent/`, hooks, policy | autoexpansão |
+| `host-passthrough` | Sair do sandbox (escape autorizado) | apenas com flag explícito |
+
+### 3.2 Mapeamento tool → capabilities
+
+Cada tool declara, em manifest, as capabilities **possíveis**. A engine deriva as **efetivas** dado os args via *capability resolver* (§5).
+
+```toml
+# tool_registry/edit.toml
+name = "edit"
+version = "1"
+capabilities_declared = ["read-fs:*", "write-fs:*"]
+resolver = "edit_resolver"  # nome do resolver registrado (§5)
+```
+
+Tool tentando consumir capability não declarada → engine recusa **antes** de invocar (`deny: undeclared_capability`). Bug de declaração não é bypass.
+
+---
+
+## 4. Scope grammar (formal)
+
+Sem gramática formal, dois implementadores produzem decisões diferentes. Esta é a definição autoritativa.
+
+### 4.1 BNF
+
+```
+scope        ::= capability ":" body
+capability   ::= ident ( "[" attr "=" value "]" )?
+ident        ::= [a-z] [a-z0-9-]*
+body         ::= "*"                          ; wildcard absoluto
+              | path-pattern
+              | host-pattern
+              | port-pattern
+              | identity-pattern              ; pra secret-access, git-write
+path-pattern ::= ("~" | "./" | "/") segment ("/" segment)*
+segment      ::= "**" | "*" | literal
+literal      ::= [a-zA-Z0-9_.+-]+
+host-pattern ::= "*" | "*." host-literal | host-literal
+host-literal ::= label ("." label)+
+label        ::= [a-zA-Z0-9-]+
+port-pattern ::= integer | integer "-" integer
+identity-pattern ::= literal                  ; nome de store/repo
+```
+
+### 4.2 Semântica de match
+
+| Token | Significado |
+|---|---|
+| `*` (em segment) | matches um único segment, sem `/` |
+| `**` (em segment) | matches zero ou mais segments |
+| `*` (em body) | wildcard absoluto — matches tudo da capability |
+| `*.host.com` | matches subdomains diretos (`a.host.com`, **não** `a.b.host.com`) |
+| `**.host.com` | (não suportado em v2; documentado) |
+
+Glob é **case-sensitive em path** (Linux/macOS). Engine recusa policy carregada em FS case-insensitive sem flag explícito.
+
+### 4.3 Path resolution (anti-symlink-escape)
+
+Path em scope ou em arg do tool é resolvido **antes** do match:
+
+1. **Tilde:** `~` → `$HOME` (frozen no SessionStart).
+2. **Relativo:** `./x` → `<session.cwd>/x` (cwd frozen no SessionStart).
+3. **Normalize:** `..`, `.` resolvidos textualmente.
+4. **Realpath walk:** lstat por componente. Se qualquer componente é symlink:
+   - resolve target,
+   - se target sai da scope declarada → **deny com `reason=symlink_escape`** (não fallback silencioso).
+5. **Mount check:** se path resolvido cruza mount point pra FS não-permitido (procfs, sysfs, devfs salvo whitelist) → deny.
+
+Path em arg que falha qualquer passo → `deny(reason="path_resolution_failed", detail=...)`.
+
+### 4.4 Compilação e validação
+
+Policy carrega → compila glob → falha de compilação = policy inválida = engine vai pra `refusing`. Erros comuns:
+- glob com regex acidental (`(`, `)`, `[a-z]`)
+- segment vazio (`//`)
+- tilde em meio de path (`/foo/~/bar`)
+- mistura de path-pattern e host-pattern na mesma capability
+
+---
+
+## 5. Capability resolvers (per-tool)
+
+Esta é a parte que estava hand-waved. Aqui está formal.
+
+### 5.1 Interface
+
+Resolver é função **pura, determinística, terminante em < 5ms**:
+
+```
+resolve(args, ctx) → ResolverResult
+  args : Map[string, JsonValue]                  # tool args validados pelo schema
+  ctx  : { cwd: AbsPath, home: AbsPath, env_keys: [string] }
+  
+ResolverResult :=
+  | Ok { capabilities: [Capability], confidence: high|medium|low }
+  | Conservative { capabilities: [Capability], reason: string }   # capability set conservador
+  | Refuse { reason: string }                                      # resolver não consegue decidir; deny
+```
+
+Confidence < `high` força aprovação humana mesmo se static rule daria `allow`.
+
+### 5.2 Resolvers builtin (exemplos)
+
+#### `read_file`
+
+```
+resolve({file_path}, ctx) =
+  let p = resolve_path(file_path, ctx)
+  Ok { capabilities: [ read-fs(p) ], confidence: high }
+```
+
+#### `write_file` / `edit`
+
+```
+resolve({file_path, ...}, ctx) =
+  let p = resolve_path(file_path, ctx)
+  Ok { capabilities: [ write-fs(p), read-fs(p) ], confidence: high }
+```
+
+#### `bash` (a parte difícil)
+
+Resolver bash usa **AST parsing** (lib `tree-sitter-bash`), não regex. Pipeline:
+
+```
+1. parse(command_string) → AST
+2. extract_commands(ast) → list of (cmd, args, redirections, env_vars)
+3. para cada (cmd, args):
+     a. lookup em command_resolver_registry[cmd]
+     b. se hit → resolve_specific(cmd, args, ctx)
+     c. se miss → conservative()
+4. agregar capabilities; confidence = min(confidences)
+5. detectar dynamic eval:
+     - $(...) com conteúdo não-literal → confidence = low
+     - eval, source com arg variável → Refuse
+     - backtick com conteúdo não-literal → confidence = low
+6. retornar
+```
+
+`command_resolver_registry` (extensível):
+
+| cmd | resolver |
+|---|---|
+| `rm` | `delete-fs(args após flags)`; `-rf` → confidence=high; `-rf /` ou `~` direto → bloqueado em §11 |
+| `mv`, `cp` | `read-fs(src) + write-fs(dst)` |
+| `curl`, `wget` | `net-egress(extract_host(args))`; pipe pra shell (`| sh`, `| bash`) → confidence=low + flag `pipe-to-shell` |
+| `git` | switch por subcomando: `commit`/`push` → `git-write(repo)`; `clean -f` → `delete-fs(repo) + git-write(repo)` |
+| `npm`, `yarn`, `bun`, `pip` | `exec:arbitrary + write-fs(node_modules \| venv) + net-egress(registry hosts)` |
+| `cat`, `ls`, `head`, `tail`, `wc`, `grep`, `find` (sem `-exec`) | `read-fs(args)` |
+| `find` com `-exec` | `exec:arbitrary` + capabilities do comando exec |
+| `chmod`, `chown` | `write-fs(target)` + flag `permission-mutate` (escala score) |
+| `dd`, `mkfs`, `fdisk` | sempre `Refuse` em v2 (não há resolver seguro) |
+
+Conservative fallback (cmd desconhecido):
+
+```
+Conservative {
+  capabilities: [
+    exec:shell,
+    read-fs(<cwd>/**),
+    write-fs(<cwd>/**),
+    net-egress(*)             # se policy permite egress
+  ],
+  reason: "unknown_command:" + cmd
+}
+```
+
+Conservative força `confirm` (score component +0.15 por unknown_command). User pode aprovar uma vez ou registrar resolver custom.
+
+#### Detecções adversariais (sempre `confidence: low` ou `Refuse`)
+
+| Padrão | Resposta |
+|---|---|
+| `eval $X` com $X não-literal | Refuse |
+| `bash -c "$VAR"` com $VAR não-literal | Refuse |
+| `$(curl ... \| sh)` | Refuse |
+| `< /dev/tcp/` reverse shell idiom | Refuse |
+| `python -c "exec(...)"` com arg dinâmico | Refuse |
+| Heredoc com conteúdo não-literal | low confidence |
+| Process substitution `<(...)` com cmd dinâmico | low confidence |
+| Variable indirect (`${!var}`) | Refuse |
+
+### 5.3 Resolvers de MCP tools
+
+MCP tool declara seu resolver no manifest (JS function ou TOML pattern). Resolver MCP roda **em isolamento** (worker separado, sem acesso a engine state). Output validado contra schema antes de aceitar.
+
+MCP tool sem resolver declarado → resolver default conservador: capability set = capabilities declaradas no manifest (sem refinamento). Sempre força `confirm`.
+
+### 5.4 Resolver registry e versionamento
+
+Cada resolver tem `version` no manifest. Mudança de versão = bump explícito + entrada em changelog. Audit log grava `resolver_version` na decisão pra replay.
+
+---
+
+## 6. Pipeline de decisão (6 estágios)
+
+```
+[1] Resolve         — args → capabilities concretas (§5)
+[2] Static rules    — match deterministic deny/allow/ask (§6.2)
+[3] Risk score      — score determinístico (§6.3)
+[4] Classifier      — opcional; ajusta score em ±0.2 (§6.4)
+[5] Sandbox plan    — escolhe profile; valida viabilidade (§6.5)
+[6] Approval gate   — auto-allow / human-confirm / deny final (§6.6)
+```
+
+Falha em qualquer estágio → `deny`.
+
+### 6.1 Resolve
+
+Já especificado em §5.
+
+### 6.2 Static rules
+
+Hierarquia: `enterprise → user → project → session`. Em cada nível, ordem `deny → ask → allow`. Match no nível mais alto vence; primeiro match dentro do nível vence.
+
+```toml
+[[deny]]
+capability = "write-fs"
+scope = ".git/**"
+reason = "git internals are protected; use git_* tools"
+
+[[deny]]
+capability = "exec"
+scope = "*"
+match.command_substring = ["curl | bash", "wget | sh"]
+reason = "pipe-to-shell is never auto-approved"
+
+[[ask]]
+capability = "net-egress"
+scope = "*"
+ttl = "session"
+
+[[allow]]
+capability = "read-fs"
+scope = "**"
+ttl = "session"
+```
+
+**Empate de match → deny vence.** Ambiguidade dentro do mesmo nível (dois `allow` casam) → o primeiro listado vence (deterministic order).
+
+#### 6.2.1 Concorrência
+
+Decisões dentro de uma sessão são **serializadas por mutex de sessão**. Tool calls paralelos esperam.
+
+Cross-session:
+- `grants` table: linha por (scope, capability) com row-level lock; UPDATE com `WHERE expires_at > now()` é atômico.
+- `approvals_log`: append-only com sequence number monotônico.
+- Policy hot reload (§12): swap atômico de struct compilada; decisão em curso usa snapshot da policy carregado em estágio [1].
+
+#### 6.2.2 TOCTOU
+
+Cada decisão captura snapshot de:
+- timestamp (`decision_ts`)
+- policy hash (`policy_hash`)
+- grants ativos (snapshot list)
+- classifier hash (se usado)
+
+Estágios subsequentes consultam **snapshot**, não estado live. Se TTL expira durante decisão, decisão emitida é válida (foi computada com estado válido); a próxima decisão usará estado atualizado.
+
+### 6.3 Risk score (determinístico)
+
+Score 0.0–1.0. Soma de features com pesos calibrados.
+
+#### 6.3.1 Features e pesos (v2 baseline)
+
+| Feature | Peso | Notas |
+|---|---|---|
+| capability ∈ {`delete-fs`, `git-write`, `env-mutate`, `agent-mutate`} | +0.40 | crítico |
+| scope == `*` | +0.20 | wildcard absoluto |
+| scope inclui `~` ou root absoluto fora de cwd | +0.15 | escape de workspace |
+| comando contém substring de blocklist (`rm -rf`, `chmod -R`, `dd`, `mkfs`) | +0.30 | padrões letais |
+| net-egress fora de allow-list confiável | +0.25 | exfil potencial |
+| ≥3 tool errors consecutivos antes desta call | +0.15 | sinal de modelo perdido |
+| arg contém shell expansion complexa (`$(`, backtick, `;`, `&&` em bash) | +0.20 | composição |
+| tool é MCP (não builtin) | +0.10 | superfície de supply chain |
+| confidence do resolver = `medium` | +0.10 | |
+| confidence do resolver = `low` | +0.30 | |
+| ação acontece em `degraded` state | +0.20 | sistema em fallback |
+
+Cap em 1.0. Componentes registrados em `score_components` no audit log (replay e calibração).
+
+#### 6.3.2 Calibração
+
+Pesos do baseline são **chute informado**. Plano de calibração:
+
+1. Coletar telemetria por 30d em deployment piloto: `(score, decision_humano, outcome)` triples.
+2. Logistic regression com `outcome ∈ {harmful, harmless}` como label, features como input.
+3. Re-derivar pesos.
+4. A/B test pesos derivados vs baseline; medir taxa de approval-fatigue (proxy: % `allow` clickado em < 1s).
+5. Atualização de pesos = bump de versão da engine; audit log grava versão.
+
+Sem calibração: baseline é defensável mas não otimal. Documentado como `calibration: baseline-v2.0`.
+
+### 6.4 Classifier (opcional, hint-only)
+
+Se habilitado e disponível, recebe:
+- nome da tool
+- capabilities resolvidas (não args brutos)
+- score determinístico
+- contexto resumido (últimos N steps, sumarizados pela engine)
+- classifier_hash (versão do modelo)
+
+**NÃO recebe:** tool outputs, conteúdo de arquivos lidos, web fetches, args brutos com conteúdo controlável por adversário. Defesa contra prompt injection no classifier.
+
+Output:
+```json
+{
+  "score_adjust": -0.15,
+  "score_adjust_clamped_to": [-0.2, 0.2],
+  "reason": "command pattern matches benign build script"
+}
+```
+
+Falhas:
+- offline / timeout > 500ms / schema inválido / clamping aplicado → `classifier_unavailable` em reason_chain
+- engine em modo strict (`classifier.required = true`) → state vai pra `degraded`, score determinístico prevalece
+- engine em modo lenient (default) → simplesmente ignora classifier nessa decisão
+
+### 6.5 Sandbox plan
+
+Profiles disponíveis (Linux via `bwrap`; macOS via `sandbox-exec` com sbpl equivalente; Windows não suportado em v2):
+
+| Profile | FS | Net | Process | Hide |
+|---|---|---|---|---|
+| `ro` | tudo readonly | unshare-net | unshare-pid | secret paths (§7) |
+| `cwd-rw` | cwd writable, resto ro | unshare-net | unshare-pid | secret paths |
+| `cwd-rw-net` | cwd writable | egress filtrada por allowlist (nftables ou via proxy) | unshare-pid | secret paths |
+| `home-rw` | $HOME writable, resto ro | unshare-net | unshare-pid | secret paths exceto se capability autorizou |
+| `host` | passthrough | passthrough | passthrough | nada |
+
+Algoritmo de seleção:
+
+```
+candidates = [profile for profile in profiles
+              if all(cap in profile.allowed_capabilities for cap in resolved_caps)]
+
+if not candidates:
+  return deny("no_viable_sandbox")
+
+if `host` ∈ candidates and other ∈ candidates:
+  candidates.remove(`host`)         # host é sempre último recurso
+
+# tie-break: ordem fixa (mais restritivo primeiro)
+order = [ro, cwd-rw, cwd-rw-net, home-rw, host]
+return first profile in order from candidates
+```
+
+`host` exige flag explícito do user **e** capability `host-passthrough` allowed em policy. Sem ambos → deny mesmo se outras condições baterem.
+
+Sandbox indisponível (kernel sem unshare, bwrap binary missing) → state = `degraded`. Em `degraded`, profile mais alto disponível é `host` com confirm forçado em **toda** call. Se sandbox é `required: true` em policy → state = `refusing`.
+
+### 6.6 Approval gate
+
+| Condição | Decisão |
+|---|---|
+| static rule `deny` matched | `deny` |
+| state == `refusing` | `deny` (fatal) |
+| state == `degraded` **e** decision seria `allow` | `confirm` (forçado) |
+| static rule `allow` matched **e** score < 0.4 **e** confidence == high | `allow` |
+| static rule `allow` matched **e** (score ≥ 0.4 ou confidence < high) | `confirm` |
+| static rule `ask` matched | `confirm` |
+| nenhum match | `deny` (fail closed) |
+
+Confirm produz preview estruturado:
+
+```
+Tool:           bash
+Capabilities:   exec:shell, write-fs:./build/**, net-egress:registry.npmjs.org
+Risk score:     0.62 (high)
+  ├─ capability_risk:      +0.40 (write-fs)
+  ├─ shell_chain:          +0.20 (&&)
+  └─ classifier_adjust:    +0.02
+Resolver:       bash@1.3 (confidence: high)
+Sandbox:        cwd-rw-net (bwrap profile)
+TTL if approved: session
+Replay id:      ap_01H3K5...
+```
+
+Sem preview legível, sem aprovação. Modal opaco é débito de segurança.
+
+---
+
+## 7. Audit log (append-only, hash-chained, sealable)
+
+### 7.1 Schema
+
+```sql
+CREATE TABLE approvals_log (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts INTEGER NOT NULL,                       -- unix ms
+  install_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  parent_approval_id TEXT,                   -- subagent → ref pai
+  tool_name TEXT NOT NULL,
+  tool_version TEXT NOT NULL,
+  resolver_version TEXT NOT NULL,
+  args_hash TEXT NOT NULL,                   -- sha256(canonical args)
+  capabilities_json TEXT NOT NULL,
+  decision TEXT NOT NULL,                    -- allow|deny|confirm-allowed|confirm-denied
+  score REAL NOT NULL,
+  score_components_json TEXT NOT NULL,
+  confidence TEXT NOT NULL,
+  classifier_hash TEXT,
+  classifier_adjust REAL,
+  policy_hash TEXT NOT NULL,
+  sandbox_profile TEXT,
+  ttl_expires_at INTEGER,
+  reason_chain_json TEXT NOT NULL,
+  prev_hash TEXT NOT NULL,
+  this_hash TEXT NOT NULL                    -- sha256(prev_hash || canonical_row_minus_this_hash)
+);
+
+CREATE INDEX idx_session ON approvals_log(session_id);
+CREATE INDEX idx_ts ON approvals_log(ts);
+```
+
+`args_hash` em vez de args brutos: PII e secrets não vazam em audit log persistido. Args brutos vivem só em SQLite de sessão (TTL curto) pra replay.
+
+### 7.2 Hash chain
+
+#### Genesis
+
+Primeira decisão de uma installation:
+
+```
+prev_hash = "GENESIS:" || sha256(install_id || created_at_ms)
+```
+
+`install_id` = UUID v4 gerado em primeiro start, persistido em `~/.config/agent/install_id` com mode 0600. Re-rotaciona = nova chain (audit trail registra `chain_rotation` event).
+
+#### Cadeia
+
+```
+this_hash = sha256(prev_hash || canonical_row)
+canonical_row = JSON canonicalizado RFC 8785 de todos os campos exceto this_hash
+```
+
+#### Verificação
+
+`verify_chain()` em SessionStart e sob comando `agent permission verify`:
+
+```
+walk seq=1..N:
+  recompute this_hash from row
+  compare with stored this_hash
+  on mismatch → state = refusing, emit chain_break event with seq
+```
+
+#### Quebra de chain
+
+Default response: state vai pra `refusing`. Não-recuperável sem ação humana:
+
+| Flag | Comportamento |
+|---|---|
+| `--accept-broken-chain` | aceita chain quebrada; emit warning event; SIGNED log entry com user input; **não silencia em audits** (entry visível) |
+| `--rotate-chain` | arquiva chain antiga em `approvals_log_archived_<ts>`; nova genesis com same install_id; novo seq 1; quarantine flag em queries até inspeção |
+
+### 7.3 Sealing externo (opcional, recomendado pra audit-grade)
+
+Hash chain local protege contra **edição parcial silenciosa**. Adversário com root pode reescrever tudo (incluindo recálculo de hashes). Sealing externo eleva o bar.
+
+Configurações suportadas:
+
+| Mecanismo | Implementação | Dependência |
+|---|---|---|
+| `worm-file` | append-only via `chattr +a` (ext4) ou WORM mount | Linux com permissão chattr |
+| `s3-object-lock` | post hash em S3 com object-lock COMPLIANCE | AWS account, role |
+| `rfc3161-tsa` | hash a cada N decisões enviado pra TSA com timestamp assinado | TSA acessível |
+| `git-anchored` | hash periódico commitado em repo separado push em remote | git remote |
+| `none` | (default) | — |
+
+Política de sealing:
+
+```toml
+[seal]
+mode = "rfc3161-tsa"            # ou outro
+interval_decisions = 100         # a cada 100 decisões
+interval_seconds = 3600          # ou a cada hora, o que vier antes
+endpoint = "https://tsa.example.com"
+on_failure = "degrade"           # ou "refuse"
+```
+
+Falha de sealing → state = `degraded` (default) ou `refusing` (strict). Sealing é **opcional**: deployment local-CLI pode rodar sem; deployment regulado **deve** habilitar.
+
+### 7.4 Retenção
+
+Default 90d. `vacuum` em SessionStart se rows > 100k. Retenção **não pode quebrar chain** — deletion respeita ordem e move rows pra `approvals_log_archived` com hash final preservado pra continuação.
+
+---
+
+## 8. TTL e scopes de grant
+
+| Scope | Significado | TTL típico |
+|---|---|---|
+| `once` | uma única invocação, args exatos | imediato |
+| `session` | até fim da session atual | sessão |
+| `pattern:<glob>` | qualquer match desse pattern | 24h default, max 30d |
+| `capability:<cap>+<scope>` | capability dentro do scope | 24h default, max 7d |
+
+`once` é default sugerido pra primeira aprovação. UX promove pra `session` na N-ésima repetição da mesma capability+scope (anti approval-fatigue por agrupamento).
+
+```sql
+CREATE TABLE grants (
+  id TEXT PRIMARY KEY,                       -- ULID
+  scope_kind TEXT NOT NULL,                  -- pattern|capability
+  scope_value TEXT NOT NULL,
+  capability TEXT NOT NULL,
+  granted_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  granted_by TEXT NOT NULL,                  -- user|enterprise|project
+  granted_reason TEXT,
+  revoked_at INTEGER,
+  revoked_reason TEXT
+);
+```
+
+Grants são consultados com `WHERE expires_at > snapshot_ts AND revoked_at IS NULL`. `revoke` é ação user-acionável (`agent permission revoke <id>`) e idempotente.
+
+---
+
+## 9. Credential scoping
+
+Sandbox sem rede não basta se `~/.aws/credentials` está montado readonly no FS visível. Cada profile declara o que **NÃO** está visível.
+
+```toml
+[sandbox.profile.cwd-rw]
+hide_paths = [
+  "~/.ssh", "~/.aws", "~/.config/gcloud",
+  "~/.netrc", "~/.gnupg", "~/.docker/config.json",
+  "~/.kube", "~/.npmrc", "~/.pypirc",
+]
+scrub_env = [
+  "AWS_*", "GCP_*", "AZURE_*",
+  "GITHUB_TOKEN", "GITLAB_TOKEN",
+  "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+  "*_TOKEN", "*_SECRET", "*_PASSWORD", "*_API_KEY",
+]
+```
+
+Implementação:
+- **hide_paths** → bwrap `--bind /dev/null <path>` (path some pro processo).
+- **scrub_env** → engine constrói env limpo antes do exec; glob match contra keys; matched keys removed.
+
+Reverter scrubbing exige capability `secret-access:<store>` autorizada, e tem TTL hardcoded `once` (não promovível).
+
+---
+
+## 10. Subagent inheritance (formal)
+
+Subagent é spawn via tool. Engine vê spawn como tool call e aplica pipeline normal.
+
+### 10.1 Capability set efetivo
+
+```
+parent_caps     = capabilities efetivas do agente pai (snapshot no momento do spawn)
+declared_caps   = capabilities solicitadas no spawn args (formato: list of capability strings)
+
+effective_caps  = parent_caps ∩ declared_caps
+```
+
+Se `declared_caps ⊄ parent_caps` → `deny(reason="subagent_escalation", excess=...)`.
+
+Se `declared_caps` vazio → subagent recebe **nenhuma** capability (pure-LLM subagent, sem tools side effect).
+
+### 10.2 TTL e estado
+
+- `subagent.ttl ≤ parent.ttl_remaining`
+- `subagent.session_id` é child do `parent.session_id`
+- Audit row do subagent tem `parent_approval_id` referenciado
+- Grants: subagent usa grants do pai (read), nunca cria novos grants persistentes (write em `grants` é deny pra subagent)
+
+### 10.3 Escape impossível
+
+Não há flag, prompt, ou config que permita subagent ter capability fora de `parent_caps`. Engine codifica isso. Override exige edição de policy enterprise (locked rule), nunca runtime.
+
+---
+
+## 11. Protected paths (não-overridáveis)
+
+Capabilities `env-mutate` e `agent-mutate` **nunca** auto-allow, mesmo com static rule.
+
+Paths protegidos (write/delete sempre escala pra `confirm` no mínimo):
+
+```
+.git/                  (exceto via tools git_* específicos com policy)
+.agent/
+.claude/
+~/.bashrc, ~/.zshrc, ~/.profile, ~/.bash_profile
+~/.config/agent/, ~/.config/claude/
+/etc/                  (qualquer)
+/boot/, /sys/, /proc/  (deny direto, não confirm)
+```
+
+Hardcoded na engine, **não em policy file**. Policy não flexibiliza. Locked enterprise rule pode adicionar paths protegidos; nunca remover. Tentativa de remoção em policy load → `policy_invalid: protected_paths_redefined`.
+
+Detecção a `rm -rf /`, `rm -rf ~`, `rm -rf $HOME`: blocklist hardcoded em §5.2 + path resolver § 4.3 confirma resolução pra root/home.
+
+---
+
+## 12. Policy lifecycle
+
+### 12.1 Load order
+
+```
+1. enterprise:  /etc/agent/policy.toml         (root-owned, 0644)
+2. user:        ~/.config/agent/policy.toml    (user-owned, 0600)
+3. project:     ./.agent/policy.toml           (committed, hash-tracked)
+4. session:     flags + interactive grants     (in-memory)
+```
+
+Em `init` → `loading-policy`: carrega cada nível, valida, merge com hierarchy rules.
+
+### 12.2 Validação
+
+Policy passa por:
+
+1. **Schema check** (TOML schema canônico).
+2. **Glob compilability** (todos os scopes parseiam).
+3. **Hierarchy consistency**: project não pode `allow` capability que enterprise tem como `deny` com `locked = true`.
+4. **Hardcoded compatibility**: policy não pode redefinir protected paths (§11).
+5. **Resolver references**: tools referenciados em policy existem no registry.
+
+Falha em qualquer passo → carga aborta, policy anterior preservada (ou state = refusing se primeira carga).
+
+### 12.3 Reload (hot)
+
+File-watch nos arquivos de policy. Mudança → re-validate em background; se válido, swap atômico:
+
+```
+1. lock(policy_swap_mutex)
+2. new_policy = compile(file)
+3. if validate(new_policy) fails:
+     emit policy_reload_failed event with details
+     keep old_policy
+     unlock
+     return
+4. policy_hash_old = current.hash
+5. current = new_policy
+6. emit policy_reloaded event with old_hash, new_hash
+7. unlock
+```
+
+Decisão em curso usa snapshot capturado no estágio [1] do pipeline. Próxima decisão usa policy nova.
+
+### 12.4 Rollback
+
+Policy pode ser revertida via:
+
+- `agent permission policy rollback` → reverte pra última policy válida (até 5 mantidas em `~/.cache/agent/policy_history/`).
+- Edição manual do arquivo (file-watch dispara reload).
+
+Cada rollback é audit event.
+
+---
+
+## 13. Platform provisioning
+
+Sandbox não é dependência embutida; é capability **detectada e provisionada**. Tentar bundlar binário cross-platform (Linux + macOS + WSL + variantes) é caminho garantido pra inferno de manutenção. Engine detecta, orienta, valida e degrada explicitamente — nunca instala silenciosamente, nunca esconde ausência.
+
+### 13.1 Filosofia: detect, don't distribute
+
+Anti-patterns rejeitados:
+
+- **Bundlar `bwrap` binário** com o agente. Quebra em qualquer libc/kernel diferente; vira mantenedor de distro acidental.
+- **Esconder ausência de sandbox.** Usuário precisa saber que está em modo unsafe. Banner não-suprimível.
+- **Auto-sudo silencioso pra instalar dependência.** Engine sugere comando; user executa. Privilege escalation by agent é vetor, não feature.
+- **"Funciona out of the box em todo lugar."** Marketing. Realidade: sandbox é OS-specific e exige cooperação do user em primeira execução.
+
+Anti-pattern aceitável-mas-evitar em local-CLI: **Docker como sandbox padrão**. Portável e funciona, mas peso enorme pra UX interativa. Aceitável em ambiente CI ou deployment multi-tenant; ruim pra local.
+
+### 13.2 Support tiers
+
+| Tier | Plataforma | Mecanismo | Status |
+|---|---|---|---|
+| **First-class** | Linux (kernel ≥ 4.18 com user namespaces enabled) | bwrap | Suportado, testado |
+| **First-class** | WSL2 (Ubuntu, Debian, Fedora) | bwrap | Suportado, testado |
+| **Partial** | macOS 11+ | sandbox-exec (sbpl profile) | Suportado; profiles limitados; FS bind tem quirks |
+| **Limited** | Windows native (não-WSL) | sem sandbox real; degraded forçado | Não recomendado em v2; instruir uso de WSL |
+| **Out of scope** | Linux com kernel < 4.18 ou user namespaces desabilitados | — | refusing ou host com confirm forçado |
+| **Out of scope** | macOS com SIP off ou sandbox-exec deprecated em versão futura | — | refusing |
+
+Cada tier define `capability_ceiling` — quais sandbox profiles são alcançáveis. Linux first-class: `[ro, cwd-rw, cwd-rw-net, home-rw, host]`. macOS partial: `[ro, cwd-rw, host]` (net filtering via sandbox-exec é limitado).
+
+### 13.3 `forja doctor` (health check)
+
+Comando idempotente, read-only, sem side effects:
+
+```
+$ forja doctor
+
+Forja health check
+──────────────────
+OS:                  Linux 6.18 Manjaro                       OK
+User namespaces:     enabled                                  OK
+Sandbox binary:      bwrap 0.10.0 (/usr/bin/bwrap)            OK
+Net filtering:       nftables 1.0.9                           OK
+SELinux/AppArmor:    apparmor (complain mode)                 WARN
+Capability profile:  cwd-rw-net selectable                    OK
+Policy load:         enterprise=none user=ok project=ok       OK
+Hash chain:          intact (seq 4821, last seal 4h ago)      OK
+External sealing:    rfc3161-tsa (last success 4h ago)        OK
+Classifier:          v0.3 (last response 142ms)               OK
+Engine state:        ready                                    OK
+
+Capability ceiling: [ro, cwd-rw, cwd-rw-net, home-rw, host]
+Engine version: 2.0.1
+Conformance suite:  142/142 passing (last run 2d ago)
+
+Warnings:
+  - AppArmor in complain mode; consider enforce for stronger isolation
+```
+
+`--json` para parse por hooks externos. Exit code != 0 se qualquer check `FAIL`; warnings não falham. Checks críticos sempre live; não-críticos (versões de kernel/pkg) com cache de 60s.
+
+### 13.4 `forja sandbox setup` (bootstrap guiado)
+
+Comando interativo, idempotente, **nunca executa sudo sem confirmação explícita**.
+
+```
+$ forja sandbox setup
+
+Forja sandbox setup
+───────────────────
+Detected: Linux Manjaro (kernel 6.18)
+Sandbox status: bwrap not found
+
+Recommended action:
+  Install bubblewrap via package manager.
+
+Options:
+  [1] Show install command (recommended)
+  [2] Run install command (requires sudo)
+  [3] Continue without sandbox (UNSAFE — agent runs with host permissions)
+  [4] Cancel
+
+Choice: 1
+
+Run this command in another terminal:
+  sudo pacman -S bubblewrap
+
+After installation, re-run: forja doctor
+```
+
+Opção `[2]` exibe o comando exato e pede **segunda confirmação** antes de executar. Auto-run só com `--yes` explícito (CI use case, requer policy `ci_mode_acknowledged = true`).
+
+Opção `[3]` exige confirmação dupla, grava `unsafe_mode_acknowledged_at` em audit log, mantém banner de warning persistente em toda sessão.
+
+Detecção de package manager (best-effort, tabela hardcoded):
+
+| Distro hint | Comando |
+|---|---|
+| `/etc/debian_version` | `sudo apt install bubblewrap` |
+| `/etc/arch-release` | `sudo pacman -S bubblewrap` |
+| `/etc/fedora-release` | `sudo dnf install bubblewrap` |
+| `/etc/alpine-release` | `sudo apk add bubblewrap` |
+| `/etc/nixos/configuration.nix` | manual: adicionar `pkgs.bubblewrap` |
+| macOS (Homebrew detected) | manual: sandbox-exec é built-in; orienta config |
+| nenhum reconhecido | comando genérico + link doc |
+
+### 13.5 First-boot UX
+
+Primeira execução sem sandbox configurado:
+
+```
+Forja first-boot setup
+──────────────────────
+
+Forja runs LLM-orchestrated tools that may execute shell commands,
+edit files, and access the network. To contain blast radius, Forja
+recommends running tools inside an OS sandbox.
+
+Detected: Linux Manjaro
+Sandbox status: NOT CONFIGURED
+
+How would you like to proceed?
+
+  [1] Set up sandbox now (recommended)
+  [2] Continue with sandbox disabled (UNSAFE)
+  [3] Continue with confirm-on-every-action (slow but safe)
+  [4] Exit
+
+Choice:
+```
+
+- **[1]** → entra em `forja sandbox setup`
+- **[2]** → grava ack em audit log; banner permanente; todas decisões `allow` viram `confirm` (state = degraded)
+- **[3]** → modo high-friction; útil pra avaliar antes de instalar sandbox
+
+Nunca há opção silenciosa "skip and don't ask again". Re-prompt em toda sessão se sandbox continua ausente; suprimível só com `~/.config/forja/sandbox_skip` criado via `--i-know-what-im-doing`.
+
+### 13.6 Degradação explícita
+
+Sandbox indisponível mid-session (binary removido, kernel feature toggled off) → engine detecta no próximo `engine.state()` ou em health re-check (§13.8), transição `ready → degraded`, emit event, **banner no terminal**:
+
+```
+⚠ Sandbox no longer available (bwrap binary missing)
+  All tool calls now require manual confirmation.
+  Run 'forja doctor' to investigate.
+```
+
+Banner é:
+- Não-suprimível durante a sessão atual
+- Re-exibido a cada N tool calls (default 10)
+- Logado em audit como `sandbox_degraded_active`
+
+### 13.7 Broker/worker architecture
+
+Engine CLI **nunca** chama `exec()` direto. Toda invocação de tool com exec capability passa por broker → worker.
+
+```
+forja CLI (main process)
+  │
+  ├─ permission engine        (decide allow/deny + sandbox profile)
+  │
+  ├─ broker (long-lived)      (recebe pedido, monta sandbox, spawn worker)
+  │     │
+  │     └─ worker (per call)  (processo descartável dentro do sandbox)
+  │            │
+  │            └─ tool exec   (bwrap-wrapped)
+  │
+  └─ harness loop             (LLM ↔ engine ↔ broker)
+```
+
+Justificativa:
+- **CLI main não tem `exec` privilege.** Se main é comprometido (bug, prompt injection no harness), atacante não ganha exec direto.
+- **Worker é descartável.** Estado de tool não vaza pra próximo call.
+- **Broker é o único ponto que monta sandbox.** Auditável; mock-able em testes.
+- **Worker killable.** Tool travado não trava main.
+
+Trade-off: latência (spawn de worker custa ~10ms em Linux). Aceitável; comparável ao que harness já gasta em IO/LLM.
+
+### 13.8 Health re-check contínuo
+
+Doctor checks rodam:
+- SessionStart (obrigatório; falha em check crítico = state refusing)
+- A cada N tool calls (default 50)
+- Sob comando explícito `forja doctor`
+- Em transição `ready ↔ degraded` (re-confirma estado)
+
+Cache de 60s pra checks não-críticos (kernel features, pkg versions). Checks críticos (bwrap binary presente, policy hash, hash chain integrity) sempre live.
+
+### 13.9 Vetores adversariais em provisionamento
+
+| Vetor | Mitigação |
+|---|---|
+| Atacante propõe install command modificado | Engine **só sugere** comandos da tabela hardcoded por distro; não aceita comando vindo de LLM ou MCP |
+| `forja sandbox setup` chamado por subagent | Bloqueado: capability `agent-mutate` requerida; sempre confirm humano; never via subagent |
+| Atacante substitui `bwrap` binary | Out of scope (root local); `doctor` reporta path e versão; user pode verificar checksum manual |
+| Race: sandbox aparenta presente em doctor, somem mid-call | Worker invocation falha com `sandbox_unavailable`; transição pra degraded; call atual é deny |
+| Setup auto-run em CI sem sandbox real | `--yes` exige policy `ci_mode_acknowledged = true`; default rejeita |
+| Distro detection enganada por arquivo falso em `/etc/` | Detecção é best-effort e só orienta texto; nenhum comando é auto-executado sem confirmação explícita do user |
+
+### 13.10 Mensagem central
+
+Sandbox **não é feature opcional** nem "modo enterprise". É **parte do runtime model**. Roda sem? Sim, mas com banner permanente e fricção alta — comunicado explicitamente, nunca implícito.
+
+User está executando modelo probabilístico com acesso a terminal. Tratar isso como engenharia de sistemas significa: **detectar, orientar, validar, degradar com transparência**. Não significa `npm install magic-security`.
+
+---
+
+## 14. MCP trust model
+
+### 13.1 Manifest
+
+MCP server fornece manifest declarando capabilities possíveis:
+
+```json
+{
+  "name": "github-mcp",
+  "version": "1.2.0",
+  "capabilities_declared": ["net-egress:api.github.com", "read-fs:./", "git-write:*"],
+  "tools": [
+    {
+      "name": "create_issue",
+      "capabilities_used": ["net-egress:api.github.com"],
+      "resolver": { "type": "static", "capabilities": ["net-egress:api.github.com"] }
+    },
+    ...
+  ],
+  "manifest_signature": null
+}
+```
+
+### 13.2 Trust prompt
+
+Primeiro contato com MCP server: hash do manifest + nome + lista de tools mostrados ao user. Trust prompt explícito.
+
+Trust persistido em:
+
+```sql
+CREATE TABLE mcp_trust (
+  server_name TEXT PRIMARY KEY,
+  manifest_hash TEXT NOT NULL,
+  trusted_at INTEGER NOT NULL,
+  trusted_by TEXT NOT NULL,
+  capabilities_declared_json TEXT NOT NULL
+);
+```
+
+### 13.3 Hash mismatch
+
+Manifest mudou desde último trust → tools do server **quarentinados** (invisíveis ao modelo) até re-trust. Engine não invoca, mesmo se policy permitiria.
+
+### 13.4 Capability ceiling
+
+Engine refuse permitir capability que excede `capabilities_declared` do manifest. Tool tentando consumir além → `deny(reason="mcp_capability_breach")`.
+
+### 13.5 Manifest signing (v2 status)
+
+V2 **não exige** manifest assinado. Documentado como vetor aceito (server hostil pode declarar manifest enganoso; usuário deve fazer due diligence). V3 alvo: assinatura opcional via Sigstore.
+
+---
+
+## 15. Threat model da engine
+
+A engine é o gate. Comprometê-la é jogo perdido. Quem ataca a engine, e como nos defendemos.
+
+### 14.1 Vetores
+
+| Vetor | Mitigação |
+|---|---|
+| **Engine binary trocado** | Update assinado (Sigstore/cosign); `agent --verify` confere antes de exec; unsigned = refuse |
+| **`LD_PRELOAD` injetando lib hostil** | Out of scope (root local); documentado; deployment regulado deve usar OS-level mitigations (selinux, apparmor) |
+| **Policy file editada por terceiro** | enterprise: root-owned 0644; user: 0600; project: PR review é gate; hash gravado em audit log permite forensics |
+| **install_id roubado** | Permite forjar genesis; mitigação: file mode 0600 + diretório protegido; rotação opcional invalida chain anterior |
+| **SQLite db corrompido / substituído** | `PRAGMA integrity_check` em SessionStart; `verify_chain()` antes de aceitar; sealing externo é defesa real |
+| **Engine bug (e.g., glob compiler com OOB)** | Conformance suite + fuzzing (§16.4); panic = state refusing |
+| **Race em concorrência** | Mutex de sessão; snapshot de policy por decisão; conformance test concurrency cases |
+| **Classifier model trocado** | classifier_hash gravado em audit; mismatch entre invocações = warning event |
+| **Time manipulation (clock fwd/back)** | TTL relative timestamps com monotonic clock onde possível; abrupt jump > 1h = warning event |
+| **Resolver TOML / JS executado com privilégio** | Resolvers MCP em worker isolado; resolvers builtin são código compilado (não eval) |
+
+### 14.2 Bootstrap
+
+Primeiro start:
+
+1. Verifica binary signature (signed release) ou aceita unsigned com explicit `--allow-unsigned` (audit log entry).
+2. Cria `~/.config/agent/install_id` (UUID, mode 0600).
+3. Cria `~/.config/agent/policy.toml` skeleton se ausente.
+4. Genesis hash chain (§7.2).
+5. State → ready.
+
+### 14.3 O que é assumido (não defendido)
+
+- Adversário com root local: pode tudo. Engine assume userspace honesto.
+- Compromise do classifier model: bound de ±0.2 + `required: false` default limita dano.
+- Compromise de MCP server confiado: trust prompt + hash chain + capability ceiling é o limite; código MCP não é inspecionado.
+- Side-channel timing entre decisões: ignorado (nicho).
+
+---
+
+## 16. Conformance suite
+
+Sem golden tests, "determinístico" é palavra. Suite obrigatória pra GA.
+
+### 15.1 Format
+
+Casos em YAML, um arquivo por categoria:
+
+```yaml
+# tests/conformance/static_rules/deny_precedence.yaml
+- name: "deny in higher hierarchy beats allow in lower"
+  setup:
+    enterprise_policy: |
+      [[deny]]
+      capability = "write-fs"
+      scope = "/etc/**"
+      locked = true
+    project_policy: |
+      [[allow]]
+      capability = "write-fs"
+      scope = "**"
+  input:
+    tool: "write_file"
+    args: { file_path: "/etc/foo.conf", content: "x" }
+    cwd: "/tmp/proj"
+  expect:
+    decision: "deny"
+    reason_substring: "enterprise_deny"
+    score_lte: 1.0
+```
+
+### 15.2 Categorias e mínimos
+
+| Categoria | Casos mínimos |
+|---|---|
+| Static rule matching (deny precedence, hierarchy, locked) | 20 |
+| Capability resolver per builtin tool | 30 (3 cada × 10 tools) |
+| Bash resolver adversariais (eval, $(), redirects, etc) | 25 |
+| Path traversal / symlink escape | 15 |
+| Hash chain (genesis, append, verify, broken) | 8 |
+| TTL expiry edge cases | 6 |
+| Subagent intersection | 6 |
+| Protected paths immunity | 5 |
+| Concurrency (parallel calls within session, policy reload mid-decision) | 5 |
+| Score determinism (same input = same score) | 10 |
+| Sandbox profile selection tie-break | 6 |
+| **Total mínimo pra GA** | **136** |
+
+### 15.3 Execução
+
+```bash
+agent permission test                  # roda suite
+agent permission test --filter bash    # subset
+agent permission test --golden-update  # regenerate goldens (CI gate)
+```
+
+Exit code != 0 = release blocker.
+
+### 15.4 Fuzzing
+
+Além de goldens, fuzz harness em CI:
+- glob compiler (random byte strings → no panic, no OOB)
+- bash resolver (random shell snippets → no panic, sempre Conservative ou Refuse em casos esquisitos)
+- policy parser (random TOML → no crash)
+- hash chain verify (corrupted rows → state=refusing, no panic)
+
+Target: 10⁹ iterations sem crash novo entre releases.
+
+---
+
+## 17. Replay tool
+
+Reprodutibilidade auditável é requisito (§1.8).
+
+```bash
+agent permission replay <approval_id>
+agent permission replay <approval_id> --against-current-policy
+agent permission diff <approval_id_1> <approval_id_2>
+```
+
+### 16.1 Inputs preservados
+
+Pra replay, audit row tem:
+- `args_hash` (lookup em sessão SQLite enquanto sessão viva)
+- `capabilities_json`
+- `policy_hash` (lookup em `policy_archive`)
+- `resolver_version`
+- `classifier_hash`
+- `score_components_json`
+
+Args brutos vivem em SQLite de sessão (TTL = retenção de sessão, default 30d). Após TTL, replay perde args mas mantém capabilities.
+
+### 16.2 Modos
+
+| Modo | O que faz |
+|---|---|
+| default | replay com policy original; deve produzir mesma decisão (verifica determinismo) |
+| `--against-current-policy` | replay com policy atual; mostra diff |
+| `--without-classifier` | força score determinístico puro; mostra impact do classifier |
+
+Output:
+
+```
+Replay ap_01H3K5QXR...:
+  Tool: bash
+  Decision (original): confirm-allowed
+  Decision (replay): confirm-allowed              ✓ deterministic
+  Decision (against current): allow                ⚠ policy drift
+    Diff: deny rule [[deny]] capability="exec" scope="/tmp/**" was removed in commit abc123
+```
+
+### 16.3 Use cases
+
+- Pós-incidente: "qual decisão liberou X?"
+- Policy review: "quantas decisões mudariam com essa nova rule?"
+- Calibração: "score deu 0.4 mas humano clicou deny — feature pra adicionar?"
+
+---
+
+## 18. Observability
+
+Cada decisão emite event:
+
+```json
+{
+  "ts": 1731000000000,
+  "kind": "permission.decision",
+  "tool": "bash",
+  "tool_version": "1.0.0",
+  "resolver_version": "bash@1.3",
+  "capabilities": ["exec:shell", "write-fs:./build/**"],
+  "decision": "confirm-allowed",
+  "score": 0.62,
+  "score_components": {
+    "capability_risk": 0.40,
+    "shell_chain": 0.20,
+    "classifier_adjust": 0.02
+  },
+  "confidence": "high",
+  "policy_hash": "sha256:...",
+  "classifier_hash": "v0.3",
+  "sandbox_profile": "cwd-rw-net",
+  "ttl_expires_at": 1731086400000,
+  "approval_id": "ap_01H...",
+  "parent_approval_id": null,
+  "engine_state": "ready"
+}
+```
+
+OTEL export com scrubbing. Métricas chave:
+
+| Métrica | Alarme |
+|---|---|
+| `approval_rate{decision}` | drift > 20% week-over-week |
+| `score_distribution` (histogram) | P50 > 0.5 (policy frouxa) |
+| `classifier_unavailable_total` | > 5% das decisões |
+| `chain_verification_failures_total` | > 0 = **P0** |
+| `sealing_failures_total` | > 0 em strict mode = **P0** |
+| `state_transitions{from,to}` | qualquer transição pra `refusing` = **P0** |
+| `approval_fatigue_proxy` (% allow clickado < 1s) | > 30% indica calibração ruim |
+| `policy_reload_failures_total` | > 0 indica policy drift |
+
+---
+
+## 19. Migration v1 → v2
+
+Não-breaking pra usuário; breaking pra implementadores de tool.
+
+### Fase 1 (compat): v2 lê policy v1
+- `Bash(npm test)` → traduzido pra `capability=exec:shell, match.command_prefix="npm test", scope=*`.
+- Regras sem TTL ganham `ttl=session`.
+- Tools sem manifest de capabilities ganham `capability=exec:shell` conservador (escala approval).
+- Hash chain inicia em primeira decisão pós-upgrade (genesis nesse ponto).
+
+### Fase 2 (incentivo): warning em v1-only
+- Tool sem manifest emite warning em SessionStart.
+- Policy sem capability declarada idem.
+- Conformance suite tests v2-only path.
+
+### Fase 3 (cutover): v3 remove tradução v1
+- Policy v1 deixa de carregar; migração obrigatória.
+
+Tempo entre fases: ≥ 2 releases minor cada.
+
+---
+
+## 20. Não-defendido (escopo honesto)
+
+| Vetor | Decisão |
+|---|---|
+| Adversário com root local | fora de escopo; engine assume userspace honesto |
+| `LD_PRELOAD` / kernel module hostil | fora de escopo; recomenda OS hardening |
+| Compromise de MCP server confiado | trust prompt + hash chain + capability ceiling = limite; código MCP não inspecionado |
+| Side-channel timing | ignorado |
+| Modelo gerando comando equivalente fora de pattern conhecido (`python -c "import os; os.remove(...)"`) | mitigado pelo capability resolver do tool python; **NÃO** mitigado se tool python não declara `delete-fs` |
+| Approval fatigue real (user clica allow sem ler) | mitigado por `once` default + preview + métrica de fadiga; **não eliminado** |
+| Classifier ML envenenado | mitigado por hint-only + bound ±0.2; nunca elimina deny determinístico |
+| Compromise do binário antes de update verification | depende de update mechanism; first-install é trust on first use |
+| Manifest MCP enganoso (server declara capability menor que usa) | mitigado por capability ceiling no engine, mas server pode operar fora dele com side effects via output (limited mitigation) |
+
+---
+
+## 21. Open questions
+
+1. **Capability resolver dinâmico para `bash`.** AST parser cobre 80%; eval/dynamic content fica em `Refuse` ou `low confidence`. Vale investir em análise simbólica? Custo > benefício até calibração mostrar volume de Refuse intolerável.
+2. **Score weights drift.** Baseline é defensável, não otimal. Plano em §6.3.2; primeiro deploy em telemetria piloto antes de GA pública.
+3. **Locked enterprise grants vs user agency.** UX de "your admin blocked this" precisa existir antes de v2 GA. Atual: erro técnico, não ação user. Tracked.
+4. **Cross-session pattern grants.** Default conservador (`session` only). `pattern` exige confirmação separada. Reabrir após calibração mostrar volume de re-aprovação.
+5. **Manifest signing (MCP).** V2 sem; V3 alvo Sigstore.
+6. **Sealing default.** Local-CLI sem; deployment regulado com. Detectar contexto e sugerir? Trade-off entre fricção e segurança.
+7. **Snapshot de policy mid-decision (TOCTOU).** Atual: snapshot por decisão. Custo: cópia de struct compilada. Aceitável até policies grandes (> 10k regras) → otimizar com COW se necessário.
+
+---
+
+## 22. Referências cruzadas
+
+- **`CONTRACTS.md` §9** — contrato externo Tool Registry ↔ Engine (v1 ainda autoritativo na fronteira)
+- **`SECURITY_GUIDELINE.md` §1, §3** — threat model de onde vêm os requisitos
+- **`AUDIT.md`** — formato de event log e retenção
+- **`APP_SANDBOX.md`** — fundamentos de bwrap/sandbox-exec
+- **`MCP.md`** — manifest de capabilities pra MCP tools
+- **`PERFORMANCE.md` §8** — limits de concorrência e budget
+
+V1 (`CONTRACTS.md` §9) é a interface externa; este doc é a implementação interna. Quando divergirem, **interface vence** até v3.
+
+---
+
+## 23. Critério de production-ready
+
+Checklist objetivo. Marca pra release:
+
+- [ ] Conformance suite ≥ 136 casos passando
+- [ ] Fuzz harness 10⁹ iterations sem crash novo
+- [ ] Bash resolver registry cobre top 30 commands
+- [ ] Path resolver com symlink escape testado
+- [ ] Hash chain genesis + verify + rotação testados
+- [ ] Sealing externo configurável e testado em ≥ 1 backend (recomendado: rfc3161-tsa)
+- [ ] State machine completa com transitions audit-loggadas
+- [ ] Replay tool funcional pra todas categorias de decisão
+- [ ] Telemetria com scrubbing implementada
+- [ ] Threat model § 14 review por terceiro independente
+- [ ] Calibração baseline-v2.0 validada em deployment piloto ≥ 30d
+- [ ] Migration path v1 testado com policies reais
+
+Tudo marcado = production-ready pra local-CLI. Pra deployment regulado (healthcare, fintech) adicionar:
+
+- [ ] Sealing externo **obrigatório** (`required: true`)
+- [ ] Manifest signing exigido pra MCP
+- [ ] Audit log retenção alinhada com compliance (≥ 7 anos comum)
+- [ ] Red team report independente
+- [ ] Política de incident response documentada
