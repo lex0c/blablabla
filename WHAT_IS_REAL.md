@@ -250,56 +250,6 @@ O problema é que elas raramente chegam identificadas como histórias.
 
 Normalmente chegam disfarçadas de realidade.
 
-E este texto não é exceção.
-
-Tudo o que você acabou de ler também é uma história.
-
-Talvez não exista saída completa.
-
-Apenas o gesto, repetido e imperfeito, de perguntar de onde veio cada certeza.
-
-E talvez a pergunta mais importante que alguém possa fazer não seja:
-
-"No que eu acredito?"
-
-Mas algo muito mais desconfortável:
-
-"Quais crenças eu nunca considerei questionar?"
-
-Porque é justamente ali, nas ideias que parecem mais óbvias, mais naturais e mais indiscutíveis, que as maiores ilusões costumam se esconder.
-
----
-
-# O Dia das Formigas
-
-Imagine uma colônia de formigas.
-
-Cada uma segue a que está na frente.
-
-Nenhuma compreende o sistema inteiro.
-
-Nenhuma conhece a origem da trilha.
-
-Nenhuma sabe para onde o grupo está indo.
-
-Elas apenas seguem.
-
-Na maior parte do tempo isso funciona.
-
-Às vezes, porém, algo dá errado.
-
-Uma trilha se fecha sobre si mesma.
-
-Forma-se um círculo.
-
-Então acontece algo fascinante.
-
-Milhares de formigas passam a caminhar em loop, uma seguindo a outra indefinidamente.
-
-Nenhuma percebe o problema.
-
-Cada uma apenas observa que existe uma formiga à sua frente e conclui que está no caminho correto.
-
 ...
 
 Todos os anos milhões de pessoas compram presentes no mesmo dia.
@@ -374,5 +324,138 @@ A sociedade entrega um roteiro.
 
 A maioria segue.
 
-Poucos perguntam quem escreveu.
+...
 
+Existe uma visão simplista da sociedade segundo a qual tudo seria dividido entre dois grupos.
+
+De um lado, uma massa manipulada.
+
+Do outro, uma elite consciente, racional e estrategicamente capaz de controlar tudo.
+
+Essa leitura é sedutora porque oferece um culpado claro.
+
+Também é incompleta.
+
+A realidade parece ser mais difusa.
+
+A sociedade não funciona como uma máquina comandada por um único centro de controle.
+
+Ela funciona como um sistema complexo.
+
+Cada pessoa age dentro de um contexto limitado.
+
+Cada instituição responde aos próprios incentivos.
+
+Cada grupo reforça determinadas normas.
+
+Cada geração herda comportamentos, valores e expectativas que já existiam antes dela.
+
+E, da soma dessas decisões locais, surgem padrões coletivos que ninguém planejou por completo.
+
+A alienação não precisa ser criada deliberadamente.
+
+Basta que o sistema recompense previsibilidade, obediência, produtividade e continuidade.
+
+Governos precisam administrar milhões de pessoas.
+
+Empresas precisam organizar trabalho.
+
+Escolas precisam padronizar processos.
+
+Famílias precisam transmitir comportamentos.
+
+Religiões precisam preservar tradições.
+
+Mercados precisam estimular consumo.
+
+Cada instituição persegue objetivos aparentemente razoáveis.
+
+Mas o resultado agregado tende a ser semelhante:
+
+uma sociedade em que a maior parte das pessoas aprende primeiro a funcionar e só raramente aprende a questionar.
+
+Isso não significa que todos sejam vítimas passivas de uma conspiração.
+
+A palavra "manipulação" costuma sugerir uma sala fechada, algumas pessoas planejando cada detalhe e uma população obedecendo cegamente.
+
+Na maior parte das vezes, o mecanismo é menos cinematográfico.
+
+O sistema não precisa de um controlador absoluto.
+
+Ele se reproduz por inércia.
+
+As instituições preservam práticas que aumentam sua estabilidade.
+
+As pessoas repetem comportamentos que garantem pertencimento.
+
+As tradições sobrevivem porque já estão incorporadas à cultura.
+
+As redes sociais amplificam aquilo que chama atenção.
+
+O mercado transforma emoções em produtos.
+
+E cada indivíduo, tentando viver, trabalhar e sobreviver, ajuda a sustentar estruturas que quase nunca compreende por inteiro.
+
+A maioria das pessoas não passa o dia investigando os sistemas que moldam sua vida.
+
+Não porque seja necessariamente incapaz.
+
+Mas porque está ocupada.
+
+Trabalhando.
+
+Pagando contas.
+
+Criando filhos.
+
+Mantendo relações.
+
+Lidando com problemas imediatos.
+
+Buscar conhecimento profundo exige tempo, energia e disposição para suportar desconforto.
+
+Copiar é mais barato.
+
+Aceitar é mais barato.
+
+Seguir o fluxo é mais barato.
+
+A evolução não selecionou organismos obcecados por compreender a realidade em profundidade.
+
+Selecionou organismos capazes de sobreviver.
+
+E, durante grande parte da história humana, pertencer ao grupo foi mais importante do que questioná-lo.
+
+A sociedade não precisa que você entenda economia para trabalhar.
+
+Não precisa que você entenda história para repetir tradições.
+
+Não precisa que você entenda psicologia para consumir.
+
+Não precisa que você entenda política para obedecer leis.
+
+Não precisa que você entenda o sistema para sustentar o sistema.
+
+A alienação não precisa ser imposta conscientemente.
+
+Ela emerge quando funcionalidade é mais importante do que compreensão.
+
+O ser humano segue a tradição porque ela já estava lá quando ele chegou.
+
+E, depois de tempo suficiente, chama isso de realidade.
+
+...
+
+Talvez não exista saída completa.
+
+Apenas o gesto, repetido e imperfeito, de perguntar de onde veio cada certeza.
+
+E talvez a pergunta mais importante que alguém possa fazer não seja:
+
+"No que eu acredito?"
+
+Mas algo muito mais desconfortável:
+
+"Quais crenças eu nunca considerei questionar?"
+
+Porque é justamente ali, nas ideias que parecem mais óbvias, mais naturais e mais indiscutíveis, que as maiores ilusões costumam se esconder.
