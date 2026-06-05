@@ -178,13 +178,17 @@ Por isso a regra geral das abstrações se inverte no caso da IA. Nas outras, qu
 
 O argumento de que IA elimina a necessidade de conhecimento técnico é tão frágil quanto dizer que C eliminou a necessidade de entender hardware.
 
-Na prática, ocorre o contrário.
+Na prática, ocorre algo mais interessante: ao contrário de muitas abstrações anteriores, a IA pode exigir **mais** conhecimento técnico para ser usada com eficiência.
+
+Compiladores, bibliotecas e frameworks normalmente reduzem a necessidade de lidar diretamente com detalhes da camada inferior. A IA remove parte do trabalho manual, mas não entrega uma camada confiável o bastante para dispensar entendimento. Para obter um resultado útil, o desenvolvedor precisa compreender o problema com clareza suficiente para formular boas instruções, decompor a tarefa, fornecer o contexto relevante e explicitar restrições. Depois, precisa ter repertório suficiente para avaliar criticamente o que foi produzido.
+
+A barreira não está apenas em gerar código. Está em saber o que pedir e, principalmente, em reconhecer quando a resposta está errada apesar de parecer convincente.
 
 Quanto maior o poder da ferramenta, maior o estrago possível nas mãos de quem não sabe avaliá-la.
 
 Um engenheiro experiente consegue usar IA para acelerar implementação, comparar estratégias, explorar alternativas, investigar falhas e automatizar tarefas repetitivas.
 
-Uma pessoa sem base técnica pode gerar código.
+Uma pessoa sem base técnica também consegue gerar código.
 
 Mas terá dificuldade para distinguir:
 
@@ -192,6 +196,11 @@ Mas terá dificuldade para distinguir:
 * uma abstração útil de uma dependência desnecessária
 * um teste relevante de um ritual decorativo
 * uma arquitetura escalável de um diagrama bonito com nomes em inglês
+* uma implementação correta de uma resposta apenas plausível
+
+IA não democratiza competência.
+
+Ela democratiza produção.
 
 A IA amplia capacidade.
 
