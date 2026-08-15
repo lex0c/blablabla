@@ -3,6 +3,9 @@
 <details>
 <summary><b>Índice</b> (clique para expandir)</summary>
 
+- [0. Antes de tudo: sem log, sem evidência](#0-antes-de-tudo-sem-log-sem-evidência)
+  - [Onde o log precisa estar](#onde-o-log-precisa-estar)
+  - [Cheque agora, com o host limpo](#cheque-agora-com-o-host-limpo)
 - [1. Preparação](#1-preparação)
   - [Snapshot antes de mexer (cloud/VM)](#snapshot-antes-de-mexer-cloudvm)
 - [2. Rede](#2-rede)
@@ -12,6 +15,7 @@
   - [2.4. Informações da rede local](#24-informações-da-rede-local)
   - [2.5. Estado do firewall](#25-estado-do-firewall)
   - [2.6. Captura rápida de tráfego](#26-captura-rápida-de-tráfego)
+  - [2.7. Conexão intermitente (beacon)](#27-conexão-intermitente-beacon-o-que-o-retrato-não-pega)
 - [3. Processo](#3-processo)
   - [3.1. Informações básicas](#31-informações-básicas)
   - [3.2. Árvore](#32-árvore)
@@ -27,6 +31,7 @@
   - [3.12. Processos do mesmo usuário](#312-processos-do-mesmo-usuário)
   - [3.13. Buscar processos por nome](#313-buscar-processos-por-nome)
   - [3.14. Executáveis deletados ainda em execução](#314-executáveis-deletados-ainda-em-execução)
+  - [3.15. Namespaces (esconderijo sem container)](#315-namespaces-esconderijo-sem-container)
 - [4. Checklist rápido de processo](#4-checklist-rápido-de-processo)
 - [5. Arquivo/binário](#5-arquivobinário)
   - [5.1. Metadata](#51-metadata)
@@ -38,6 +43,7 @@
   - [5.7. Hex](#57-hex)
   - [5.8. Quem está usando o arquivo](#58-quem-está-usando-o-arquivo)
   - [5.9. Nunca execute um arquivo suspeito](#59-nunca-execute-um-arquivo-suspeito)
+  - [5.10. Da amostra à família: o que a ferramenta te conta](#510-da-amostra-à-família-o-que-a-ferramenta-te-conta)
 - [6. Preservar arquivo suspeito](#6-preservar-arquivo-suspeito)
   - [Memória do processo (binário packed)](#memória-do-processo-binário-packed)
 - [7. Persistência](#7-persistência)
@@ -95,6 +101,7 @@
 - [25. Capabilities e SUID](#25-capabilities-e-suid)
 - [26. Rotação de credenciais](#26-rotação-de-credenciais)
 - [27. Quando rebuild é necessário](#27-quando-rebuild-é-necessário)
+  - [Antes do rebuild: a imagem é confiável?](#antes-do-rebuild-a-imagem-é-confiável)
 - [28. Coleta rápida em um único bloco](#28-coleta-rápida-em-um-único-bloco)
 - [29. Coleta rápida de um PID](#29-coleta-rápida-de-um-pid)
 - [30. Coleta rápida de um arquivo](#30-coleta-rápida-de-um-arquivo)
@@ -110,6 +117,8 @@
   - [34.6. Tempo: hosts descartáveis](#346-tempo-hosts-descartáveis)
   - [34.7. Detecção que reduz raio](#347-detecção-que-reduz-raio)
   - [34.8. Auditoria rápida do estado atual](#348-auditoria-rápida-do-estado-atual)
+  - [34.9. Configuração base do host (sshd, sysctl, patch, MAC)](#349-configuração-base-do-host-sshd-sysctl-patch-mac)
+  - [34.10. A camada da cloud (agnóstico de provedor)](#3410-a-camada-da-cloud-agnóstico-de-provedor)
   - [O que NÃO reduz blast radius](#o-que-não-reduz-blast-radius)
 - [35. Comprometimento em nível de kernel](#35-comprometimento-em-nível-de-kernel)
   - [35.1. Antes de tudo: é kernel mesmo?](#351-antes-de-tudo-é-kernel-mesmo)
@@ -130,8 +139,92 @@
   - [36.7. Ferramentas](#367-ferramentas)
   - [36.8. Mitigação por rota](#368-mitigação-por-rota)
   - [36.9. Higiene contínua](#369-higiene-contínua)
+- [37. Exfiltração — o que saiu?](#37-exfiltração--o-que-saiu)
+  - [37.1. O alcance: o teto do que pode ter saído](#371-o-alcance-o-teto-do-que-pode-ter-saído)
+  - [37.2. Volume: o host mediu sem querer](#372-volume-o-host-mediu-sem-querer)
+  - [37.3. Staging: o pacote que ele montou antes de mandar](#373-staging-o-pacote-que-ele-montou-antes-de-mandar)
+  - [37.4. Canal: para onde foi](#374-canal-para-onde-foi)
+  - [37.5. Banco de dados: a exfiltração que não vira arquivo](#375-banco-de-dados-a-exfiltração-que-não-vira-arquivo)
+  - [37.6. A prova está off-box](#376-a-prova-está-off-box)
+  - [37.7. Veredito — e o que fazer com ele](#377-veredito--e-o-que-fazer-com-ele)
+- [38. Gestão do incidente (decisão, comunicação, registro)](#38-gestão-do-incidente-decisão-comunicação-registro)
+  - [38.1. Severidade e quem decide](#381-severidade-e-quem-decide)
+  - [38.2. OpSec da resposta](#382-opsec-da-resposta)
+  - [38.3. O registro (war log)](#383-o-registro-war-log)
+  - [38.4. Notificação: prazos que não são seus](#384-notificação-prazos-que-não-são-seus)
+  - [38.5. Critério de encerramento](#385-critério-de-encerramento)
+  - [38.6. Post-mortem](#386-post-mortem)
 
 </details>
+
+---
+
+# 0. Antes de tudo: sem log, sem evidência
+
+> **Por quê:** as §1–§38 são técnicas para **perguntar ao host**. Nenhuma delas inventa um dado que não foi registrado — se a fonte não estava ligada, ou já rotacionou, não existe comando que recupere. **Olhe para:** a lista desta seção **hoje**, com o host limpo. No dia do incidente ela não muda mais.
+
+Um incidente se fecha respondendo quatro perguntas:
+
+```text
+como entrou?             §14 §16
+o que fez?               §3 §7 §9 §11
+o que saiu?              §37
+como impedir que volte?  §34
+```
+
+> **Sem resposta para as quatro, o incidente não está fechado — só está quieto.**
+
+E cada uma depende de uma fonte que precisa **já estar ligada** quando o ataque acontece:
+
+```text
+como entrou?     log de acesso do web/proxy e da app       §15 §16
+                 auditd — EXECVE com o processo PAI        §11    ← o que amarra o vetor
+o que fez?       journal + log local, com retenção         §10
+                 ctime do filesystem (e relógio correto)   §9
+                 baseline: sem "normal" gravado, tudo parece normal   §34.7
+o que saiu?      VPC Flow (bytes), log de acesso do storage,
+                 log de query do banco, audit da cloud     §37.6  ← o mais ausente de todos
+como impedir?    inventário do que existe: portas, SUID,
+                 capabilities, hash dos binários           §34.7 §34.8
+```
+
+> **E o que se perde não é só a resposta — é o método.** Sem log você ainda acha o **artefato**: o binário, a chave plantada, o cron. Ele está no disco, parado, esperando. O que não se recupera é a **sequência** — qual requisição virou execução, o que o atacante tentou antes de conseguir, em que ordem tocou nas coisas, o que ele fez e não funcionou. Isso é o *modus operandi*, e é a única parte que se reaproveita: hash e IP mudam amanhã (§23), técnica não.
+
+> Três coisas dependem disso e caem juntas: a correlação da §9.1 (que precisa de duas fontes no mesmo segundo, não de uma), a varredura da frota da §23 (você procura o comportamento, não só o IOC) e o *dwell time* da §38.6 — sem a hora da **entrada**, não há como medir quanto tempo ele ficou, e "o que atrasou a detecção?" fica sem resposta. Você endurece o host contra o incidente que já passou, e não contra quem o executou.
+
+---
+
+## Onde o log precisa estar
+
+Log local é evidência de segunda categoria: quem tem root reescreve, trunca e apaga (§10.1, §12). A cópia fora do host é a única que o atacante **do host** não alcança.
+
+```text
+fora do host       outra conta/projeto, com credencial que a VM NÃO possui
+append-only        quem escreve não pode reescrever nem apagar
+retenção > dwell   dwell time real costuma ser de semanas; log de 3 dias não cobre
+relógio confiável  NTP e UTC — timestamp errado quebra a §9 inteira
+```
+
+> **A conta que importa:** sua retenção define a **idade máxima de incidente que você consegue investigar**. Se o log local rotaciona em 3 dias e o atacante entrou há 30, a §9 e a §10 voltam vazias — e vazio se parece muito com "limpo".
+
+---
+
+## Cheque agora, com o host limpo
+
+```bash
+journalctl --disk-usage; ls -la /var/log/*.gz 2>/dev/null | tail -3   # até quando o log local vai?
+sudo systemctl is-active auditd                                       # §11 existe neste host?
+systemctl is-active rsyslog google-cloud-ops-agent amazon-cloudwatch-agent 2>/dev/null
+                                                                      # algo sai do host?
+timedatectl | grep -iE 'synchronized|time zone'                       # a §9 pode confiar no relógio?
+sudo ss -ltnp | wc -l; sudo find / -xdev -perm -4000 2>/dev/null | wc -l   # há baseline disso? (§34.7)
+```
+
+Faltou alguma? A correção não é aqui — é a §34.7. E o custo dela é ordens de grandeza menor que o de um incidente sem resposta.
+
+> **O que é grátis e vem desligado:** VPC Flow Logs, log de acesso do storage, log de query do banco e o auditd. A exceção feliz é o audit administrativo da cloud (GCP Admin Activity, AWS CloudTrail): já está ligado, retém centenas de dias e **não é alterável pelo atacante do host** — em muito incidente é a única fonte que sobra (§10.4, §37.6).
+
+> Este runbook termina na §33 com estas mesmas quatro perguntas. Se ao ler aqui você já sabe que não conseguiria responder a duas delas, comece pela §34 — investigar sem telemetria é adivinhar com passos a mais.
 
 ---
 
@@ -189,7 +282,7 @@ aws ec2 create-snapshot --volume-id <VOL> --description "ir-$(date +%s)"
 
 # 2. Rede
 
-> **Por quê:** um backdoor quase sempre mantém uma conexão de saída (C2). A rede costuma ser o primeiro fio a puxar. **Olhe para:** conexão *outbound* para IP público a partir de um processo/usuário de aplicação inesperado — em especial 443 ou portas altas persistentes.
+> **Por quê:** um backdoor quase sempre mantém uma conexão de saída (C2). A rede costuma ser o primeiro fio a puxar. **Olhe para:** conexão *outbound* para IP público a partir de um processo/usuário de aplicação inesperado — em especial 443 ou portas altas persistentes. E se nada aparecer: o canal pode ser **intermitente**, e aí o retrato instantâneo não serve (§2.7).
 
 ## 2.1. Conexões atuais
 
@@ -377,6 +470,90 @@ sudo tcpdump -ni any -A 'tcp port 443 and tcp[((tcp[12:1] & 0xf0) >> 2):1] = 0x1
 ```
 
 > `-s0` captura o pacote inteiro (sem truncar) e `-w` salva cru para análise offline no Wireshark. Cuidado: o pcap pode conter dados sensíveis em tráfego não-TLS — trate como o resto da coleta (§1).
+
+---
+
+## 2.7. Conexão intermitente (beacon): o que o retrato não pega
+
+As §2.1–§2.3 são um **retrato de um instante**. Um C2 que fala 2 segundos a cada 10 minutos está ausente de 99,7% dos retratos possíveis — e essa ausência vai parecer limpeza. Detectar o intermitente exige trocar retrato por **acúmulo**: ou você repete a pergunta, ou pergunta a algo que registra sozinho.
+
+### O rastro que o beacon deixa (janela estendida, de graça)
+
+```bash
+sudo ss -tan state time-wait                         # socket residual de conexão JÁ FECHADA
+sudo conntrack -L 2>/dev/null | grep -vE 'ESTABLISHED|127\.0\.0\.1'   # conexões curtas ainda na tabela
+sudo journalctl -u systemd-resolved --since '2 hours ago' 2>/dev/null | grep -i query
+```
+
+> `TIME_WAIT` estende sua janela em até ~60 s: o `ss` que perdeu o beacon ainda pode pegar o rastro dele. E o **DNS é o elo mais visível de todos** — a conexão dura 200 ms, mas a resolução do mesmo domínio acontece a cada beacon e fica no log do resolver e no do servidor DNS, onde ninguém a apaga.
+
+### Acumular: repita a pergunta
+
+```bash
+# 30 min de amostragem a cada 5 s; cada linha = epoch + destino
+for i in $(seq 1 360); do
+  T=$(date +%s)
+  sudo ss -tn state established 2>/dev/null | grep -v '^Recv-Q' | awk -v t="$T" '{print t, $4}'
+  sleep 5
+done | tee "$IR/beacon.txt" | awk '{print $2}' | sort | uniq -c | sort -rn | head -20
+```
+
+```bash
+# o mesmo destino em intervalos REGULARES = automação
+awk '$2 ~ /<IP>/ {print $1}' "$IR/beacon.txt" | awk 'p{print $1-p} {p=$1}' | sort -n | uniq -c
+```
+
+> **A leitura:** delta quase constante (com ou sem jitter pequeno) é programa. Humano é irregular — rajada, pausa longa, rajada. É essa a diferença entre "alguém está usando este host agora" e "algo está reportando para alguém".
+
+### Perguntar a quem já registra sozinho
+
+```bash
+sudo conntrack -E -e NEW -p tcp 2>/dev/null | grep -v '127\.0\.0\.1'   # evento no instante em que nasce
+sudo tcpconnect-bpfcc                    # toda connect() com PID e destino (§32)
+sudo execsnoop-bpfcc                     # se o processo NASCE a cada beacon, ele aparece aqui
+./pspy64                                 # idem, sem root e sem instalar nada (§32)
+```
+
+> `conntrack -E` é o melhor custo/benefício num host qualquer: ele **transmite o evento** no momento em que a conexão nasce, então a duração dela deixa de importar. Deixe redirecionado para `$IR/` enquanto você investiga o resto.
+
+### O contador registra o que você não viu
+
+Se a regra de egress da §34.3 existe, ela já está contando — inclusive tentativas de um processo que já morreu:
+
+```bash
+sudo iptables -L OUTPUT -n -v --line-numbers    # a coluna 'pkts' cresce a cada tentativa
+sudo iptables -I OUTPUT 1 -m owner --uid-owner <USER> -j LOG --log-prefix 'EGRESS-APP '
+sudo journalctl -kf | grep 'EGRESS-APP'         # cada tentativa, com hora e destino
+```
+
+> **Vantagem estrutural:** o contador registra a **tentativa**, não a conexão. Mesmo com o C2 já bloqueado (§18.1/§34.3) e nenhuma conexão se completando, o beacon continua aparecendo — e é exatamente esse o sinal que a §22 procura depois da limpeza: algo ainda vivo tentando sair.
+
+### O outro lado: o processo também é intermitente
+
+```text
+processo VIVO dormindo entre beacons   'etime' longo, nenhuma conexão agora
+                                       → §3 funciona: exe, fd e maps continuam lá
+processo NASCE e MORRE a cada beacon   PID muda toda vez, 'etime' sempre curto
+                                       → §3 não pega nada. Vá pelo GATILHO (§7)
+```
+
+```bash
+# o gatilho denuncia o intervalo
+sudo grep -RIna '\*/' /etc/cron* /var/spool/cron 2>/dev/null    # '*/10 * * * *' = beacon de 10 min (§7.1)
+systemctl list-timers --all                                      # OnUnitActiveSec = o mesmo padrão (§7.2)
+```
+
+> Se o intervalo que você mediu no `ss` bate com um `*/N` do cron ou um `OnUnitActiveSec` de um timer, você achou as duas pontas de uma vez: o gatilho e o canal.
+
+### E a resposta definitiva vem de fora
+
+```text
+VPC Flow Logs / netflow   registra TODO fluxo, curto ou longo — e entrega a periodicidade pronta
+log do proxy / NAT        mesmo efeito, com o destino
+DNS central               a consulta periódica ao mesmo domínio, mesmo com conexão curtíssima
+```
+
+> Mesmo argumento da §0 e da §10.4: o host só responde sobre o instante em que você perguntou; a rede registra o intervalo inteiro sem você pedir nada.
 
 ---
 
@@ -672,6 +849,21 @@ sudo cp /proc/$PID/exe "$IR/samples/recovered.bin"
 
 ---
 
+## 3.15. Namespaces (esconderijo sem container)
+
+Um processo pode viver em namespace próprio de mount, PID ou rede **sem ser container gerenciado** — basta um `unshare`. Nesse caso ele enxerga um `/` diferente do seu, e o `find` que você roda não acha os arquivos dele.
+
+```bash
+lsns                                       # todos os namespaces e o processo líder de cada um
+sudo ls -l /proc/$PID/ns/                  # os namespaces DESTE processo
+sudo readlink /proc/1/ns/mnt /proc/1/ns/net /proc/$PID/ns/mnt /proc/$PID/ns/net   # compare com o PID 1
+sudo nsenter -t "$PID" -a ls -la /         # entra no namespace dele e olha de dentro
+```
+
+> **Como ler:** cada `ns/*` aponta para um inode (`mnt:[4026531840]`). Inode **diferente** do PID 1 em um processo que **não** está num cgroup de container (§3.11) significa que alguém criou o namespace de propósito. Isso explica dois "impossíveis" sem precisar de rootkit: o arquivo que o `/proc/<pid>/cwd` aponta e o `ls` não acha (namespace de `mnt`), e a conexão que o `tcpdump` vê mas o `ss` do host não lista (namespace de `net`). Antes de concluir §35, descarte isto.
+
+---
+
 # 4. Checklist rápido de processo
 
 > **Por quê:** roda de uma vez a identidade completa de um PID suspeito. **Olhe para:** exe/cwd/cmdline incoerentes com o nome exibido, fds de socket/PTY, arquivo deletado ainda aberto.
@@ -941,6 +1133,55 @@ readelf
 objdump
 xxd
 ```
+
+---
+
+## 5.10. Da amostra à família: o que a ferramenta te conta
+
+**Descobrir o nome da ferramenta não é curiosidade** — é o atalho mais barato do runbook inteiro. Alguém já fez a engenharia reversa e publicou; você não precisa refazer. E o que a ferramenta **sabe fazer** é o teto do que pode ter acontecido neste host, mesmo antes de você provar cada capacidade.
+
+Como chegar ao nome sem entregar o incidente:
+
+```text
+hash            consulta por SHA-256 em threat intel — nunca suba o arquivo (§5.4)
+strings         nome do projeto, flags, string de protocolo, mensagem de erro    (§5.5)
+capa            traduz o binário em CAPACIDADES sem você ler assembly            (§32)
+variável de env prefixo próprio no /proc/<pid>/environ (ex.: 'GS_') entrega a família (§3.6)
+nome de config  caminho em ~/.config, arquivo de estado, socket nomeado          (§7)
+```
+
+### As perguntas a fazer sobre a ferramenta — e para onde cada resposta te manda
+
+```text
+como ela fala com o operador?  relay/P2P, Tor, DNS?  → decide se §18.1 (bloquear IP) serve de algo
+ela transfere arquivo?         → §37 sai de "improvável" e vira "presumir até provar o contrário"
+ela abre shell interativo?     → §13 e §12: um humano digitou aqui; procure o rastro dele
+faz port-forward / SOCKS?      → §12.2: este host virou pivô — olhe a rede interna
+como ela persiste por padrão?  → §7: vá direto no mecanismo conhecido dela, não varra tudo
+roda como root ou como user?   → §36: se precisou de root, há uma rota de privesc aberta
+tem chave/segredo fixo?        → §23: é o melhor IOC de frota que existe (melhor que hash)
+é commodity ou sob medida?     → §38.1: ferramenta pública = oportunista; binário próprio = dirigido
+```
+
+### Exemplo: GSocket / gs-netcat
+
+O caso citado ao longo deste runbook, e um bom exemplo de como o nome muda a resposta:
+
+```text
+canal       rede global de relay, sem IP fixo de C2  → bloquear IP (§18.1) não resolve;
+                                                       só egress default-deny corta (§34.3)
+NAT         conecta nos dois sentidos sem porta aberta → não procure listener (§2): procure a SAÍDA
+capacidade  shell completo, transferência de arquivo, port-forward
+                                                     → §37 e §12.2 entram no escopo por padrão
+empacotado  strings pobres em disco; config e segredo só em memória → §6 antes de matar (§20)
+segredo     a sessão é derivada de uma chave compartilhada → IOC de frota forte (§23)
+```
+
+> Repare no que aconteceu: sem tocar no binário de novo, o nome sozinho **rebaixou** uma ação (bloquear o IP do C2, que seria inútil) e **promoveu** três (egress, exfiltração, pivô interno). É esse redirecionamento que paga o tempo de pesquisa.
+
+> **O limite honesto:** capacidade não é prova de uso. "A ferramenta suporta exfiltração" não é "houve exfiltração" — isso continua sendo a §37.7, e o veredito pode muito bem ser INDETERMINADO. O que a família faz é mudar a sua prioridade de busca e o seu pior caso defensável, não fechar a conclusão.
+
+> **OpSec da pesquisa** (§5.4, §32): consultar hash, nome de projeto e documentação pública é seguro. Não é seguro **baixar e rodar** a ferramenta para "entender" (§5.9), nem colar em serviço público uma string única **do seu** incidente — domínio interno, chave, caminho — que identifique você para quem monitora aquela base.
 
 ---
 
@@ -1425,6 +1666,60 @@ sudo grep -RInaE 'curl|wget|bash|/tmp|/dev/shm' \
   /etc/apt/apt.conf.d /etc/dnf/plugins /etc/yum/pluginconf.d \
   2>/dev/null
 ```
+
+## Certificado CA plantado (MITM persistente)
+
+Uma CA raiz do atacante faz o host confiar em **qualquer** certificado que ele emitir: update de pacote, chamada de API e webhook passam a ser interceptáveis sem erro de TLS.
+
+```bash
+ls -la /usr/local/share/ca-certificates/ /etc/pki/ca-trust/source/anchors/ 2>/dev/null
+sudo find /usr/local/share/ca-certificates /etc/pki/ca-trust/source/anchors \
+  -newermt "$D" 2>/dev/null
+sudo openssl x509 -noout -subject -issuer -dates -in <ARQUIVO.crt>   # emissor, validade
+```
+
+## Resolução de nome adulterada
+
+```bash
+sudo grep -vE '^\s*#|^\s*$' /etc/hosts        # domínio de update/API apontando para IP do atacante
+sudo stat -c '%n %z' /etc/hosts /etc/resolv.conf /etc/nsswitch.conf   # ctime na janela?
+sudo grep -RIna '' /etc/systemd/resolved.conf 2>/dev/null | grep -i dns
+```
+
+> Junto com a CA acima, isto forma um MITM completo e silencioso: o nome resolve para o atacante e o certificado dele é aceito. Nenhuma ferramenta reclama.
+
+## Hooks do git (rodam a cada deploy)
+
+Servidor que atualiza por `git pull` executa hook em todo deploy — persistência que **sobrevive ao redeploy** e não mora em `/etc`.
+
+```bash
+sudo find /srv /opt /var/www /home /data -maxdepth 6 -path '*/.git/hooks/*' \
+  -type f ! -name '*.sample' 2>/dev/null
+sudo grep -RInaE 'curl|wget|base64|bash -c|/tmp|/dev/shm' \
+  $(sudo find /srv /opt /var/www /data -maxdepth 6 -type d -name hooks -path '*/.git/*' 2>/dev/null) \
+  2>/dev/null
+```
+
+## sshd que busca a chave em outro lugar
+
+```bash
+sudo sshd -T 2>/dev/null | grep -iE 'authorizedkeysfile|authorizedkeyscommand'
+```
+
+> `AuthorizedKeysCommand` faz o sshd **executar um programa** para obter as chaves aceitas. O `authorized_keys` da §7.5 fica limpo, a auditoria de chave não acusa nada, e a porta continua aberta. Se estiver definido, leia o script apontado como se fosse malware (§5).
+
+## Contas na camada de dados (sobrevivem ao rebuild)
+
+Usuário ou role criado no banco não some quando você recria a VM — e a §27 não olha para lá.
+
+```bash
+sudo -u postgres psql -Atc \
+  "select rolname,rolsuper,rolcanlogin from pg_roles order by 1;" 2>/dev/null
+mysql -Nse "select user,host from mysql.user;" 2>/dev/null
+redis-cli ACL LIST 2>/dev/null
+```
+
+> Cheque também o que o **banco** executa sozinho: `pg_cron`/extensão e trigger no PostgreSQL, `EVENT` no MySQL, módulo carregado no Redis. É a §7.1 um andar acima, fora do alcance de tudo que este runbook varre no filesystem.
 
 ---
 
@@ -2282,7 +2577,7 @@ Trate como comprometimento confirmado até prova em contrário.
 
 > **Por que "reverse" e não bind shell:** firewall e NAT bloqueiam conexão de *entrada*, mas quase todo host pode **sair** para a internet — em especial na 443, que ninguém bloqueia e onde o tráfego se mistura ao HTTPS legítimo. Daí a regra prática: a defesa que realmente dói para o atacante é **egress default-deny** (§18.1), não mais uma regra de INPUT.
 
-> Consequência para a caça: procure pela conexão **de saída** iniciada pelo host, não por porta aberta esperando. E lembre que o *beacon* pode ser periódico — um C2 que fala de 10 em 10 minutos não aparece num `ss` tirado no minuto errado; repita a coleta ou use `conntrack`/flow logs (§12.4, §10.4).
+> Consequência para a caça: procure pela conexão **de saída** iniciada pelo host, não por porta aberta esperando. E lembre que o *beacon* pode ser periódico — um C2 que fala de 10 em 10 minutos não aparece num `ss` tirado no minuto errado. O método para esse caso é a §2.7.
 
 ---
 
@@ -2499,6 +2794,17 @@ Remova:
 ```bash
 sudo rm -f <FILE>
 ```
+
+Se o `rm` falhar **mesmo como root**, o arquivo está imutável (`chattr +i`) — truque comum para travar `authorized_keys`, cron e o próprio binário:
+
+```bash
+sudo lsattr "$FILE"                       # a letra 'i' no atributo = imutável ('a' = append-only)
+sudo chattr -i "$FILE" && sudo rm -f "$FILE"
+# onde mais ele travou algo?
+sudo lsattr -R /etc /root /home 2>/dev/null | awk '$1 ~ /[ia]/ {print}'
+```
+
+> **É achado, não só obstáculo.** Ninguém aplica `+i` por acaso: um `authorized_keys` imutável é persistência deliberada, e `+a` (append-only) num log é anti-forense — impede a limpeza *e* denuncia quem mexeu. Registre antes de remover o atributo (§19).
 
 ---
 
@@ -2725,6 +3031,30 @@ Não é garantia de que o host voltou a ser confiável.
 > **O raciocínio:** limpeza exige enumerar **tudo** que o atacante fez — e você só remove o que encontrou. Rebuild inverte o problema: parte de um estado sabidamente bom e não depende da sua enumeração ter sido completa. Com root, a assimetria é definitiva: as próprias ferramentas que você usaria para verificar podem estar mentindo.
 
 > **Rebuild não fecha o incidente.** Se o vetor de entrada (§14/§16) continuar aberto, a máquina nova é comprometida de novo — às vezes em minutos. Ordem: fechar o vetor → rebuild a partir de imagem confiável → restaurar dados **validados** (backup anterior ao incidente; §9 datou isso) → rotacionar credenciais (§26) → varrer a frota (§23).
+
+## Antes do rebuild: a imagem é confiável?
+
+"Rebuild a partir de imagem confiável" pressupõe que a **imagem, o registry e o pipeline** não são o vetor. Se forem, o host novo nasce comprometido e você fez tudo certo.
+
+```bash
+# de onde veio o que está rodando
+sudo docker inspect --format '{{.Image}} {{.Config.Image}} {{.Created}}' <CONTAINER> 2>/dev/null
+sudo docker image inspect <IMAGEM> --format '{{.Created}} {{.RepoDigests}}' 2>/dev/null
+gcloud compute instances describe <VM> --format='value(disks[0].source,disks[0].licenses)' 2>/dev/null
+# a RECEITA mudou na janela do incidente? (§9)
+git -C <REPO_INFRA> log --since="$START" --stat -- \
+  Dockerfile packer/ ansible/ .github/ .gitlab-ci.yml
+```
+
+```text
+imagem base    digest fixado (sha256) ou tag móvel? 'latest' muda de conteúdo sem você saber
+registry       é o seu? há push recente que ninguém reconhece?
+pipeline       quem tem permissão de push no branch de deploy; o runner é self-hosted (e este host)?
+deploy keys    chave de deploy / token de CI criados na janela do incidente
+segredo do CI  variável do pipeline = credencial que o atacante lê se chegou lá (§26)
+```
+
+> **A pergunta que fecha:** o comprometimento é *deste host* ou *do que produz este host*? Se for do pipeline, nem a §23 nem o rebuild resolvem — cada host novo sai infectado. O sinal típico é reinfecção logo após o redeploy, com o **mesmo artefato** e sem o vetor da §16 ter sido reaberto.
 
 ---
 
@@ -3250,9 +3580,9 @@ por onde ele entrou?      → serviço na porta + sink na app (§14/§16)
 
 > **CVE é conclusão, não ponto de partida.** Procurar CVE primeiro é adivinhar; a máquina já está te contando o que aconteceu — leia o estado atual e deixe a hipótese aparecer no fim. Enquanto o **vetor** não estiver fechado, limpar é adiar: o host volta a ser comprometido pelo mesmo caminho.
 
-> E encerre respondendo três coisas por escrito: **como entrou**, **o que fez** (e alcançou), **como impedir que volte**. Sem as três, o incidente não está fechado — só está quieto.
+> E encerre respondendo quatro coisas por escrito: **como entrou**, **o que fez** (e alcançou), **o que saiu**, **como impedir que volte**. Sem as quatro, o incidente não está fechado — só está quieto.
 
-A terceira resposta é a §34.
+A terceira resposta é a §37. A quarta é a §34. Quem decide, quem avisa e o que fica escrito é a §38.
 
 ---
 
@@ -3447,6 +3777,214 @@ sudo iptables -S OUTPUT | tail -5                     # existe política de egre
 sudo getcap -r / 2>/dev/null                          # capabilities soltas (§25)
 sudo lynis audit system                               # relatório completo, com prioridade
 ```
+
+---
+
+## 34.9. Configuração base do host (sshd, sysctl, patch, MAC)
+
+As §34.1–§34.8 tratam do serviço exposto. Esta trata do host embaixo dele: quatro controles que quase todo ambiente assume prontos e quase nenhum tem. Nenhum reduz raio tanto quanto a §34.1 ou a §34.3 — mas cada um **fecha uma rota inteira** que aparece no resto do runbook.
+
+### sshd — a única porta que você abre de propósito
+
+```ini
+# /etc/ssh/sshd_config.d/99-hardening.conf   (Debian/Ubuntu e RHEL 9+ leem o .d)
+PermitRootLogin no                 # root só via sudo — o log passa a ter nome (§12)
+PasswordAuthentication no          # mata brute force e credential stuffing de vez
+KbdInteractiveAuthentication no    # o outro caminho de senha (via PAM) — feche junto
+AuthenticationMethods publickey    # explícito: nada além de chave
+PermitEmptyPasswords no
+AllowGroups ssh-users              # allowlist de quem entra (não "todo mundo do /etc/passwd")
+AllowTcpForwarding no              # sem -L/-R/-D: tira o túnel da §12.2
+AllowAgentForwarding no            # agente encaminhado é pivô pronto (§12.1, §34.5)
+PermitTunnel no
+X11Forwarding no
+MaxAuthTries 3
+LoginGraceTime 20
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LogLevel VERBOSE                   # registra o fingerprint da chave usada — atribuição no login (§12)
+```
+
+```bash
+sudo sshd -t && sudo systemctl reload sshd    # SEMPRE valide antes do reload
+sudo sshd -T | grep -Ei 'permitrootlogin|passwordauthentication|forwarding|allowgroups'
+```
+
+> **Não feche a porta com você do lado de fora:** mantenha a sessão atual aberta e teste o login novo em **outro** terminal antes de sair.
+
+> **Duas ressalvas.** (1) `AllowTcpForwarding no` quebra `ProxyJump` — no **bastion** ele precisa ficar ligado (é o trabalho dele); feche nos hosts de app, que são o destino. (2) `AllowGroups` sem o grupo existente tranca todo mundo: `sudo groupadd ssh-users && sudo usermod -aG ssh-users <VOCÊ>` antes do reload.
+
+Segundo fator, quando existir — só no bastion, já que a §34.5 funila tudo por ele:
+
+```ini
+AuthenticationMethods publickey,keyboard-interactive:pam   # chave + TOTP (pam_google_authenticator)
+```
+
+---
+
+### sysctl — kernel e rede
+
+```ini
+# /etc/sysctl.d/99-hardening.conf
+kernel.kptr_restrict=2              # não vaza endereço de kernel para o exploit (§36.6)
+kernel.dmesg_restrict=1             # dmesg só root — corta recon e leak de offset
+kernel.yama.ptrace_scope=1          # sem ptrace em processo irmão: mata dump/injeção (§3.10)
+kernel.unprivileged_bpf_disabled=1  # sem eBPF por usuário comum (§35.4)
+net.core.bpf_jit_harden=2
+kernel.perf_event_paranoid=3
+kernel.randomize_va_space=2         # ASLR completo (confira: costuma já vir 2)
+fs.suid_dumpable=0                  # processo SUID não gera core legível (§25)
+fs.protected_symlinks=1
+fs.protected_hardlinks=1
+fs.protected_fifos=2
+fs.protected_regular=2              # os quatro matam a família symlink/TOCTOU em /tmp (§34.2)
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.all.accept_redirects=0
+net.ipv4.conf.all.send_redirects=0
+net.ipv4.conf.all.accept_source_route=0
+net.ipv4.tcp_syncookies=1
+```
+
+```bash
+sudo sysctl --system                                  # aplica e persiste no boot
+sysctl -a --pattern 'kptr|ptrace_scope|protected_|randomize' 2>/dev/null   # o que vale AGORA
+```
+
+> `kernel.modules_disabled=1` **não** entra aqui: ele é irreversível sem reboot e precisa rodar depois que todos os módulos legítimos carregaram — está na §35.7, com o contexto de ordem de boot.
+
+---
+
+### Patch — é aqui que o vetor da §16 e da §36.6 fecha
+
+```bash
+# Debian/Ubuntu
+sudo apt install unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades
+grep -rn 'Allowed-Origins' -A5 /etc/apt/apt.conf.d/50unattended-upgrades   # security está habilitado?
+# RHEL/CentOS/Rocky
+sudo dnf install dnf-automatic && sudo systemctl enable --now dnf-automatic-install.timer
+```
+
+```bash
+# o que está pendente AGORA
+sudo apt list --upgradable 2>/dev/null | grep -i secur      # Debian/Ubuntu
+sudo dnf updateinfo list security                            # RHEL
+# reboot pendente (kernel novo instalado, kernel velho ainda rodando)
+needs-restarting -r                                          # RHEL
+[ -f /var/run/reboot-required ] && cat /var/run/reboot-required.pkgs   # Debian/Ubuntu
+```
+
+> **Patch sem reinício resolve metade.** A lib atualizada está em disco; o processo antigo continua em memória com a versão vulnerável. `needs-restarting -s` (RHEL) e `checkrestart` (pacote `debian-goodies`) listam quem precisa reiniciar. Livepatch/kpatch cobre o kernel sem reboot; para o resto do sistema, a §34.6 (redeploy por imagem) resolve melhor do que qualquer automação de patch dentro do host.
+
+---
+
+### MAC — SELinux / AppArmor
+
+A sandbox da §34.1 é por unit e discricionária: quem edita a unit, remove a sandbox. MAC é política do **sistema**, e continua valendo para um processo que já virou root.
+
+```bash
+getenforce && sudo sestatus                # RHEL: Enforcing | Permissive | Disabled
+sudo ausearch -m avc -ts recent            # o que foi negado (e o que quebraria se ligar)
+sudo semanage port -l | grep -w http_port_t   # a porta é permitida para o tipo do serviço?
+
+aa-status                                  # Debian/Ubuntu: perfis carregados e em enforce
+sudo aa-complain /usr/sbin/nginx           # aprende primeiro...
+sudo aa-logprof                            # ...gera o perfil a partir do observado...
+sudo aa-enforce /usr/sbin/nginx            # ...e só então trava
+```
+
+```text
+Enforcing / enforce     política valendo                    ← o alvo
+Permissive / complain   só registra a negação               ← use para medir antes de ligar
+Disabled / sem perfil   desligado                           ← o estado real da maioria dos hosts
+```
+
+> **Ligar MAC do zero num host que já roda dá trabalho; ligar na imagem base (§34.6) é barato.** Se `getenforce` diz `Disabled` — ou `aa-status` não mostra o serviço exposto em enforce — o único confinamento que existe é o da §34.1. Comece pelo que já tem perfil pronto na distro (nginx, sshd, o runtime da app) e pelo serviço exposto; o resto pode ficar em `Permissive` enquanto você lê os AVC.
+
+---
+
+### Verificação (o estado, em seis linhas)
+
+```bash
+sudo sshd -T | grep -Ec 'permitrootlogin no|passwordauthentication no'   # espera 2
+sysctl -n kernel.yama.ptrace_scope kernel.kptr_restrict fs.protected_regular
+systemctl is-enabled unattended-upgrades dnf-automatic-install.timer 2>/dev/null
+needs-restarting -r 2>/dev/null || ls /var/run/reboot-required 2>/dev/null
+getenforce 2>/dev/null || aa-status --enforced 2>/dev/null
+sudo lastb | head                          # tentativas de senha falhando = a porta ainda aceita senha
+```
+
+---
+
+## 34.10. A camada da cloud (agnóstico de provedor)
+
+A VM é o andar de baixo. Dois movimentos mudam o raio sem tocar no código da app: **tirar a borda do host** e tratar o **plano de controle** como o que ele é.
+
+### Empurre a proteção para a borda gerenciada
+
+```text
+Internet
+   ↓
+LB de camada 7 gerenciado     termina TLS, roteia por host/path
+   ↓
+WAF gerenciado                regras, rate limit, IP/geo
+   ↓
+filtro no datapath            validação da SUA app: schema, campo proibido, URL interna
+   ↓
+VM sem IP público             firewall: só o LB alcança a porta
+```
+
+Cada provedor dá nomes diferentes às três primeiras caixas, mas as peças são as mesmas — e o filtro do meio hoje roda **dentro do datapath do LB** (plugin WebAssembly ou chamada externa para um serviço seu), então não é preciso manter um par de VMs de proxy só para isso.
+
+Por que isto é §34 e não arquitetura:
+
+```text
+a VM perde o IP público   → a superfície da §14 vira uma porta e uma origem
+o log de acesso nasce fora do host → §0 e §10.4 de graça: root na VM não alcança
+o filtro deixa de ser um host      → não há mais um proxy seu para comprometer (§15)
+regra e bloqueio ficam versionados → você muda a defesa sem deploy da app legada
+```
+
+> **Os dois limites honestos** (mesma lógica das armadilhas da §15): o WAF inspeciona o corpo só até um limite de tamanho e não enxerga o que a app **faz** com o dado; e a porta do backend continua alcançável **de dentro da VPC** se você não fechar (§12.6). Borda gerenciada reduz a superfície externa — não substitui a §34.1 nem a §34.3.
+
+### O plano de controle é o root de verdade
+
+```text
+comprometer a VM                → você tem a VM
+comprometer a credencial de API → você tem tudo que ela alcança, sem tocar em host nenhum
+```
+
+Nada das §2–§36 enxerga o segundo caso: não há processo, arquivo ou conexão no host. O detector é o **audit do provedor** (§10.4) e a rota de entrada mais comum é o metadata (§10.5).
+
+```text
+snapshot / imagem     quem cria snapshot lê o disco INTEIRO sem precisar de RCE (§1)
+bucket público        o vazamento mais comum da cloud não tem invasão nenhuma (§37)
+chave de KMS          quem descriptografa não precisa do disco
+role ampla na VM      papel de editor/admin numa credencial de instância = o projeto todo (§34.4)
+chave estática        credencial de conta de serviço que não expira e não avisa quando é usada
+```
+
+```bash
+# IP público onde não devia — a superfície da §14 começa aqui
+gcloud compute instances list --format='table(name,networkInterfaces[0].accessConfigs[0].natIP)'
+aws ec2 describe-instances --query 'Reservations[].Instances[].[InstanceId,PublicIpAddress]' --output table
+# snapshot/imagem compartilhada fora da conta = disco inteiro exposto
+aws ec2 describe-snapshot-attribute --snapshot-id <SNAP> --attribute createVolumePermission
+gcloud compute images get-iam-policy <IMAGE>
+# a pergunta da §34.4, em comando: o que esta credencial abre?
+aws iam list-attached-role-policies --role-name <ROLE>
+gcloud projects get-iam-policy <PROJ> --flatten=bindings \
+  --filter='bindings.members:serviceAccount' --format='table(bindings.role,bindings.members)'
+```
+
+### O que o provedor não faz por você
+
+```text
+provedor garante   infra física, hypervisor, disponibilidade do serviço gerenciado
+você garante       quem pode o quê (IAM), o que está exposto, o que está logado,
+                   o que roda dentro da VM, e o que a credencial dela alcança
+```
+
+> Todo incidente deste runbook acontece **do lado de cá** da linha. "Está na cloud" não move nenhum item da coluna de baixo para a de cima.
 
 ---
 
@@ -3924,3 +4462,302 @@ sudo auditctl -w /etc/sudoers.d -p wa -k sudoers
 ```
 
 > Privesc raramente aparece de uma vez: entra junto com um pacote novo, um deploy que mudou permissão, alguém adicionado ao grupo `docker` "só para testar". Sem baseline e diff, isso acumula em silêncio — e o próximo RCE encontra a rota pronta.
+
+---
+
+# 37. Exfiltração — o que saiu?
+
+> **Por quê:** a §16 responde "como entrou" e a §34 responde "como impedir". Esta responde a pergunta que define a **consequência**: o que o atacante levou. É a que decide notificação, contrato e dano — e a única com prazo legal correndo (§38.4). **Olhe para:** volume de saída, arquivo de staging e ferramenta de transferência. Não procure "o dado vazado": ele não deixa rastro próprio.
+
+**A assimetria:** exfiltração não deixa artefato como persistência deixa. Copiar não altera o original — o arquivo continua lá, intacto, com o mesmo `mtime`. Então você não vai *achar o vazamento*; vai reconstruí-lo por três vias independentes:
+
+```text
+alcance   o que aquele usuário/credencial CONSEGUIA ler        → o teto
+volume    quantos bytes saíram, e quando                        → houve transferência?
+canal     ferramenta, destino, protocolo                        → para onde
+```
+
+Convergiram, você tem a resposta. Nenhuma existe, isso **também** é uma resposta — e é a mais delicada (§37.7).
+
+---
+
+## 37.1. O alcance: o teto do que pode ter saído
+
+Mesma lógica da §26 — presuma leitura, não uso:
+
+```bash
+U=<USER_COMPROMETIDO>
+# dados volumosos legíveis por ele
+sudo -u "$U" find / -xdev -type f -size +10M \
+  \( -name '*.sql' -o -name '*.dump' -o -name '*.csv' -o -name '*.bak' -o -name '*.tar*' \) \
+  2>/dev/null | head -40
+findmnt -t nfs,nfs4,cifs,fuse.sshfs        # dados de OUTRO host montados aqui
+# bases de dados que este host alcança
+sudo ss -tnp | awk '{print $5}' | grep -E ':(3306|5432|6379|27017|9200)$' | sort -u
+```
+
+Some a isso as credenciais que ele lia (§12.3) e — o que costuma dobrar o teto — o que a **credencial da instância** abria na cloud (§10.5): bucket e banco gerenciado não aparecem em lugar nenhum do filesystem.
+
+> O alcance é o número que vai para o jurídico se a telemetria falhar. Levante-o mesmo quando achar que não houve exfiltração: ele é o pior caso defensável.
+
+---
+
+## 37.2. Volume: o host mediu sem querer
+
+Ninguém instrumenta exfiltração, mas os contadores já existem:
+
+```bash
+# bytes por conexão viva — o C2 que sobe 4 GB não é beacon
+sudo ss -tin state established | grep -A1 '<C2_IP>'      # 'bytes_sent'/'bytes_acked'
+sudo conntrack -L 2>/dev/null | grep '<C2_IP>'           # precisa de net.netfilter.nf_conntrack_acct=1
+# desde o boot, por interface
+cat /proc/net/dev
+# histórico, se existir
+vnstat -d 2>/dev/null; sar -n DEV 2>/dev/null | tail -20
+# contadores de regra (a regra de egress da §34.3 conta de graça)
+sudo iptables -L OUTPUT -n -v --line-numbers; sudo nft list ruleset -a 2>/dev/null | grep -i counter
+```
+
+> **O sinal que quase ninguém olha: a fatura.** Egress é cobrado por GB. Um salto no custo de saída — ou no gráfico de *network egress* do console — dentro da janela do incidente é medição **independente do host**: o atacante edita log, não edita faturamento. Mesmo raciocínio da §10.4.
+
+---
+
+## 37.3. Staging: o pacote que ele montou antes de mandar
+
+Exfiltração em volume quase sempre passa por um arquivo intermediário:
+
+```bash
+# arquivos grandes criados na janela (§9)
+sudo find / -xdev -type f -size +50M -newerct "$START" ! -newerct "$END" \
+  -printf '%CY-%Cm-%Cd %CT %10s %p\n' 2>/dev/null | sort
+# comprimido em lugar de trânsito
+sudo find /tmp /var/tmp /dev/shm /home -type f \
+  \( -name '*.tar*' -o -name '*.tgz' -o -name '*.zip' -o -name '*.7z' \) -ls 2>/dev/null
+# o pacote já foi apagado, mas o processo ainda o tem aberto (§3.14)
+sudo lsof +L1 2>/dev/null | awk '$7 > 10000000'
+# o comando que empacotou (§11 / §13)
+sudo ausearch -m EXECVE -i 2>/dev/null \
+  | grep -iE 'tar|zip|7z|gzip|split|mysqldump|pg_dump|mongodump|rclone|rsync'
+```
+
+> Dois detalhes que valem por si: `split` num arquivo grande indica fatiamento para caber em upload de webhook/pastebin ou escapar de limite de tamanho; e `.tar.gz` em `/dev/shm` é staging **em RAM**, que some no reboot de propósito — se o host ainda está de pé, você chegou a tempo.
+
+---
+
+## 37.4. Canal: para onde foi
+
+```bash
+# ferramentas de transferência rodando agora
+sudo ps -eo pid,user,args \
+  | grep -EI 'rclone|aws s3|gsutil|az storage|scp|sftp|rsync|curl.*-[TF]|wget.*--post|nc |ncat|socat' \
+  | grep -v grep
+# e no rastro (§13/§11)
+sudo grep -rhiE 'rclone|s3 cp|gsutil cp|curl -T|curl -F|--post-file|transfer\.sh|0x0\.st|pastebin|api\.telegram\.org|discord\.com/api/webhooks' \
+  /home/*/.bash_history /root/.bash_history 2>/dev/null
+# config de ferramenta de sync = o destino escrito em disco
+sudo find /home /root \( -path '*rclone*' -o -name '.s3cfg' -o -path '*/.aws/config' \) 2>/dev/null
+# DNS tunneling: volume anômalo e nomes longos para um domínio só
+sudo tcpdump -ni any -c 500 'udp port 53' 2>/dev/null | awk '{print length($0), $0}' | sort -rn | head
+```
+
+> **Nem todo canal passa por aqui.** Além do próprio C2 (§17) e do DNS, existe a via mais silenciosa de todas: a **credencial de cloud** (§10.5) copiando o bucket direto pela API, do lado de fora. Nesse caso a §37.2 não acusa **nada** — nenhum byte de dado atravessa este host — e a prova existe só no audit da cloud (§37.6). Se a credencial da instância vazou, a ausência de tráfego local não significa ausência de exfiltração.
+
+---
+
+## 37.5. Banco de dados: a exfiltração que não vira arquivo
+
+Um `SELECT` grande não deixa nada no filesystem. Vá ao log do banco:
+
+```bash
+# PostgreSQL
+sudo grep -iE 'connection authorized|statement:' /var/log/postgresql/*.log 2>/dev/null | tail -50
+sudo -u postgres psql -Atc \
+  "select rows,calls,query from pg_stat_statements order by rows desc limit 10;" 2>/dev/null
+# MySQL/MariaDB
+sudo grep -iE 'Connect|Query.*select' /var/log/mysql/*.log 2>/dev/null | tail -50
+mysql -Nse "select user,host,db,command,time,info from information_schema.processlist;" 2>/dev/null
+```
+
+```text
+origem de conexão inesperada    o usuário da app conectando de um IP/host que não é a app
+volume de linhas anômalo        'rows' muito acima do padrão daquela mesma query
+SELECT sem WHERE em tabela grande, ou dump de schema inteiro
+uso de credencial da app fora do horário e do host da app
+```
+
+> Se o log de query estava desligado (é o padrão), você **não vai** saber o que foi lido. Essa é a resposta honesta a dar na §38.4 — não uma lacuna para preencher com otimismo.
+
+---
+
+## 37.6. A prova está off-box
+
+```text
+VPC Flow Logs            bytes por conexão de saída — número que o host não pode editar
+faturamento de egress    salto de custo/GB na janela (§37.2)
+log de acesso do storage S3 Data Events / GCS Data Access: QUAL objeto foi lido, e por quem
+audit da cloud           uso da service-account roubada (§10.5): list/get em bucket
+proxy / NAT gateway      destino e volume por conexão
+resolver de DNS central  consulta a domínio de tunelamento
+```
+
+> O log de acesso do storage é a **única** fonte que responde "quais objetos" em vez de "quantos bytes" — e costuma vir desligado por custo. Se os dados moram em bucket, ligue **antes** (§34.7): é a diferença entre "vazou algo" e "vazaram estes 412 arquivos".
+
+---
+
+## 37.7. Veredito — e o que fazer com ele
+
+```text
+volume compatível com beacon, sem staging, sem ferramenta       → exfil improvável (não descartada)
+staging + ferramenta de transferência + pico de egress          → exfil CONFIRMADA: trate o conteúdo como público
+credencial de cloud usada em bucket no audit (§10.5)            → exfil CONFIRMADA, escopo = o da credencial
+alcance amplo e NENHUMA telemetria (sem flow log, sem audit,
+sem log de query, sem retenção)                                 → INDETERMINADO
+```
+
+> **"Indeterminado" é um veredito, não um empate.** Ele obriga a decidir por presunção — e a presunção defensável, quando o alcance (§37.1) incluía dado pessoal, é a de que houve acesso. Não escreva "sem evidência de exfiltração" quando o correto é "não havia como saber": a primeira frase é uma afirmação sobre o atacante, a segunda é uma afirmação sobre a sua telemetria. Só a segunda você pode provar.
+
+> E o que independe do veredito: **tudo** que era legível vai para a §26. Credencial não tem "indeterminado" — rotaciona.
+
+---
+
+# 38. Gestão do incidente (decisão, comunicação, registro)
+
+> **Por quê:** as §1–§37 dizem o que fazer com a máquina. Nenhuma diz quem decide derrubar produção, quem avisa quem, e o que precisa estar escrito. É a parte que não aparece no `journalctl` — e a que costuma custar mais caro depois. **Olhe para:** decidir isto **antes** de precisar; no meio do incidente ninguém negocia papel.
+
+**A regra que organiza tudo:** a trilha técnica e a trilha de decisão correm juntas e são separadas. Quem está com as mãos no host não é quem responde e-mail. Quando for a mesma pessoa — o caso comum — ela alterna de propósito e registra a troca, porque a trilha técnica tem urgência de minutos e sempre atropela a outra, que tem prazo de dias e consequência maior.
+
+---
+
+## 38.1. Severidade e quem decide
+
+Classifique cedo: a severidade define quem é acordado e o que pode ser derrubado.
+
+```text
+baixa     suspeita sem confirmação; nenhum sinal de execução do atacante
+média     comprometimento confirmado do usuário da app; sem root, sem dado sensível alcançável
+alta      root (§36), persistência múltipla (§23), ou alcance a dado pessoal/credencial (§37.1)
+crítica   kernel (§35), frota (§23), exfiltração confirmada (§37.7) ou pipeline comprometido (§27)
+```
+
+Três decisões que travam a resposta inteira se não tiverem dono declarado:
+
+```text
+derrubar o serviço?   receita agora x atacante com shell ativo — quem assina é o negócio, não o técnico
+rebuild ou limpar?    §27 dá o critério técnico; a janela e o custo são de quem opera
+notificar?            §38.4 — e essa nunca é decisão de quem está no terminal
+```
+
+> **O default que evita a pior discussão:** contenção que **não** derruba o serviço (bloquear egress do usuário da app, §18.1/§34.3) quase sempre cabe na autonomia de quem responde; **parar** o serviço, não. Separe as duas ao pedir autorização — pedir as duas juntas costuma travar as duas.
+
+---
+
+## 38.2. OpSec da resposta
+
+O atacante pode estar lendo o canal onde você discute o incidente. Se ele pegou credencial de cloud, e-mail, SSO ou repositório, isso não é hipótese remota — é o caso provável.
+
+```text
+canal fora de banda       discuta em canal que NÃO depende do ambiente comprometido
+sem "achamos você"        nada de aviso amplo antes de conter em bloco (§1, §18)
+sem tocar no C2           §32 — curl/nmap contra o IP dele confirma a detecção e ele reage
+sem rotacionar por dentro §26 — a credencial nova não pode passar pelo host comprometido
+IOC em canal restrito     hash/IP em ticket público vaza para quem monitora o seu ticket
+segredo fora do war log   redija: o registro vai ser lido por gente que não precisa dele
+```
+
+> **A ordem que preserva as duas coisas:** coletar (§28) → decidir → conter **em bloco** (§18) → comunicar amplamente. Contenção parcial é o pior dos mundos: alerta o atacante e não o remove — ele então apaga rastro, troca de C2 e ativa a persistência que você ainda não achou (§23).
+
+---
+
+## 38.3. O registro (war log)
+
+Grave a sessão inteira. É mais barato que lembrar depois, e é o que responde "você alterou a evidência?":
+
+```bash
+sudo script -aq -f "$IR/session.log"     # tudo que você digitar e ver, a partir daqui
+export HISTTIMEFORMAT='%F %T '           # history com hora
+export PS1='[\D{%F %T}] \u@\h:\w\$ '     # o prompt vira carimbo de tempo na transcrição
+# ... trabalhe ...
+exit                                     # encerra o script e fecha o arquivo
+```
+
+Em paralelo, um arquivo com uma linha por ação relevante:
+
+```text
+2026-04-30T21:34Z  lex  COLETA    ss/ps/lsof -> $IR (§28)
+2026-04-30T21:41Z  lex  ACHADO    PID 6574 exe=/home/node/.config/htop/defunct sha256=<...>
+2026-04-30T21:52Z  ana  DECISÃO   egress bloqueado; serviço MANTIDO no ar (autorizou: <nome>)
+2026-04-30T22:10Z  lex  REMOÇÃO   crontab de 'node' — original salvo em $IR/cron-node.bak
+```
+
+```text
+hora em UTC          a cloud loga em UTC (§10.4); misturar fuso arruína a correlação da §9.1
+quem                 ação de humano x ação de script/automação
+o quê + onde         o comando e o caminho, não "limpei o cron"
+resultado/artefato   onde ficou a prova ($IR/...)
+```
+
+> Três usos que pagam o custo: reconstruir a linha do tempo quando o incidente durar dias; **separar o que o atacante fez do que você fez** (sem isso, a §9 acusa você mesmo — todo `ctime` que você tocou vira artefato suspeito); e servir de base factual ao post-mortem, que ninguém escreve de memória duas semanas depois.
+
+---
+
+## 38.4. Notificação: prazos que não são seus
+
+O gatilho é o veredito da §37, não a gravidade técnica.
+
+```text
+titulares e ANPD (LGPD)   incidente com dado pessoal e risco relevante. O prazo é curto e conta
+                          do CONHECIMENTO do incidente (Resolução CD/ANPD nº 15/2024: 3 dias úteis)
+cliente / contrato        SLA de notificação em contrato B2B costuma ser MAIS curto que o legal
+seguro cyber              aviso tardio é causa comum de negativa de cobertura — cheque o prazo da apólice
+provedor de cloud         se o host atacou terceiros, comunicar abuse protege você da suspensão
+CERT.br / autoridade      abuso de rede; extorsão e crime → registro formal, se for seguir por essa via
+```
+
+> **Isto não é orientação jurídica** — e o ponto operacional é outro: o relógio começa no **conhecimento**, não na conclusão da análise. Ele já está correndo enquanto você lê a §5. Acione jurídico/DPO **em paralelo** à investigação, com o que você tem, e confirme com eles a redação vigente do regulamento.
+
+> O que eles precisam de você são três campos, que é exatamente o que a §37.7 produz: **qual dado era alcançável**, **há evidência de que saiu**, e **se não há, é porque não saiu ou porque não havia telemetria?**. Uma voz só fala com o mundo externo — e não é a de quem está no terminal.
+
+---
+
+## 38.5. Critério de encerramento
+
+O incidente fecha quando **todas** forem verdade — não quando o host parar de dar sinal:
+
+```text
+[ ] vetor de entrada identificado e FECHADO                   §14/§16
+[ ] persistência removida e validada                          §19/§22
+[ ] re-scan em 24–48h limpo                                   §22
+[ ] frota varrida com os IOCs deste incidente                 §23
+[ ] credenciais rotacionadas FORA do host                     §26
+[ ] exfiltração avaliada e o veredito registrado              §37.7
+[ ] notificações feitas — ou a decisão de não notificar,
+    escrita, fundamentada e com dono                          §38.4
+[ ] hardening aplicado ao que permitiu o alcance              §34
+[ ] as três perguntas da §33 respondidas por escrito
+```
+
+> Sem o primeiro item, nenhum dos outros importa: o host volta a ser comprometido pelo mesmo caminho — agora com você achando que fechou, e sem olhar de novo.
+
+---
+
+## 38.6. Post-mortem
+
+Às três perguntas da §33 (como entrou, o que fez, como impedir), some as duas que mudam o **próximo** incidente:
+
+```text
+o que atrasou a DETECÇÃO?   tempo entre a entrada (§9) e o primeiro alerta. Quem viu, e como?
+o que atrasou a RESPOSTA?   faltou acesso, log, autorização, baseline, gente? Qual passo levou horas?
+```
+
+> Se a resposta de "o que atrasou a detecção" for "um cliente avisou" ou "o provedor mandou abuse report", o que precisa ser corrigido não é o malware — é a §34.7.
+
+O que faz o documento valer alguma coisa:
+
+```text
+sem culpado           o alvo é o sistema que permitiu, não quem errou; senão ninguém reporta o próximo
+ação com DONO e PRAZO "melhorar o monitoramento" não é ação; "ligar VPC Flow no projeto X até 15/06 — ana" é
+dwell time medido     entrada (§9) → detecção → contenção. É a métrica que resume tudo
+o que NÃO faremos     risco conscientemente aceito também vai escrito, com quem aceitou
+```
+
+> Guarde junto o material bruto: o `$IR`, o war log (§38.3), os IOCs e a regra YARA (§32). O próximo incidente começa perguntando "já vimos isso antes?" — e a pergunta só tem resposta se alguém guardou.
