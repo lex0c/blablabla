@@ -71,7 +71,7 @@
 - [11. Auditd](#11-auditd)
 - [12. Login / SSH e movimentação lateral](#12-login--ssh-e-movimentação-lateral)
   - [12.1. Movimentação lateral — a partir deste host](#121-movimentação-lateral--a-partir-deste-host)
-  - [12.2. Túneis / port forwarding](#122-túneis--port-forwarding)
+  - [12.2. Túneis, port forwarding e pivô](#122-túneis-port-forwarding-e-pivô)
   - [12.3. Credenciais/artefatos que habilitam pivô](#123-credenciaisartefatos-que-habilitam-pivô)
   - [12.4. Mapa de rede interna](#124-mapa-de-rede-interna-para-onde-deu-para-ir)
   - [12.5. Este host foi ALVO de lateral?](#125-este-host-foi-alvo-de-lateral-pivô-de-entrada)
@@ -87,6 +87,7 @@
   - [Requisições externas / SSRF](#requisições-externas--ssrf-o-servidor-busca-url-do-cliente)
   - [Escrita de arquivo controlada](#escrita-de-arquivo-controlada-path-traversal--dropoverwrite)
   - [Webshell no docroot](#webshell-no-docroot)
+  - [Backdoor no código legítimo (não é webshell)](#backdoor-no-código-legítimo-não-é-webshell)
 - [17. Indicadores fortes de reverse shell/backdoor](#17-indicadores-fortes-de-reverse-shellbackdoor)
 - [18. Contenção](#18-contenção)
   - [18.1. Bloquear C2](#181-bloquear-c2)
@@ -147,13 +148,22 @@
   - [37.5. Banco de dados: a exfiltração que não vira arquivo](#375-banco-de-dados-a-exfiltração-que-não-vira-arquivo)
   - [37.6. A prova está off-box](#376-a-prova-está-off-box)
   - [37.7. Veredito — e o que fazer com ele](#377-veredito--e-o-que-fazer-com-ele)
-- [38. Gestão do incidente (decisão, comunicação, registro)](#38-gestão-do-incidente-decisão-comunicação-registro)
-  - [38.1. Severidade e quem decide](#381-severidade-e-quem-decide)
-  - [38.2. OpSec da resposta](#382-opsec-da-resposta)
-  - [38.3. O registro (war log)](#383-o-registro-war-log)
-  - [38.4. Notificação: prazos que não são seus](#384-notificação-prazos-que-não-são-seus)
-  - [38.5. Critério de encerramento](#385-critério-de-encerramento)
-  - [38.6. Post-mortem](#386-post-mortem)
+- [38. Fora da VM: contêiner, Kubernetes e mesh](#38-fora-da-vm-contêiner-kubernetes-e-mesh)
+  - [38.1. Contêiner: investigue a partir do host](#381-contêiner-investigue-a-partir-do-host)
+  - [38.2. Kubernetes: o que muda de lugar](#382-kubernetes-o-que-muda-de-lugar)
+  - [38.3. Service mesh: o que ele quebra e o que ele dá](#383-service-mesh-o-que-ele-quebra-e-o-que-ele-dá)
+- [39. Gestão do incidente (decisão, comunicação, registro)](#39-gestão-do-incidente-decisão-comunicação-registro)
+  - [39.1. Severidade e quem decide](#391-severidade-e-quem-decide)
+  - [39.2. OpSec da resposta](#392-opsec-da-resposta)
+  - [39.3. O registro (war log)](#393-o-registro-war-log)
+  - [39.4. Notificação: prazos que não são seus](#394-notificação-prazos-que-não-são-seus)
+  - [39.5. Critério de encerramento](#395-critério-de-encerramento)
+  - [39.6. Post-mortem](#396-post-mortem)
+- [40. Rotina: a operação em tempo de paz](#40-rotina-a-operação-em-tempo-de-paz)
+  - [40.1. A cadência](#401-a-cadência)
+  - [40.2. Caça proativa (sem alerta nenhum)](#402-caça-proativa-sem-alerta-nenhum)
+  - [40.3. Exercitar a resposta](#403-exercitar-a-resposta)
+  - [40.4. Medir](#404-medir)
 
 </details>
 
@@ -190,7 +200,7 @@ como impedir?    inventário do que existe: portas, SUID,
 
 > **E o que se perde não é só a resposta — é o método.** Sem log você ainda acha o **artefato**: o binário, a chave plantada, o cron. Ele está no disco, parado, esperando. O que não se recupera é a **sequência** — qual requisição virou execução, o que o atacante tentou antes de conseguir, em que ordem tocou nas coisas, o que ele fez e não funcionou. Isso é o *modus operandi*, e é a única parte que se reaproveita: hash e IP mudam amanhã (§23), técnica não.
 
-> Três coisas dependem disso e caem juntas: a correlação da §9.1 (que precisa de duas fontes no mesmo segundo, não de uma), a varredura da frota da §23 (você procura o comportamento, não só o IOC) e o *dwell time* da §38.6 — sem a hora da **entrada**, não há como medir quanto tempo ele ficou, e "o que atrasou a detecção?" fica sem resposta. Você endurece o host contra o incidente que já passou, e não contra quem o executou.
+> Três coisas dependem disso e caem juntas: a correlação da §9.1 (que precisa de duas fontes no mesmo segundo, não de uma), a varredura da frota da §23 (você procura o comportamento, não só o IOC) e o *dwell time* da §39.6 — sem a hora da **entrada**, não há como medir quanto tempo ele ficou, e "o que atrasou a detecção?" fica sem resposta. Você endurece o host contra o incidente que já passou, e não contra quem o executou.
 
 ---
 
@@ -1160,7 +1170,7 @@ faz port-forward / SOCKS?      → §12.2: este host virou pivô — olhe a rede
 como ela persiste por padrão?  → §7: vá direto no mecanismo conhecido dela, não varra tudo
 roda como root ou como user?   → §36: se precisou de root, há uma rota de privesc aberta
 tem chave/segredo fixo?        → §23: é o melhor IOC de frota que existe (melhor que hash)
-é commodity ou sob medida?     → §38.1: ferramenta pública = oportunista; binário próprio = dirigido
+é commodity ou sob medida?     → §39.1: ferramenta pública = oportunista; binário próprio = dirigido
 ```
 
 ### Exemplo: GSocket / gs-netcat
@@ -1603,7 +1613,7 @@ CapAdd: SYS_ADMIN...    → capabilities extras devolvem poder de root
 Image: sem tag conhecida / registry estranho → imagem plantada
 ```
 
-> **Fronteira importante:** container não é máquina virtual — é processo isolado por namespace/cgroup no **mesmo kernel**. Comprometimento com `--privileged` ou com o socket do Docker montado é comprometimento **do host**, e a §27 se aplica ao host inteiro. Os PIDs também aparecem no host: `sudo cat /proc/<PID>/cgroup` (§3.11) diz de qual container o processo veio.
+> **Fronteira importante:** container não é máquina virtual — é processo isolado por namespace/cgroup no **mesmo kernel**. Comprometimento com `--privileged` ou com o socket do Docker montado é comprometimento **do host**, e a §27 se aplica ao host inteiro. Os PIDs também aparecem no host: `sudo cat /proc/<PID>/cgroup` (§3.11) diz de qual container o processo veio. Para investigar o container em si — sem entrar nele e sem depender do que a imagem tem dentro — vá para a §38.1.
 
 ---
 
@@ -2228,16 +2238,118 @@ sudo find /home /root /tmp /dev/shm -name 'id_*' ! -name '*.pub' -type f 2>/dev/
 sudo find / -xdev -name 'authorized_keys' -newermt "$D" 2>/dev/null   # chave nova plantada
 ```
 
-## 12.2. Túneis / port forwarding
+## 12.2. Túneis, port forwarding e pivô
+
+> **Por quê:** descobrir se este host virou **caminho** — se o atacante o usa para alcançar o que ele não alcança de fora. **Olhe para:** a assinatura estrutural, não o nome do processo: um pivô fala com os dois lados **ao mesmo tempo**.
+
+### A assinatura que não depende do nome
+
+Um relay é, por construção, um processo com socket para fora **e** socket para a rede interna, simultaneamente:
+
+```bash
+sudo ss -tnp state established 2>/dev/null | grep -v '^Recv-Q' | awk '
+  { peer=$4; pid="?"
+    if (match($0,/pid=[0-9]+/)) pid=substr($0,RSTART+4,RLENGTH-4)
+    priv = (peer ~ /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/)
+    if (priv) intr[pid]++; else ext[pid]++ }
+  END { for (p in ext) if (p in intr)
+          printf "PIVÔ? pid=%s externo=%d interno=%d\n", p, ext[p], intr[p] }'
+```
+
+```bash
+# achou um candidato? identifique-o pela §3 (o nome no 'ps' pode ser forjado)
+sudo readlink -f /proc/<PID>/exe; sudo ls -la /proc/<PID>/fd | grep socket | wc -l
+```
+
+> Processo legítimo raramente mantém, no mesmo instante, conexão para IP público **e** para a rede interna. As exceções são conhecidas e você as reconhece pelo nome: proxy reverso, agente de monitoração/log, runtime de container. Qualquer outra coisa nessa lista é o relay — inclusive um binário com nome camuflado, porque a consulta não olha o nome.
+
+### Dois mecanismos, dois lugares de olhar
+
+```text
+relay em USERSPACE       gs-netcat, chisel, socat, ligolo, ssh -L/-R/-D
+                         dois sockets no MESMO processo   → a consulta acima
+encaminhamento no KERNEL ip_forward + NAT, tun/tap, VPN
+                         o pacote passa SEM socket        → nenhuma consulta de socket enxerga
+```
+
+```bash
+sysctl net.ipv4.ip_forward net.ipv6.conf.all.forwarding    # 1 num host que não é roteador = bandeira
+sudo iptables -t nat -S; sudo nft list table nat 2>/dev/null   # DNAT/MASQUERADE que você não criou
+sudo iptables -L FORWARD -n -v                              # 'pkts' subindo = tráfego passando AGORA
+ip -br link; ip tuntap show 2>/dev/null                     # tun0/tap0/wg0 que ninguém criou
+IP=$(hostname -I | awk '{print $1}')
+sudo conntrack -L 2>/dev/null | grep -v "src=$IP" | grep -v "dst=$IP" | head   # este host é só o caminho
+```
+
+### O ponto cego: relay não abre porta
+
+```bash
+sudo ss -ltnp | grep -vE '127\.0\.0\.1|::1'      # listener inesperado: pega o túnel que ESPERA conexão
+```
+
+> **É por isso que procurar listener não basta.** Essa busca só encontra tunelamento que fica aguardando conexão de entrada. Ferramenta baseada em relay — GSocket é o exemplo (§5.10) — **sai** para a rede de relay e recebe a ordem por ali. Deste host, tudo é conexão de **saída** e não existe listener nenhum. Quem procurou só porta aberta concluiu "sem túnel" com o pivô ativo na frente.
+
+### Por nome (ainda vale, é barato)
 
 ```bash
 # túneis SSH: -L (local), -R (reverse), -D (SOCKS), -w (vpn)
 sudo ps -eo pid,user,args | grep -E 'ssh.* -[LRDW]' | grep -v grep
 # ferramentas comuns de túnel/proxy usadas em pivô
-sudo ps -eo pid,user,args | grep -E 'socat|chisel|ngrok|frpc?|gost|iodine|sshuttle|3proxy|proxychains' | grep -v grep
-# listeners inesperados em 0.0.0.0 (podem ser forwards/proxy)
-sudo ss -ltnp | grep -vE '127\.0\.0\.1|::1'
+sudo ps -eo pid,user,args \
+  | grep -E 'socat|chisel|ngrok|frpc?|gost|iodine|sshuttle|3proxy|proxychains|ligolo|gs-netcat' \
+  | grep -v grep
 ```
+
+> Pega o operador preguiçoso, e custa um segundo. Não conclua nada de um resultado vazio: `exec -a` renomeia o processo no exec (§7.1) e o binário pode ser estático e sem nome reconhecível (§5).
+
+### O lado interno: para onde ele foi
+
+Confirmado o pivô, o alcance dele é a §12.4 — leque de `SYN-SENT` para portas de serviço interno, `conntrack` para IP RFC1918, e crescimento da tabela ARP. E o inverso, se este host atacou outras VMs, está na §12.6.
+
+> **De fora é mais fácil:** VPC Flow Logs mostram este host conversando com N endereços internos com que nunca conversou antes. Um servidor de aplicação que passa a falar com 40 IPs da VPC não precisa de mais nenhuma prova (§10.4, §37.6).
+
+### Mitigar
+
+**O princípio:** um pivô só existe se este host conseguir **falar com o operador** e **alcançar algo que valha a pena**. Corte qualquer um dos dois e o implante continua vivo — e inútil. Matar o processo (§20) não é mitigação: ele volta pela §7.
+
+Agora, em **um bloco** (§18 — os dois lados de uma vez, senão você só avisa o atacante):
+
+```bash
+# 1) o canal com o operador: sem lista de saída permitida não há relay (§18.1 não basta — o C2 não tem IP fixo)
+sudo iptables -I OUTPUT 1 -m owner --uid-owner <USER> ! -d <DESTINO_APROVADO> -j REJECT
+# 2) o alcance interno: mesmo com o canal cortado, ele pode ter outro
+sudo iptables -I OUTPUT 1 -m owner --uid-owner <USER> \
+  -d 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 -j REJECT
+# 3) e no firewall da VPC — o do host cai junto com o host
+```
+
+Se o encaminhamento for de **kernel** (§ acima), o corte é outro:
+
+```bash
+sudo sysctl -w net.ipv4.ip_forward=0
+sudo iptables -P FORWARD DROP
+sudo ip link del tun0 2>/dev/null            # a interface criada pelo túnel
+```
+
+> ⚠️ Não faça `iptables -t nat -F` às cegas: isso derruba a rede de containers (Docker/k8s) do host inteiro. Remova a regra específica que você não reconhece, com `-D`.
+
+Depois do corte, duas consequências automáticas: os alvos que ele alcançou passam a ser **suspeitos** (§23 — varra a frota com os IOCs) e a credencial que permitiu o salto está **queimada** (§26 — rotacione, mesmo sem prova de uso).
+
+**Estruturalmente — o que impede o próximo:**
+
+```text
+egress default-deny             §34.3  sem destino permitido, não existe relay possível
+segmentação leste-oeste         §34.5  o pivô só vale se o vizinho estiver alcançável
+IPAddressDeny=any + Allow=      §34.1  egress no cgroup do serviço: vale mesmo se o processo virar root
+RestrictAddressFamilies=        §34.1  sem AF_PACKET/AF_NETLINK: sem socket cru, sem mexer em rota
+CapabilityBoundingSet=          §34.1  sem CAP_NET_ADMIN/CAP_NET_RAW: não cria tun nem altera roteamento
+PrivateNetwork=yes              §34.1  para serviço que não precisa de rede — o corte total
+bastion + sem ForwardAgent      §34.5  tira o pivô de SSH pronto (§12.1)
+identidade por serviço          §34.4  a credencial daqui não abre o vizinho, então o salto não paga
+alerta de conexão interna nova  §34.7  app falando com porta interna que nunca usou = alarme
+```
+
+> **A que resolve sozinha é a primeira.** Todo o resto reduz o alcance; o egress default-deny remove a premissa — sem canal de saída aprovado, o relay não estabelece, e a §2.7 vira um contador subindo em vez de um pivô funcionando.
 
 ## 12.3. Credenciais/artefatos que habilitam pivô
 
@@ -2479,7 +2591,49 @@ for b in /srv /opt /var/www /data /home; do
 done
 ```
 
-Sem git: use timeline por `ctime` (§9) e o gerenciador de pacotes (§24).
+### Os três pontos cegos do `git status`
+
+Um `status` limpo **não** significa código íntegro. Ele só enxerga alteração não commitada:
+
+```bash
+R=/srv/app
+git -C "$R" status --ignored --short | grep '^!!'      # arquivo que o .gitignore ESCONDE do status
+git -C "$R" log --all --since="$START" --until="$END" --stat    # ele commitou?
+git -C "$R" fetch -q 2>/dev/null; git -C "$R" diff origin/<BRANCH> --stat   # divergência do remoto
+git -C "$R" reflog --date=iso | head -30               # quando o ref REALMENTE se moveu (data local)
+git -C "$R" fsck --lost-found 2>/dev/null | grep commit | head   # commit órfão = o que foi 'amend'-ado
+git -C "$R" log --show-signature -5 2>/dev/null        # se vocês assinam, é o padrão-ouro
+git -C "$R" status --short -- vendor/ node_modules/    # o que o $EXC esconde o resto do tempo
+```
+
+```text
+1. commitou       o status fica limpo. E as datas mentem: GIT_AUTHOR_DATE e GIT_COMMITTER_DATE
+                  são variáveis de ambiente — o commit "de 3 meses atrás" pode ser de ontem
+2. fez 'amend'    o histórico parece intacto porque foi reescrito. O commit original costuma
+                  sobreviver como objeto órfão até o gc: 'fsck --lost-found' o traz de volta
+3. usou .gitignore  arquivo dropado num caminho ignorado nunca aparece no 'status' — só com --ignored
+```
+
+> **O que não mente:** o **reflog** registra o movimento local do ref com a hora real da máquina, e o **remoto** é uma cópia que o atacante do host normalmente não controla — `git diff origin/<BRANCH>` é a comparação autoritativa. Com uma ressalva: se ele pegou a *deploy key* ou o token de CI (§27), o remoto também está queimado, e aí a única âncora é o artefato de build.
+
+### Código não versionado
+
+Deploy por `rsync`, tarball ou FTP não deixa base de comparação. Três substitutos, do mais barato ao mais confiável:
+
+```bash
+# 1) histograma de mtime: um deploy escreve TUDO junto — o arquivo tocado depois é outlier
+find "$R" -type f -printf '%TY-%Tm-%Td\n' | sort | uniq -c | sort -rn | head
+# ...e o outlier em si
+find "$R" -type f -newermt "$D" -printf '%TY-%Tm-%Td %TT %p\n' 2>/dev/null | sort
+
+# 2) ctime fora da janela de deploy — não é falsificável (§5.2), então é melhor que o mtime
+find "$R" -type f -newerct "$START" -printf '%CY-%Cm-%Cd %CT %p\n' 2>/dev/null | sort
+
+# 3) diff contra o artefato de build ou contra um host-espelho da mesma versão
+diff -rq "$R" /mnt/artefato-do-build 2>/dev/null | head -40
+```
+
+> **O histograma é o truque que rende mais.** Um deploy é um evento único: milhares de arquivos com o mesmo dia de `mtime`. Um arquivo com data diferente do bloco é anomalia sem precisar de baseline nenhuma — mesma lógica do "volume de log por dia" da §9.1. E o §24 (pacotes) não ajuda aqui: código de app não vem de pacote.
 
 ## Execução de comando (sinks de RCE, multi-linguagem)
 
@@ -2534,6 +2688,51 @@ sudo grep -RIlnaE \
   $WEBROOT 2>/dev/null
 ```
 
+## Backdoor no código legítimo (não é webshell)
+
+Webshell é **arquivo novo** no docroot — a busca acima acha. Backdoor plantado é **linha inserida no código que já existia**: não muda a lista de arquivos, não parece estranho num `ls`, e sobrevive a qualquer limpeza que se guie por "arquivos recentes".
+
+O que procurar no diff (ou nos arquivos que a integridade acima marcou):
+
+```text
+condição que depende de header/param não documentado   ?dbg=, ?cmd=, X-Debug, cookie mágico
+credencial, hash ou token literal no código            senha embutida = porta fixa
+retorno antecipado dentro da função de autenticação    'return true' antes da validação
+rota/endpoint novo sem o middleware que os outros têm  painel administrativo sem auth
+chave de assinatura fixa, ou JWT com algoritmo frouxo  alg:none, verify=false
+sink de execução/desserialização introduzido no diff   os greps de RCE acima
+exceção "temporária" para um IP, usuário ou tenant     o bypass que ninguém removeu
+```
+
+```bash
+# entrada do cliente virando condição de desvio
+sudo grep -RInaE '\$_(GET|POST|REQUEST|COOKIE|SERVER)\[[^]]+\][[:space:]]*===?|req\.(query|headers|body)\[[^]]+\][[:space:]]*===?|request\.(args|headers)\.get' \
+  $APP 2>/dev/null | grep -vE "$EXC"
+# segredo literal
+sudo grep -RInaE '(password|passwd|secret|token|api_?key)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']{6,}' \
+  $APP 2>/dev/null | grep -vE "$EXC"
+# verificação de token desligada
+sudo grep -RInaE 'alg[^a-z]*none|verify[[:space:]]*[:=][[:space:]]*(false|False)|algorithms[[:space:]]*[:=].*none' \
+  $APP 2>/dev/null | grep -vE "$EXC"
+# rotas declaradas — compare quem tem middleware de auth e quem não tem
+sudo grep -RInaE '(app|router)\.(get|post|all|use)\(|@(app|bp)\.route\(|Route::(any|get|post)\(' \
+  $APP 2>/dev/null | grep -vE "$EXC"
+```
+
+Adulteração de dependência (o backdoor que entra no `install`):
+
+```bash
+grep -n -A4 '"scripts"' $APP/package.json 2>/dev/null | grep -iE 'preinstall|postinstall|prepare'
+sudo find $APP -maxdepth 4 -newerct "$START" \( -name 'package*.json' -o -name 'requirements.txt' \
+  -o -name 'composer.*' -o -name 'go.mod' -o -name 'Gemfile*' \) -ls 2>/dev/null
+```
+
+> **O ponto cego do próprio `$EXC`:** todos os greps desta seção excluem `node_modules`, `vendor` e `site-packages` — que é exatamente onde uma dependência adulterada se esconde. Quando a suspeita for de supply chain, rode **sem** o filtro, ou compare o diretório com uma reinstalação limpa a partir do lockfile.
+
+> **Como distinguir de bug:** um bug de autenticação é assimétrico e desajeitado; um backdoor é **conveniente** — só dispara com um valor que só o autor conhece, e não afeta nenhum fluxo legítimo. Se a condição depende de um segredo e o código funciona perfeitamente sem ela, não é descuido.
+
+---
+
 > A porta que a app escuta (§14) + o sink encontrado aqui = o vetor. Correlacione com o `ctime` do artefato dropado (§9) e o processo pai do `EXECVE` no audit (§11).
 
 ---
@@ -2541,6 +2740,20 @@ sudo grep -RIlnaE \
 # 17. Indicadores fortes de reverse shell/backdoor
 
 > **Por quê:** cada sinal isolado tem explicação inocente; a **combinação** não tem. **Olhe para:** a conjunção abaixo — é a assinatura estrutural de shell remoto, independente de família de malware.
+
+**Backdoor não é uma coisa só.** É qualquer coisa que devolva acesso ao atacante **sem re-explorar** — e ela pode morar em cinco camadas. Esta seção cobre a primeira; conferir só ela e concluir "não há backdoor" é o erro mais comum:
+
+```text
+1. processo/rede    implante rodando, canal para o operador        §17 (aqui) §2.7 §12.2
+2. sistema          o gatilho que o relança sozinho                §7 (as 12 subseções)
+3. autenticação     chave, usuário UID 0, PAM, AuthorizedKeysCommand  §7.5 §7.9 §7.12
+4. binário          executável de sistema trojanizado              §24 §5
+5. aplicação        webshell no docroot, ou linha plantada no código  §16
+```
+
+> Um operador competente deixa mais de uma, em camadas diferentes de propósito (§7, §23). A da camada 1 é a que faz barulho e existe para ser achada.
+
+---
 
 **A lógica:** um shell reverso precisa, por construção, de (1) um canal de saída para o operador, (2) um interpretador para executar o que chega e (3) um TTY para o operador digitar confortavelmente. Você não está reconhecendo um malware específico — está reconhecendo o **formato** de qualquer um deles. É por isso que esse checklist envelhece bem.
 
@@ -3293,8 +3506,9 @@ achar o que eu NÃO SEI                    → pspy/execsnoop (ao vivo), plaso (
 provar que binário do sistema mudou       → debsums / rpm -Va, AIDE, hashdeep
 binário sem strings / packed              → AVML + Volatility, capa, upx -d
 o arquivo foi APAGADO                     → sleuthkit (fls/icat), Volatility (bash na RAM)
-o mesmo comprometimento em N hosts        → osquery, ansible, Fenrir
+o mesmo comprometimento em N hosts        → osquery, ansible, Fenrir, Velociraptor
 fechar o vetor                            → trivy/osv-scanner, nmap/nuclei (de fora)
+a exposição está na CONTA, não no host    → prowler, ScoutSuite (§34.10)
 ```
 
 ## Antes de instalar nada (já está no host)
@@ -3317,12 +3531,16 @@ busybox                  §7.8        segunda opinião contra LD_PRELOAD
 pspy              # execs e cron em tempo real SEM root e sem instalar nada
 bcc-tools/bpftrace# execsnoop, opensnoop, tcpconnect — via eBPF, custo baixo
 sysdig / falco    # captura de syscall com filtro; falco = regras de detecção
+tracee            # eBPF com regras de comportamento prontas: detecta, não só captura
+Sysmon for Linux  # exec/conexão/escrita em log estruturado — o substituto do auditd desligado
 ```
 ```bash
 ./pspy64                                   # binário único, sem deps: vê o cron relançar o malware
 sudo execsnoop-bpfcc                       # todo execve, com PPID  (RHEL: /usr/share/bcc/tools/)
-sudo tcpconnect-bpfcc                      # toda conexão de saída + PID → pega o beacon periódico
+sudo tcpconnect-bpfcc                      # toda conexão de saída + PID → pega o beacon periódico (§2.7)
 sudo sysdig -p'%evt.time %proc.pname %proc.name %evt.args' evt.type=execve
+sudo tracee --scope comm!=tracee           # eventos + detecções, sem compilar nada
+sudo sysmon -accepteula -i config.xml      # depois: leia os eventos no syslog/journal
 ```
 
 > Serve para dois momentos: **antes** de mexer (o C2 é periódico? o beacon aparece de 10 em 10 min?) e **depois** da limpeza (§22) — algo ainda tenta relançar? É o substituto do auditd quando ele não estava ligado.
@@ -3376,14 +3594,18 @@ rule ioc_incidente {
 ## Coleta padronizada (quando o caso vai escalar)
 
 ```text
-UAC     # Unix-like Artifacts Collector — coleta completa e reproduzível em 1 pacote
-CyLR    # coletor rápido de artefatos
+UAC           # Unix-like Artifacts Collector — coleta completa e reproduzível em 1 pacote
+CyLR          # coletor rápido de artefatos
+Velociraptor  # coleta E caça, num host ou na frota, com linguagem de consulta própria (VQL)
 ```
 ```bash
 sudo ./uac -p ir_triage /evidence     # perfis: ir_triage, full; saída .tar.gz + hash
+sudo ./velociraptor artifacts collect Linux.Sys.Pslist --format json   # standalone, sem servidor
 ```
 
 > Use quando terceiro/jurídico/seguro vai olhar depois: saída padronizada e documentada vale mais que a sua coleta ad-hoc da §28 — e evita a acusação de "manipulou a evidência".
+
+> **Velociraptor cobre sozinho o que UAC + osquery + ansible fazem separados**: roda como binário único standalone num host, ou como servidor com agentes para perguntar a mesma coisa à frota inteira (§23). Se o caso vai passar de um host, comece por ele em vez de montar a colagem.
 
 ## Análise do binário (sem executar — §5.9)
 
@@ -3447,6 +3669,7 @@ vol -f mem.lime linux.check_syscall.Check_syscall    # syscall table hookada = r
 
 ```text
 sleuthkit (fls, icat, mactime)  # lê o filesystem CRU: enxerga o que foi deletado
+debugfs                         # ext4: espia inode apagado sem montar o arsenal acima
 extundelete / photorec          # recuperação de conteúdo apagado
 plaso / log2timeline            # super-timeline: filesystem + logs + artefatos, tudo ordenado
 mac_robber + mactime            # timeline clássica, leve
@@ -3455,9 +3678,13 @@ mac_robber + mactime            # timeline clássica, leve
 sudo dd if=/dev/sdX of=/evidence/disk.img bs=4M status=progress   # ou use o snapshot da §1
 fls -r -d disk.img                          # -d = só ENTRADAS DELETADAS, com inode
 icat disk.img <INODE> > recuperado.bin      # recupera o conteúdo pelo inode
+sudo debugfs -R 'lsdel' /dev/sdX            # inodes apagados e QUANDO — checagem de 5 segundos
+sudo debugfs -R 'dump <INODE> /tmp/rec.bin' /dev/sdX
 mac_robber /mnt/evidence | mactime -d -b - > timeline.csv
 log2timeline.py --storage_file plaso.db disk.img && psort.py -o dynamic plaso.db
 ```
+
+> **Limite do `debugfs` em ext4:** o `lsdel` lista os inodes e a hora da remoção, mas o ext4 costuma **zerar a árvore de extents** no delete — então o `dump` falha com frequência. Use-o como resposta rápida a "algo foi apagado, e quando?"; para recuperar o conteúdo de fato, sleuthkit/extundelete **sobre a imagem**, nunca no disco montado em escrita.
 
 > **Por que isso vai além da §9:** `find -newerct` só enxerga arquivo que **existe**. O dropper que o atacante usou e apagou não aparece lá — mas o inode ainda está no filesystem, e `fls`/`icat` o trazem de volta. Rode sempre sobre a **imagem/snapshot**, nunca no disco montado em escrita.
 
@@ -3534,6 +3761,20 @@ ffuf -u https://<host>/FUZZ -w wordlist.txt -mc 200,301,403   # rota esquecida/p
 
 > Scan ativo é intrusivo e pode gerar tráfego/alertas — faça só em ambiente/ativo autorizado e, de preferência, avisando o time.
 
+## Postura da cloud (a superfície da §34.10)
+
+```text
+prowler                # centenas de checks em AWS/GCP/Azure: IAM, exposição, log, criptografia
+ScoutSuite             # inventário + achados por serviço, multi-cloud, saída navegável
+steampipe/cloudquery   # a conta inteira como SQL — bom para pergunta específica e pontual
+```
+```bash
+prowler aws                                  # ou: prowler gcp --project-id <PROJ>
+python scout.py gcp --project-id <PROJ>
+```
+
+> Responde em minutos as cinco perguntas da §34.10: há IP público onde não devia, role ampla numa credencial de instância, bucket exposto, snapshot/imagem compartilhada fora da conta e chave estática antiga. É a auditoria da §34.8 um andar acima — e é o único andar onde o comprometimento **não deixa rastro nenhum no host**, então nenhuma outra ferramenta desta seção o encontra.
+
 ---
 
 # 33. Regra principal
@@ -3582,7 +3823,7 @@ por onde ele entrou?      → serviço na porta + sink na app (§14/§16)
 
 > E encerre respondendo quatro coisas por escrito: **como entrou**, **o que fez** (e alcançou), **o que saiu**, **como impedir que volte**. Sem as quatro, o incidente não está fechado — só está quieto.
 
-A terceira resposta é a §37. A quarta é a §34. Quem decide, quem avisa e o que fica escrito é a §38.
+A terceira resposta é a §37. A quarta é a §34. Quem decide, quem avisa e o que fica escrito é a §39.
 
 ---
 
@@ -3740,7 +3981,7 @@ sem SSH em produção              → sem shell interativo, o §13 fica vazio d
 
 ## 34.7. Detecção que reduz raio
 
-Detectar cedo é reduzir raio no eixo tempo. Ligue **antes** de precisar:
+Detectar cedo é reduzir raio no eixo tempo. Ligue **antes** de precisar — e a cadência para manter isso vivo é a §40.1:
 
 ```text
 auditd ligado com regras         §11    sem ele, o vetor fica sem prova
@@ -4467,7 +4708,7 @@ sudo auditctl -w /etc/sudoers.d -p wa -k sudoers
 
 # 37. Exfiltração — o que saiu?
 
-> **Por quê:** a §16 responde "como entrou" e a §34 responde "como impedir". Esta responde a pergunta que define a **consequência**: o que o atacante levou. É a que decide notificação, contrato e dano — e a única com prazo legal correndo (§38.4). **Olhe para:** volume de saída, arquivo de staging e ferramenta de transferência. Não procure "o dado vazado": ele não deixa rastro próprio.
+> **Por quê:** a §16 responde "como entrou" e a §34 responde "como impedir". Esta responde a pergunta que define a **consequência**: o que o atacante levou. É a que decide notificação, contrato e dano — e a única com prazo legal correndo (§39.4). **Olhe para:** volume de saída, arquivo de staging e ferramenta de transferência. Não procure "o dado vazado": ele não deixa rastro próprio.
 
 **A assimetria:** exfiltração não deixa artefato como persistência deixa. Copiar não altera o original — o arquivo continua lá, intacto, com o mesmo `mtime`. Então você não vai *achar o vazamento*; vai reconstruí-lo por três vias independentes:
 
@@ -4585,7 +4826,7 @@ SELECT sem WHERE em tabela grande, ou dump de schema inteiro
 uso de credencial da app fora do horário e do host da app
 ```
 
-> Se o log de query estava desligado (é o padrão), você **não vai** saber o que foi lido. Essa é a resposta honesta a dar na §38.4 — não uma lacuna para preencher com otimismo.
+> Se o log de query estava desligado (é o padrão), você **não vai** saber o que foi lido. Essa é a resposta honesta a dar na §39.4 — não uma lacuna para preencher com otimismo.
 
 ---
 
@@ -4620,7 +4861,138 @@ sem log de query, sem retenção)                                 → INDETERMIN
 
 ---
 
-# 38. Gestão do incidente (decisão, comunicação, registro)
+# 38. Fora da VM: contêiner, Kubernetes e mesh
+
+> **Por quê:** o runbook inteiro assume um host que você acessa e um filesystem que você lê. Com a app em contêiner isso ainda é verdade — só que por outro caminho. Com a app em cluster, metade das seções **muda de andar**. **Olhe para:** onde cada seção deste arquivo passou a morar, antes de concluir que "não achei nada".
+
+---
+
+## 38.1. Contêiner: investigue a partir do host
+
+Contêiner é processo no **seu** kernel (§7.11). Então toda a §3 continua valendo — você só precisa do PID.
+
+```bash
+sudo docker inspect --format '{{.State.Pid}}' <CONTAINER>     # container → PID
+sudo cat /proc/<PID>/cgroup                                   # PID → container (§3.11)
+sudo docker inspect --format '{{.GraphDriver.Data.MergedDir}}' <CONTAINER>   # o FS dele, visto daqui
+```
+
+```bash
+# entre sem alterar nada: SEUS binários, nos namespaces DELE (§3.15)
+sudo nsenter -t <PID> -m -p -n -- ss -tnp
+sudo nsenter -t <PID> -m -p -n -- ls -la /tmp /dev/shm
+# o que mudou em relação à imagem — FIM de graça, sem baseline (§24)
+sudo docker diff <CONTAINER>
+# contexto e logs
+sudo docker logs --timestamps <CONTAINER> | tail -100
+sudo docker inspect <CONTAINER>       # privileged, binds, socket, CapAdd — a leitura está na §7.11
+```
+
+> **Por que não `docker exec`:** ele cria um processo novo **dentro** do alvo, altera o container e depende de um shell existir na imagem. Imagem mínima/distroless não tem `ss`, `ps` nem `sh` — investigar de dentro simplesmente não funciona. O `nsenter` a partir do host resolve os dois problemas de uma vez.
+
+> **`docker diff` é o `rpm -Va` do contêiner** (§24): lista tudo que difere da imagem. `A` adicionado, `C` modificado, `D` removido. Webshell no docroot, binário em `/tmp`, `authorized_keys` novo — aparece na hora, sem baseline nenhum. É o comando de melhor custo/benefício desta subseção.
+
+> ⚠️ **A armadilha:** `docker rm` — e o *recreate* de qualquer deploy — destrói a camada de escrita do container, que é a evidência inteira. Ordem: preservar → parar → só então remover. E `restart: always` ressuscita o que você matar (§7.11): pare o **container**, não o processo.
+
+```bash
+sudo docker commit <CONTAINER> ir-evidence:$(date +%Y%m%d)     # congela o estado como imagem
+sudo docker logs <CONTAINER> > "$IR/container.log" 2>&1
+M=$(sudo docker inspect --format '{{.GraphDriver.Data.MergedDir}}' <CONTAINER>)
+sudo tar czf "$IR/container-fs.tgz" -C "$M" .
+```
+
+---
+
+## 38.2. Kubernetes: o que muda de lugar
+
+O node continua sendo uma VM, e as §1–§36 valem nele por inteiro — inclusive porque a fuga do contêiner termina lá. O que muda é onde moram persistência, identidade e log:
+
+```text
+runbook (host)                     equivalente no cluster
+§7  persistência cron/systemd      Deployment/DaemonSet/CronJob — o controlador recria o pod
+                                   admission webhook mutante: o LD_PRELOAD do cluster
+§7.9 usuários e privilégio         RBAC: Role/ClusterRole, ServiceAccount, Binding
+§11 auditd                         audit log do API server — e quase sempre está DESLIGADO
+§10 logs                           efêmeros: morrem com o pod. Só existem se saírem de lá (§0)
+§2  rede                           NetworkPolicy (só vale se o CNI implementar), Service, Ingress
+§34.1 sandbox systemd              securityContext + Pod Security Admission
+§34.3 egress default-deny          NetworkPolicy de egress — e a §38.3
+§12 lateral                        token da ServiceAccount → API server; kubelet; etcd
+§20 matar processo                 inútil: o controlador recria em segundos
+§27 rebuild                        inútil sozinho: recria a partir da MESMA imagem
+```
+
+O que **não** tem análogo no host — e é por onde os incidentes reais acontecem:
+
+```text
+token de ServiceAccount montado em TODO pod por padrão   → automountServiceAccountToken: false
+Secret montado como arquivo/env                          → legível por qualquer coisa dentro do pod
+kubelet (:10250)                                         → exec em qualquer pod do node, se exposto
+etcd sem auth/TLS                                        → o cluster inteiro, em texto
+admission webhook                                        → roda a cada criação de objeto = persistência
+imagem                                                   → o vetor que sobrevive a todo redeploy (§27)
+hostPath / privileged / hostNetwork / hostPID            → fuga para o node em um manifesto
+```
+
+```bash
+kubectl get pods -A -o wide --sort-by=.metadata.creationTimestamp | tail   # o que nasceu por último
+kubectl get events -A --sort-by=.lastTimestamp | tail -40
+kubectl auth can-i --list --as=system:serviceaccount:<NS>:<SA>             # o raio daquele token (§34.4)
+kubectl get clusterrolebindings -o wide | grep -i cluster-admin
+kubectl get mutatingwebhookconfigurations validatingwebhookconfigurations
+kubectl get pods -A -o json | jq -r '.items[]
+  | select(.spec.hostPID or .spec.hostNetwork or (.spec.volumes[]?|has("hostPath")))
+  | "\(.metadata.namespace)/\(.metadata.name)"'
+```
+
+> **A ordem se inverte.** No host você mata o processo e remove o gatilho (§19/§20). No cluster, `kubectl delete pod` é o **oposto** de contenção: o controlador recria em segundos e você destruiu a evidência no mesmo gesto. Contenha pelo objeto — escale o Deployment para 0, ou isole o pod (NetworkPolicy deny-all + tirar o label que o põe no Service) **mantendo-o vivo** para a §3 e a §38.1.
+
+> **A fronteira:** este bloco é um mapa, não um runbook de resposta a incidente em cluster. Investigar RBAC, audit do API server, etcd e cadeia de imagem é assunto de arquivo próprio.
+
+---
+
+## 38.3. Service mesh: o que ele quebra e o que ele dá
+
+Mesh não é uma camada de investigação — é uma camada de política que, de quebra, **reescreve onde você olha**.
+
+**O que ele quebra:**
+
+```text
+§2    'ss' mostra 127.0.0.1:15001, não o destino real — quem sai é o sidecar
+§2.7  o beacon também sai pelo sidecar: o PID da app não tem a conexão externa
+§17   "conexão para IP público a partir do processo da app" deixa de ser sinal direto
+§18.1 o iptables do pod já pertence ao init do mesh: sua regra não pega, ou quebra tudo
+§2.6  tcpdump entre pods vê mTLS — cifrado, mesmo sendo tráfego interno
+```
+
+```bash
+kubectl logs <POD> -c <SIDECAR> | tail -50           # o access log do sidecar = o destino REAL
+kubectl exec <POD> -c <SIDECAR> -- curl -s localhost:15000/clusters | head   # destinos configurados
+```
+
+**O que ele dá:**
+
+```text
+egress default-deny de verdade   política de saída só para destino registrado = a §34.3 do cluster
+identidade por workload          mTLS: quem fala com quem por identidade, não por IP (§34.4/§34.5)
+autorização em L7                por rota e método, não só por porta
+log de fluxo por padrão          o access log do sidecar é o VPC Flow do cluster (§0, §37.6)
+```
+
+**O risco que ele traz:**
+
+```text
+porta admin do sidecar (:15000)  config, clusters e certificado — local ao pod, mas o atacante
+                                 comprometido já está dentro do pod
+mTLS não protege por dentro      comprometido o pod, o atacante herda a identidade dele
+o sidecar é um proxy pronto      ele já sabe alcançar tudo que aquele workload pode alcançar
+```
+
+> **O resumo:** uma malha instalada sem ninguém atualizar o runbook **cega** a investigação em vez de ajudá-la — as §2, §2.7 e §17 passam a olhar para o lugar errado, e o resultado vazio parece limpeza. Ajustado o lugar de olhar, ela entrega o melhor log de rede que você vai ter no cluster e a única versão da §34.3 que funciona lá dentro.
+
+---
+
+# 39. Gestão do incidente (decisão, comunicação, registro)
 
 > **Por quê:** as §1–§37 dizem o que fazer com a máquina. Nenhuma diz quem decide derrubar produção, quem avisa quem, e o que precisa estar escrito. É a parte que não aparece no `journalctl` — e a que costuma custar mais caro depois. **Olhe para:** decidir isto **antes** de precisar; no meio do incidente ninguém negocia papel.
 
@@ -4628,7 +5000,7 @@ sem log de query, sem retenção)                                 → INDETERMIN
 
 ---
 
-## 38.1. Severidade e quem decide
+## 39.1. Severidade e quem decide
 
 Classifique cedo: a severidade define quem é acordado e o que pode ser derrubado.
 
@@ -4644,14 +5016,14 @@ Três decisões que travam a resposta inteira se não tiverem dono declarado:
 ```text
 derrubar o serviço?   receita agora x atacante com shell ativo — quem assina é o negócio, não o técnico
 rebuild ou limpar?    §27 dá o critério técnico; a janela e o custo são de quem opera
-notificar?            §38.4 — e essa nunca é decisão de quem está no terminal
+notificar?            §39.4 — e essa nunca é decisão de quem está no terminal
 ```
 
 > **O default que evita a pior discussão:** contenção que **não** derruba o serviço (bloquear egress do usuário da app, §18.1/§34.3) quase sempre cabe na autonomia de quem responde; **parar** o serviço, não. Separe as duas ao pedir autorização — pedir as duas juntas costuma travar as duas.
 
 ---
 
-## 38.2. OpSec da resposta
+## 39.2. OpSec da resposta
 
 O atacante pode estar lendo o canal onde você discute o incidente. Se ele pegou credencial de cloud, e-mail, SSO ou repositório, isso não é hipótese remota — é o caso provável.
 
@@ -4668,7 +5040,7 @@ segredo fora do war log   redija: o registro vai ser lido por gente que não pre
 
 ---
 
-## 38.3. O registro (war log)
+## 39.3. O registro (war log)
 
 Grave a sessão inteira. É mais barato que lembrar depois, e é o que responde "você alterou a evidência?":
 
@@ -4700,7 +5072,7 @@ resultado/artefato   onde ficou a prova ($IR/...)
 
 ---
 
-## 38.4. Notificação: prazos que não são seus
+## 39.4. Notificação: prazos que não são seus
 
 O gatilho é o veredito da §37, não a gravidade técnica.
 
@@ -4719,7 +5091,7 @@ CERT.br / autoridade      abuso de rede; extorsão e crime → registro formal, 
 
 ---
 
-## 38.5. Critério de encerramento
+## 39.5. Critério de encerramento
 
 O incidente fecha quando **todas** forem verdade — não quando o host parar de dar sinal:
 
@@ -4731,7 +5103,7 @@ O incidente fecha quando **todas** forem verdade — não quando o host parar de
 [ ] credenciais rotacionadas FORA do host                     §26
 [ ] exfiltração avaliada e o veredito registrado              §37.7
 [ ] notificações feitas — ou a decisão de não notificar,
-    escrita, fundamentada e com dono                          §38.4
+    escrita, fundamentada e com dono                          §39.4
 [ ] hardening aplicado ao que permitiu o alcance              §34
 [ ] as três perguntas da §33 respondidas por escrito
 ```
@@ -4740,7 +5112,7 @@ O incidente fecha quando **todas** forem verdade — não quando o host parar de
 
 ---
 
-## 38.6. Post-mortem
+## 39.6. Post-mortem
 
 Às três perguntas da §33 (como entrou, o que fez, como impedir), some as duas que mudam o **próximo** incidente:
 
@@ -4760,4 +5132,95 @@ dwell time medido     entrada (§9) → detecção → contenção. É a métric
 o que NÃO faremos     risco conscientemente aceito também vai escrito, com quem aceitou
 ```
 
-> Guarde junto o material bruto: o `$IR`, o war log (§38.3), os IOCs e a regra YARA (§32). O próximo incidente começa perguntando "já vimos isso antes?" — e a pergunta só tem resposta se alguém guardou.
+> Guarde junto o material bruto: o `$IR`, o war log (§39.3), os IOCs e a regra YARA (§32). O próximo incidente começa perguntando "já vimos isso antes?" — e a pergunta só tem resposta se alguém guardou.
+
+---
+
+# 40. Rotina: a operação em tempo de paz
+
+> **Por quê:** o conteúdo preventivo deste runbook já existe — §0 (telemetria), §34 (blast radius), §35.7, §36.8/§36.9. O que falta não é mais controle: é **cadência**. Um check que ninguém roda é idêntico a um check que não existe. **Olhe para:** o que você consegue sustentar toda semana, não o que impressiona uma vez.
+
+**A premissa:** dwell time real se mede em semanas. Se você só olha quando alguém alerta, o alerta é o fim de uma história que já rodou inteira. Proatividade é olhar **sem motivo** — e é a única coisa que encurta a distância entre a §9 (entrada) e a §39.6 (detecção).
+
+---
+
+## 40.1. A cadência
+
+```text
+DIÁRIO — automatizado, e como ALERTA (não relatório que ninguém abre)
+  escrita em /etc, /usr/bin, authorized_keys, sudoers          §11 §34.7
+  SUID/capability novo, fora do baseline                        §36.9
+  conexão de saída do usuário da app para destino novo          §2 §34.7
+  agente de log parado ou falha de envio                        §0
+
+SEMANAL — 10 minutos, com olho humano
+  diff do baseline: portas, SUID, caps, units habilitadas       §34.7 §36.9
+  patch de segurança pendente e reboot pendente                 §34.9
+  contas com shell, authorized_keys, sudoers                    §7.9 §36.3
+  o que piorou no systemd-analyze security desde a semana passada  §34.1
+
+MENSAL
+  auditoria da §34.8 inteira + lynis                            §34.8
+  postura da cloud (prowler/ScoutSuite)                         §32 §34.10
+  CVE nos manifests da app                                      §16 §32
+  revisão de acesso: SSH, sudo, grupos, IAM                     §34.4 §36.5
+
+TRIMESTRAL
+  caça proativa                                                 §40.2
+  exercício de resposta                                         §40.3
+  restauração de backup testada de verdade                      §27
+```
+
+> **A regra do que vira alerta:** só entra no diário o que é **acionável e raro**. Um alerta que dispara toda semana por ruído legítimo é treinamento para ignorar alerta — e é assim que o verdadeiro passa batido. Se não dá para deixar silencioso, ele é relatório semanal, não alerta.
+
+---
+
+## 40.2. Caça proativa (sem alerta nenhum)
+
+Diferente das outras duas coisas: hardening parte da **config**, IR parte do **alerta**, caça parte de uma **hipótese**. Formule a hipótese antes de rodar o comando — senão você olha muita saída e não conclui nada.
+
+```text
+hipótese                                      onde checar      conclui se
+algo fala com IP público sem dever            §2 §2.7          PID sem pacote dono (§24)
+algo executa de tempos em tempos e some       §2.7 §32(pspy)   delta entre execuções constante
+há binário fora de pacote em /usr/bin         §24              rpm -Va / dpkg -V acusa '5'
+alguém escreveu em /etc fora de deploy        §9 §11           ctime sem mudança conhecida
+existe SUID/cap que não estava no baseline    §25 §36.9        diff != vazio
+outro host da frota tem o mesmo artefato      §23              osquery / Velociraptor
+há chave em authorized_keys sem dono          §7.5             comentário/fingerprint estranho
+```
+
+> **A hipótese que mais rende:** *"o que executa sozinho neste host?"*. Toda persistência (§7) precisa de um gatilho, e a lista de gatilhos é finita e enumerável — rode a §7 inteira como caça trimestral, não só em incidente.
+
+> **Caça que não acha nada não é desperdício.** Ela produz exatamente o "normal" que a §31 diz valer mais que qualquer lista de red flags: você não achou nada **e agora sabe como é o nada**. Guarde o resultado — ele é o baseline da próxima (§34.7).
+
+---
+
+## 40.3. Exercitar a resposta
+
+O runbook só funciona se as peças existirem no dia. Descubra o que falta **sem** incidente:
+
+```text
+consigo tirar snapshot AGORA?             §1     permissão, cota, e quanto tempo leva
+o log de 30 dias atrás existe?            §0 §10 escolha uma data e ache uma linha dela
+sei quem autoriza derrubar produção?      §39.1  a resposta precisa ser um NOME
+consigo rotacionar a credencial X?        §26    fora do host, e em quanto tempo
+o backup restaura mesmo?                  §27    restaure de verdade, num host descartável
+a regra de egress quebra a app?           §34.3  descubra em manutenção, não em incidente
+```
+
+> **Exercício de mesa, 1 hora:** alguém narra *"o provedor mandou abuse report do host X"* e o time percorre o runbook até fechar a §39.5. O que travar é o achado — e quase nunca é a técnica: é acesso que ninguém tem, autorização que ninguém sabe de quem é, ou log que não existe.
+
+---
+
+## 40.4. Medir
+
+```text
+dwell time                §39.6  entrada → detecção. A métrica que resume todas as outras
+cobertura de telemetria   §0     % de hosts com auditd, log off-box e retenção > 30 dias
+tempo até patch           §34.9  do release da correção até estar rodando
+deriva do baseline        §36.9  quantos itens estão fora do baseline hoje
+raio da credencial        §34.4  "se o token desta VM vazar agora, o que abre?" — em uma frase
+```
+
+> Se der para acompanhar só uma, acompanhe a **cobertura de telemetria**. É a única que, ao cair, apaga a sua capacidade de medir todas as outras — e é a §0 outra vez: sem log, não há métrica, não há caça e não há laudo.
