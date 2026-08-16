@@ -121,6 +121,7 @@
   - [34.8. Auditoria rápida do estado atual](#348-auditoria-rápida-do-estado-atual)
   - [34.9. Configuração base do host (sshd, sysctl, patch, MAC)](#349-configuração-base-do-host-sshd-sysctl-patch-mac)
   - [34.10. A camada da cloud (agnóstico de provedor)](#3410-a-camada-da-cloud-agnóstico-de-provedor)
+  - [34.11. O backup como alvo](#3411-o-backup-como-alvo)
   - [O que NÃO reduz blast radius](#o-que-não-reduz-blast-radius)
 - [35. Comprometimento em nível de kernel](#35-comprometimento-em-nível-de-kernel)
   - [35.1. Antes de tudo: é kernel mesmo?](#351-antes-de-tudo-é-kernel-mesmo)
@@ -481,6 +482,20 @@ sudo tcpdump -ni any -A 'tcp port 443 and tcp[((tcp[12:1] & 0xf0) >> 2):1] = 0x1
 ```
 
 > `-s0` captura o pacote inteiro (sem truncar) e `-w` salva cru para análise offline no Wireshark. Cuidado: o pcap pode conter dados sensíveis em tráfego não-TLS — trate como o resto da coleta (§1).
+
+### Quando o host não pode ser testemunha
+
+Tudo acima roda **dentro** do suspeito. Com rootkit de kernel ou eBPF hostil em `xdp`/`tc`, o pacote é escondido antes de o `tcpdump` ver (§35.4) — a captura volta limpa e a limpeza é falsa.
+
+A saída é espelhar **fora da VM**, na camada da rede:
+
+```text
+1. habilite espelhamento de pacote na VPC   origem: por tag, sub-rede ou instância
+2. destino: um coletor na rede forense       (§18) — balanceador interno + grupo de coleta
+3. depois de identificar o C2, filtre        espelhe só o tráfego de/para aquele IP
+```
+
+> É a mesma resposta da §35.6 — a verdade vem de fora da caixa — só que para tráfego em vez de memória. Duas restrições práticas: espelhamento costuma exigir que origem e destino estejam na **mesma região**, e é uma das fontes que **só existe se alguém ligou antes** (§10.4). No meio do incidente, o substituto é o log de fluxo, que dá volume e destino mas não conteúdo.
 
 ---
 
@@ -2423,11 +2438,83 @@ cat /etc/google-cloud-ops-agent/config.yaml 2>/dev/null   # quais arquivos são 
 gcloud logging read \
   'timestamp>="2026-04-30T21:20:00Z" AND timestamp<="2026-04-30T21:40:00Z"' \
   --limit 300 --freshness=200d
-# GCP — Cloud Audit / Admin Activity (SEMPRE ligado, ~400 dias):
-#   abuso de credencial da service-account (via SSRF ao metadata) aparece aqui
-# GCP — VPC Flow Logs (se habilitado): conexão de entrada na porta + saída do C2
-# AWS — CloudTrail (90d+), VPC Flow Logs, CloudWatch Logs
 ```
+
+### O que já existe, mesmo sem ninguém ter configurado nada
+
+A pergunta certa não é "temos logs?" — é "**quais** já estavam ligados?". Estas quatro categorias existem por padrão em qualquer provedor, e **não são alteráveis a partir do host**:
+
+```text
+categoria                            granularidade       retenção    responde
+métrica de rede da instância         por VM, por minuto  semanas     QUANTO saiu, e QUANDO
+  (medida no hypervisor, sem agente)
+audit do plano de controle           por chamada de API  ~1 ano      a credencial da VM foi usada,
+  (administrativo, não desligável)                                   por quem e a partir de onde
+audit de consulta do data warehouse  por job/consulta    variável    que consultas rodaram
+faturamento — linha de egress        diária, por projeto longa       GB que saíram para a internet
+```
+
+```text
+equivalentes por provedor
+métrica de rede   GCP  compute.googleapis.com/instance/network/sent_bytes_count  (~6 semanas)
+                  AWS  CloudWatch NetworkOut       (1min ≈ 15 d | 1 h ≈ 455 d)
+                  Azure Network Out Total
+audit admin       GCP  Cloud Audit / Admin Activity (~400 d, não desligável)
+                  AWS  CloudTrail Event history     (90 d)
+                  Azure Activity Log                (90 d)
+faturamento       GCP  SKU de Network Egress   AWS  DataTransfer-Out   Azure  Bandwidth
+```
+
+### O que só existe se alguém ligou ANTES
+
+```text
+log de fluxo de rede      5-tupla + bytes → o DESTINO. Costuma ser AMOSTRADO, e a retenção é a
+                          do destino de log, não do serviço   (VPC/NSG Flow Logs)
+log do NAT gerenciado     IP de destino de cada tradução, se a saída passa pelo NAT do provedor
+log de regra de firewall  conexões permitidas e negadas, por regra
+audit de ACESSO A DADOS   QUAL objeto do storage foi lido, e por quem — a única fonte que
+                          responde "o quê" em vez de "quanto"  (Data Access / S3 Data Events)
+espelhamento de pacote    pcap completo, fora da VM
+```
+
+### O que dá para responder hoje
+
+```text
+"saiu volume anômalo desta VM, e em que dia?"   SIM, sempre — a métrica de rede dá o âncora (§9.1)
+"a credencial da instância foi usada?"          SIM, sempre — Admin Activity / CloudTrail (§10.5)
+"para onde foi?"                                só com Flow Logs / NAT logs
+"quais dados exatamente?"                       só com Data Access ligado antes — senão, §37.7:
+                                                a resposta é INDETERMINADO, não "não vazou"
+```
+
+Exemplos concretos (GCP/AWS; adapte os nomes ao seu provedor):
+
+```bash
+# credencial da instância — sempre disponível, e o atacante do host não altera
+gcloud logging read \
+  'logName:"cloudaudit.googleapis.com%2Factivity"
+   AND protoPayload.authenticationInfo.principalEmail="<SA>@<PROJ>.iam.gserviceaccount.com"' \
+  --freshness=90d --limit=100
+aws cloudtrail lookup-events --lookup-attributes \
+  AttributeKey=Username,AttributeValue=<ROLE> --max-results 50
+
+# leitura de objeto no storage — só se Data Access estiver habilitado
+gcloud logging read \
+  'logName:"cloudaudit.googleapis.com%2Fdata_access"
+   AND protoPayload.methodName="storage.objects.get"' --freshness=90d --limit=50
+
+# flow logs — só se habilitados no subnet
+gcloud logging read \
+  'log_id("compute.googleapis.com/vpc_flows")
+   AND jsonPayload.src_instance.vm_name="<VM>"' --freshness=30d --limit=100 \
+  --format='value(jsonPayload.connection.dest_ip,jsonPayload.connection.dest_port,jsonPayload.bytes_sent)'
+```
+
+> Para o **volume**, não insista na CLI: abra o console de métricas do provedor, escolha a métrica de bytes enviados da instância e agrupe por nome de VM. O degrau no gráfico aparece em um minuto e vira o âncora temporal da §9.
+
+> **O ponto cego que o gráfico de bytes não cobre:** se o atacante usou o **token da service-account** (§10.5), ele lê storage e data warehouse **de fora**, direto na API — nenhum byte atravessa a VM. O gráfico de egress fica plano e a exfiltração aconteceu do mesmo jeito (§37.4).
+
+> **Por isso a ordem é o contrário da intuição:** primeiro o **audit administrativo** — sempre ligado, retenção longa, imune ao atacante do host —, depois o volume. O audit define se você tem um incidente **de VM** ou **de projeto**; o gráfico de bytes só mede uma das rotas possíveis. E se for de projeto, rebuildar VM (§27) não resolve nada.
 
 ## 10.5. Metadata / roubo de credencial de instância (cloud)
 
@@ -3161,6 +3248,46 @@ persistência
 
 contenha.
 
+> **Antes de conter, garanta o backup (§34.11).** Conter é a ação que pode disparar destruição: um operador que percebe a detecção tem incentivo para apagar ou cifrar antes de perder o acesso. Se a credencial comprometida alcança o backup, tire uma cópia para fora do alcance dela **primeiro** — depois contenha, em bloco.
+
+---
+
+## Isolar na camada da rede (a contenção que o host não desfaz)
+
+**Esta é a contenção primária; a do host é reforço.** Regra de `iptables` mora dentro da máquina comprometida — quem tem root a apaga em um comando, e você fica achando que conteve. Regra de firewall da nuvem é aplicada **fora do sistema operacional**: o atacante com root na VM não a alcança.
+
+O padrão é isolar **sem desligar**: marque a instância e negue tudo, exceto uma sub-rede de análise.
+
+```text
+1. marque a VM              tag/label de isolamento
+2. DENY ingress e egress    para 0.0.0.0/0, com prioridade menor
+3. ALLOW ingress e egress   só para o CIDR forense, com prioridade MAIOR
+4. confirme (§2)            a conexão de C2 caiu de fato?
+```
+
+```bash
+# GCP — no GCP, número MENOR de prioridade vence
+gcloud compute instances add-tags <VM> --zone=<ZONE> --tags=ir-isolated
+gcloud compute firewall-rules create ir-allow-forense-egress --priority=90 \
+  --direction=EGRESS --action=ALLOW --rules=all \
+  --target-tags=ir-isolated --destination-ranges=<CIDR_FORENSE>
+gcloud compute firewall-rules create ir-deny-egress --priority=100 \
+  --direction=EGRESS --action=DENY --rules=all \
+  --target-tags=ir-isolated --destination-ranges=0.0.0.0/0
+# repita o par para INGRESS (--direction=INGRESS, --source-ranges=...)
+
+# AWS — troque o security group por um de isolamento (sem regras além do CIDR forense)
+aws ec2 modify-instance-attribute --instance-id <ID> --groups <SG_ISOLAMENTO>
+```
+
+> **Por que não desligar.** Desligar destrói tudo que só existe em memória: o binário `memfd` (§3.16), a config e o C2 descompactados do binário packed (§5.5, §6), os sockets e os `/proc` de que as §2, §3 e §28 dependem. Isolar preserva o host vivo como testemunha e ainda te deixa trabalhar nele.
+
+> **Confirme, não presuma.** Conexão já estabelecida pode sobreviver à troca de regra por algum tempo, dependendo do provedor. Depois de isolar, volte à §2 e verifique que a conexão de C2 realmente caiu — e à §2.7, porque um beacon bloqueado continua **tentando**, e o contador subindo é a prova de que a regra está funcionando.
+
+> **Isto é o "em bloco" da §39.2.** Todas as conexões do atacante caem de uma vez: ele vai perceber na hora. Por isso vem depois da coleta (§28) e depois de garantir o backup (§34.11) — e vale para todas as VMs afetadas ao mesmo tempo, não uma por vez.
+
+**O CIDR forense precisa existir antes.** O padrão é uma rede — idealmente um projeto/conta separado — com sub-rede sem sobreposição, ferramentas já instaladas (§32), acesso por IAM restrito a quem responde, e provisionamento versionado em IaC para subir rápido. É um item de preparação, como os da §0: no dia do incidente, ou existe ou não existe (§40.3).
+
 ---
 
 ## 18.1. Bloquear C2
@@ -3594,6 +3721,8 @@ Não é garantia de que o host voltou a ser confiável.
 > **O raciocínio:** limpeza exige enumerar **tudo** que o atacante fez — e você só remove o que encontrou. Rebuild inverte o problema: parte de um estado sabidamente bom e não depende da sua enumeração ter sido completa. Com root, a assimetria é definitiva: as próprias ferramentas que você usaria para verificar podem estar mentindo.
 
 > **Rebuild não fecha o incidente.** Se o vetor de entrada (§14/§16) continuar aberto, a máquina nova é comprometida de novo — às vezes em minutos. Ordem: fechar o vetor → rebuild a partir de imagem confiável → restaurar dados **validados** (backup anterior ao incidente; §9 datou isso) → rotacionar credenciais (§26) → varrer a frota (§23).
+
+> Este passo pressupõe que o backup **existe e não foi tocado** — o que não é dado: ele costuma ser alcançável pela mesma credencial que foi comprometida. Confira a §34.11 antes de contar com ele.
 
 ## Antes do rebuild: a imagem é confiável?
 
@@ -4591,6 +4720,57 @@ você garante       quem pode o quê (IAM), o que está exposto, o que está log
 
 ---
 
+## 34.11. O backup como alvo
+
+As §34.1–§34.10 tratam do que o atacante alcança para **ler e executar**. Esta trata do que ele alcança para **destruir** — a dimensão que só se descobre quando já não dá para consertar.
+
+**A pergunta não é "temos backup?".** É: *o backup sobrevive ao comprometimento que já aconteceu?*
+
+```text
+alcance        a credencial comprometida consegue deletar ou sobrescrever o backup?
+isolamento     o backup vive na MESMA conta/projeto/rede do que ele protege?
+imutabilidade  depois de escrito, dá para apagar antes do prazo?
+               (versionamento, retention lock, WORM, snapshot com política de retenção)
+recuperação    já foi testada uma restauração completa, ou só se testa o "backup rodou"? (§40.3)
+```
+
+> **A regra:** backup que a credencial de produção consegue apagar não é backup — é uma cópia. E "3-2-1" com as três cópias na mesma conta, alcançáveis pela mesma credencial, é **uma** cópia.
+
+Exemplos concretos (adapte ao seu provedor):
+
+```bash
+# o que a credencial da instância consegue DESTRUIR — a §34.4 pelo lado inverso
+gcloud projects get-iam-policy <PROJ> --flatten=bindings \
+  --filter='bindings.members:serviceAccount' --format='table(bindings.role,bindings.members)'
+aws iam simulate-principal-policy --policy-source-arn <ROLE_ARN> \
+  --action-names s3:DeleteObject ec2:DeleteSnapshot s3:PutBucketVersioning
+
+# imutabilidade no destino do backup
+gcloud storage buckets describe gs://<BUCKET> --format='value(retentionPolicy,versioning)'
+aws s3api get-object-lock-configuration --bucket <BUCKET>
+aws s3api get-bucket-versioning --bucket <BUCKET>
+```
+
+**Já houve deleção?** É a checagem de maior valor imediato — e o audit administrativo, que está **sempre ligado** e o atacante do host não altera (§10.4), responde:
+
+```bash
+gcloud logging read \
+  'protoPayload.methodName=~"[Dd]elete" AND protoPayload.serviceName=~"compute|storage"' \
+  --freshness=90d --limit=100
+aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=EventName,AttributeValue=DeleteSnapshot --max-results 50
+```
+
+> Se já houve deleção de snapshot, disco ou objeto fora de janela de manutenção conhecida, a urgência muda de dias para **horas** — e a hipótese passa a ser destruição em preparação, não coleta.
+
+**Ordem, e é contraintuitiva:** garantir uma cópia fora do alcance da credencial comprometida vem **antes** de conter (§18). Conter é justamente a ação que pode disparar a destruição — um operador que percebe que foi detectado tem incentivo para queimar o ambiente antes de perder o acesso (§39.2). Copie para fora, depois contenha em bloco.
+
+> **E cifrar não é o único caminho terminal.** Uma credencial com IAM amplo apaga projeto, discos e snapshots em um comando — mais rápido que criptografar e igualmente definitivo. "Ainda não criptografaram" não é o mesmo que "não conseguem destruir": o que decide é o que aquela credencial ainda alcança.
+
+> **A conexão com a §37:** operação de extorsão moderna exfiltra **antes** de cifrar (dupla extorsão). Um período longo de acesso silencioso com movimentação de dados e sem destruição é o perfil *pré*-criptografia — não a evidência de que não haverá.
+
+---
+
 ## O que NÃO reduz blast radius
 
 ```text
@@ -4717,7 +4897,7 @@ sudo bpftool prog dump xlated id <ID>    # o que o programa realmente faz
 
 > **Sinais:** programa `kprobe`/`tracepoint`/`lsm` que você não carregou; programa cujo `pid` carregador não existe mais (foi carregado e o processo saiu — o hook fica); objeto pinado em `/sys/fs/bpf` sem dono conhecido; programa `xdp`/`tc` numa interface, que pode filtrar pacote **antes** do `tcpdump` ver.
 
-> **Consequência importante:** se há eBPF hostil em `xdp`/`tc`, até a §2.6 mente — o pacote é escondido antes da captura. Aí só a captura **fora da VM** (VPC Flow, espelhamento) vale.
+> **Consequência importante:** se há eBPF hostil em `xdp`/`tc`, até a §2.6 mente — o pacote é escondido antes da captura. Aí só a captura **fora da VM** vale: log de fluxo ou espelhamento de pacote, com o procedimento no fim da §2.6.
 
 ---
 
@@ -5121,7 +5301,38 @@ vnstat -d 2>/dev/null; sar -n DEV 2>/dev/null | tail -20
 sudo iptables -L OUTPUT -n -v --line-numbers; sudo nft list ruleset -a 2>/dev/null | grep -i counter
 ```
 
-> **O sinal que quase ninguém olha: a fatura.** Egress é cobrado por GB. Um salto no custo de saída — ou no gráfico de *network egress* do console — dentro da janela do incidente é medição **independente do host**: o atacante edita log, não edita faturamento. Mesmo raciocínio da §10.4.
+### A medição que o provedor já fez por você
+
+Do lado da cloud existe um contador que **ninguém precisou habilitar**: a métrica de bytes enviados e recebidos por instância, medida no hypervisor. Por VM, por minuto, com retenção de semanas (§10.4) — e fora do alcance de quem tem root no host.
+
+```text
+o que procurar no gráfico
+beacon         baseline plano com bumps pequenos e regulares — pode nem aparecer na escala de minuto
+exfiltração    degrau ou pico SUSTENTADO por minutos ou horas, muito acima da linha de base
+```
+
+> **A assimetria é o sinal mais forte.** Compare enviado **x** recebido. Servidor de aplicação normal *recebe* mais do que envia (update de pacote, pull de imagem) ou troca pouco (chamadas de API). Uma janela em que **enviado >> recebido** numa VM que só serve requisições é o perfil de transferência de saída — não de operação.
+
+**Triangule com o faturamento.** A métrica da instância conta tudo que passa na NIC, interno e externo; o faturamento conta só o egress cobrável para a internet:
+
+```text
+pico na métrica  +  pico no faturamento       → saiu para fora
+pico na métrica  +  faturamento inalterado    → ficou DENTRO da VPC: staging em outra VM, ou
+                                                este host é o caminho e não a origem (§12.2)
+```
+
+> Egress é cobrado por GB, e o atacante edita log — não edita fatura. Como a retenção do faturamento é muito maior que a da métrica, use-o para varrer o período **antigo** em granularidade diária, e a métrica para achar a **hora** dentro do dia que ele apontar.
+
+Duas armadilhas de uso:
+
+```text
+agregado do projeto   esconde uma VM enviando 200 GB no meio de dezenas de VMs normais.
+                      Agrupe por nome de instância e ordene pelo pico
+janela deslizante     a métrica é uma janela móvel de poucas semanas: cada dia de espera
+                      apaga um dia da ponta antiga. Se o acesso é antigo, o começo já sumiu
+```
+
+> **Exporte antes de expirar.** Puxe o gráfico por VM **hoje** e tire de lá — CSV, sink para o data warehouse, ou print com carimbo de tempo anexado ao war log (§39.3). Passada a janela, não volta — e essa é a única medição de volume que vai existir se não houver log de fluxo.
 
 ---
 
@@ -5202,6 +5413,8 @@ audit da cloud           uso da service-account roubada (§10.5): list/get em bu
 proxy / NAT gateway      destino e volume por conexão
 resolver de DNS central  consulta a domínio de tunelamento
 ```
+
+> **Quais dessas já estavam ligadas** — e o que cada uma responde, com retenção e granularidade: §10.4. É lá que está a distinção que decide o veredito abaixo: métrica de rede e audit administrativo existem **sempre**; destino e "qual objeto" só existem se alguém habilitou antes.
 
 > O log de acesso do storage é a **única** fonte que responde "quais objetos" em vez de "quantos bytes" — e costuma vir desligado por custo. Se os dados moram em bucket, ligue **antes** (§34.7): é a diferença entre "vazou algo" e "vazaram estes 412 arquivos".
 
@@ -5569,6 +5782,7 @@ sei quem autoriza derrubar produção?      §39.1  a resposta precisa ser um NO
 consigo rotacionar a credencial X?        §26    fora do host, e em quanto tempo
 o backup restaura mesmo?                  §27    restaure de verdade, num host descartável
 a regra de egress quebra a app?           §34.3  descubra em manutenção, não em incidente
+tenho onde analisar sem contaminar?       §18    a rede/projeto forense existe e já foi testada?
 ```
 
 > **Exercício de mesa, 1 hora:** alguém narra *"o provedor mandou abuse report do host X"* e o time percorre o runbook até fechar a §39.5. O que travar é o achado — e quase nunca é a técnica: é acesso que ninguém tem, autorização que ninguém sabe de quem é, ou log que não existe.
