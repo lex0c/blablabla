@@ -3286,7 +3286,7 @@ aws ec2 modify-instance-attribute --instance-id <ID> --groups <SG_ISOLAMENTO>
 
 > **Isto é o "em bloco" da §39.2.** Todas as conexões do atacante caem de uma vez: ele vai perceber na hora. Por isso vem depois da coleta (§28) e depois de garantir o backup (§34.11) — e vale para todas as VMs afetadas ao mesmo tempo, não uma por vez.
 
-**O CIDR forense precisa existir antes.** O padrão é uma rede — idealmente um projeto/conta separado — com sub-rede sem sobreposição, ferramentas já instaladas (§32), acesso por IAM restrito a quem responde, e provisionamento versionado em IaC para subir rápido. É um item de preparação, como os da §0: no dia do incidente, ou existe ou não existe (§40.3).
+**O CIDR forense precisa existir antes.** A especificação do ambiente — isolamento, ausência de credencial de produção, egress negado, ferramentas pré-instaladas, baseline restaurável — está na §32. É item de preparação, como os da §0: no dia do incidente, ou existe ou não existe (§40.3).
 
 ---
 
@@ -3988,6 +3988,33 @@ authorized_keys alterado sem mudança conhecida
 Os comandos deste runbook resolvem a triagem sem instalar nada. Ferramenta entra quando você precisa de **escala** (varrer tudo/vários hosts), **profundidade** (memória, binário, disco cru) ou **segunda opinião** (baseline, host não confiável).
 
 > ⚠️ **Num host comprometido, binário local pode estar adulterado** — rootkit esconde do scanner que roda em cima dele. Prefira **snapshot/cópia offline** (§1) ou binário estático trazido de fora. Instalar pacote no host suspeito também custa: mexe na base de pacotes (que é sua evidência na §24), gera tráfego e pode avisar o atacante.
+
+## O ambiente de análise (onde rodar isso)
+
+O aviso acima tem uma consequência que quase nenhum runbook fecha: **se não dá para confiar no host comprometido, você precisa de outro lugar**. Esse lugar é uma VM descartável, e os requisitos dela não são óbvios:
+
+```text
+isolamento        conta/projeto separado, VPC própria, CIDR sem sobreposição com produção
+SEM credencial    a VM de análise NÃO pode ter identidade que alcance produção. Você vai
+                  manipular artefato do atacante ali — dar a ela um token de prod é entregar
+                  o ambiente de bandeja (§34.4)
+egress negado     default-deny de saída (§34.3): se algo detonar, não há para onde falar
+disco suspeito    sempre ro,noexec,nodev,nosuid — e nunca dar boot nele (§35.6)
+ferramentas       pré-instaladas. Instalar durante o incidente é lento, e você pode não ter
+                  rota de saída para baixar nada
+dimensionamento   memória quer RAM e disco de verdade: um dump de 64 GB mais os índices do
+                  Volatility não cabem numa máquina de 8 GB
+relógio           NTP e UTC, senão a correlação da §9.1 sai errada
+baseline          snapshot do estado limpo — e RESTAURE depois de cada caso
+acesso            IAM restrito a quem responde: o que passa por ali é evidência (§1, §39.3)
+provisionamento   IaC versionado, para subir rápido e para provar como estava configurado
+```
+
+> **Os dois erros que anulam todo o resto:** dar credencial de produção à VM de análise, e reaproveitá-la entre casos sem restaurar o snapshot limpo. O primeiro transforma a sua ferramenta de resposta em vetor de comprometimento; o segundo faz você "encontrar" no host B o artefato que veio do host A — e contaminar a varredura da frota (§23) com um IOC falso.
+
+> **Se for detonar de propósito:** a §5.9 diz para não executar no host — aqui é o lugar certo. Rede sem rota nenhuma, snapshot antes, snapshot depois, e a máquina morre no fim. Nunca com disco de produção montado ao lado.
+
+> Este é o destino do isolamento da §18: a sub-rede que aquelas regras de firewall liberam é esta. E é item de preparação da §40.3 — no dia do incidente, ou existe ou não existe.
 
 ## Como escolher
 
@@ -4951,10 +4978,74 @@ vol -f mem.lime linux.malfind.Malfind
 Outras vantagens de fora:
 
 ```text
-VPC Flow Logs / espelhamento   §10.4   o tráfego que o host esconde, a rede mostra
+log de fluxo / espelhamento    §10.4   o tráfego que o host esconde, a rede mostra
 snapshot de disco montado RO   §32     fls/icat leem o filesystem sem o kernel comprometido
-métricas do hypervisor                 CPU/rede que não batem com o que o host relata
+métricas do hypervisor         §37.2   bytes e CPU que não batem com o que o host relata
 ```
+
+### Disco e memória respondem perguntas diferentes
+
+O erro comum é achar que "subir o disco numa VM sandbox e escanear" resolve rootkit de kernel. Não resolve — **rootkit de kernel não mora no disco**. Mas o disco offline responde muito mais do que se imagina:
+
+```text
+o disco offline responde                          porque
+tudo que estava OCULTO no host vivo               o hook de getdents64 não está executando:
+                                                  o ocultamento de arquivo simplesmente não acontece
+o arquivo .ko do módulo, se existir               find em /lib/modules por data (§9)
+binário de sistema trojanizado                    hash contra base de pacotes ou espelho limpo (§24)
+persistência de carregamento                      /etc/modules-load.d, /etc/modprobe.d
+rootkit no initramfs (carrega antes de tudo)      unmkinitramfs / lsinitramfs sobre /boot/initrd*
+arquivo apagado, timeline completa                fls/icat, plaso (§32)
+
+só a MEMÓRIA responde                             porque
+hook em syscall / ftrace / kprobe                 existe apenas em RAM (§35.3)
+módulo carregado com o arquivo já apagado         ativo, e sem nada em disco (§35.2)
+programa eBPF carregado em runtime                /sys/fs/bpf é virtual — não está no disco (§35.4)
+código injetado, credencial adulterada            malfind, check_creds
+```
+
+> Ou seja: **disco responde "o que está gravado"; memória responde "o que está rodando"**. Para kernel, a verificação conclusiva é a memória. O disco é complemento — excelente, mas complemento.
+
+### A limitação da nuvem: não existe dump de RAM do guest
+
+Com hypervisor próprio você suspende a VM e lê o arquivo de memória. **Provedor de nuvem não oferece isso**: não há equivalente acessível ao cliente. Consequência prática:
+
+```text
+a aquisição de memória roda DENTRO da VM  → sobre o kernel possivelmente comprometido
+AVML, não LiME                            → LiME precisa compilar módulo, e isso falha com
+                                            modules_disabled=1 (§35.7) ou sem os headers
+```
+
+> É uma limitação real e vale registrar no laudo: um rootkit sofisticado **pode** interferir na própria captura. Ainda assim é a melhor opção disponível, e incomparavelmente melhor que não capturar — a maioria dos rootkits não trata esse caso.
+
+### Montar o disco suspeito com segurança
+
+```bash
+gcloud compute disks create ir-disk --source-snapshot=<SNAP> --zone=<ZONE>
+gcloud compute instances attach-disk <VM_FORENSE> --disk=ir-disk --mode=ro
+sudo mount -o ro,noexec,nodev,nosuid /dev/disk/by-id/google-<DEVICE>-part1 /mnt/ir
+```
+
+```text
+somente leitura      montar RW altera a evidência e invalida a datação (§5.2)
+noexec,nodev,nosuid  você não vai executar nada de lá (§5.9), e não quer SUID ativo
+nunca dar boot       bootar o disco suspeito é executar o rootkit, agora na sua rede
+VM descartável       montar filesystem controlado pelo atacante já foi vetor de exploit em
+                     parser de sistema de arquivos. Na rede forense (§18), nunca na sua estação
+```
+
+### O mínimo irreversível
+
+Isto **deixa de ser possível** no instante em que a VM é destruída — e é o que separa "conseguimos responder depois" de "não sabemos":
+
+```bash
+sudo ./avml /evidence/mem-<VM>.lime                                   # 1) memória, com a VM viva
+dwarf2json linux --elf /usr/lib/debug/boot/vmlinux-$(uname -r) \
+  > /evidence/isf-<VM>.json                                           # 2) o ISF do kernel EXATO
+gcloud compute disks snapshot <DISK> --snapshot-names="ir-<VM>"       # 3) disco
+```
+
+> O passo 2 é o mais esquecido e o mais fatal: **sem o símbolo do kernel exato, nenhum plugin do Volatility roda** — e ele só se gera enquanto aquela máquina, com aquele kernel, existe. São minutos por VM. Pular custa a possibilidade de responder qualquer coisa depois (§37.7, §23).
 
 ---
 
@@ -5782,7 +5873,7 @@ sei quem autoriza derrubar produção?      §39.1  a resposta precisa ser um NO
 consigo rotacionar a credencial X?        §26    fora do host, e em quanto tempo
 o backup restaura mesmo?                  §27    restaure de verdade, num host descartável
 a regra de egress quebra a app?           §34.3  descubra em manutenção, não em incidente
-tenho onde analisar sem contaminar?       §18    a rede/projeto forense existe e já foi testada?
+tenho onde analisar sem contaminar?       §32    a VM/rede forense existe, e já foi testada?
 ```
 
 > **Exercício de mesa, 1 hora:** alguém narra *"o provedor mandou abuse report do host X"* e o time percorre o runbook até fechar a §39.5. O que travar é o achado — e quase nunca é a técnica: é acesso que ninguém tem, autorização que ninguém sabe de quem é, ou log que não existe.
